@@ -14,13 +14,13 @@ These demo pages help developers learn how to:
 ## Contents
 
 ```
-dividia-api/
-├── nvr-api-demo.html           # Combined demo (live + playback)
-├── live-test.html              # Live video streaming demo
-├── playback-test.html          # Recorded video playback demo
-├── dividia-api-reference.html  # Complete API documentation
-├── DEPLOYMENT.md               # Deployment guide
-└── README.md                   # This file
+api/
+├── nvr-demo.html           # Combined demo (live + playback)
+├── live-test.html          # Live video streaming demo
+├── playback-test.html      # Recorded video playback demo
+├── api-reference.html      # Complete API documentation
+├── DEPLOYMENT.md           # Deployment guide
+└── README.md               # This file
 ```
 
 ## Quick Start
@@ -29,7 +29,7 @@ dividia-api/
 
 Access the demo pages directly:
 ```
-https://dividia.github.io/dividia-api/nvr-api-demo.html
+https://dividia-dev.github.io/api/nvr-demo.html
 ```
 
 **Best for:**
@@ -43,14 +43,14 @@ For testing with local IP addresses:
 
 ```bash
 # Clone the repo
-git clone https://github.com/dividia-dev/nvr-api-demo.git
-cd dividia-api
+git clone https://github.com/dividia-dev/api.git
+cd api
 
 # Start local HTTP server
 python3 -m http.server 8080
 
 # Open in browser
-# http://localhost:8080/nvr-api-demo.html
+# http://localhost:8080/nvr-demo.html
 ```
 
 **Best for:**
@@ -69,7 +69,7 @@ The pages auto-detect their protocol and configure accordingly.
 
 ## Demo Pages
 
-### Combined Demo (`nvr-api-demo.html`)
+### Combined Demo (`nvr-demo.html`)
 
 All-in-one demo with tabbed interface for live streaming and playback.
 
@@ -98,7 +98,7 @@ Standalone demo for recorded video.
 - HTML5 video playback with controls
 - Timestamp overlays
 
-### API Reference (`dividia-api-reference.html`)
+### API Reference (`api-reference.html`)
 
 Complete API documentation covering:
 - Authentication (JSON-RPC)
@@ -228,9 +228,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for instructions on hosting these pages.
 
 For questions about the Dividia NVR API or to report issues with these demo pages, please contact Dividia support or file an issue on GitHub.
 
-https://github.com/dividia-dev/nvr-api-demo.git
+https://github.com/dividia-dev/api
 
 ---
 
 **Dividia Corporation**
->>>>>>> b08c2e9 (Add initial source code)

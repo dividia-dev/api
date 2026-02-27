@@ -21,7 +21,7 @@ GitHub Pages provides free HTTPS hosting.
 2. Go to **Settings** → **Pages**
 3. Select **Deploy from a branch**
 4. Choose **main** branch, **/ (root)** folder
-5. Access at: `https://yourusername.github.io/reponame/`
+5. Access at: `https://dividia-dev.github.io/api/`
 
 **Note:** GitHub Pages only supports HTTPS. For HTTP testing, run locally.
 
@@ -30,11 +30,11 @@ GitHub Pages provides free HTTPS hosting.
 For testing with local IP addresses:
 
 ```bash
-cd dividia-api
+cd api
 python3 -m http.server 8080
 ```
 
-Open: `http://localhost:8080/nvr-api-demo.html`
+Open: `http://localhost:8080/nvr-demo.html`
 
 **Note:** `localhost` is a secure context, so WebSocket H.264 works even over HTTP.
 
@@ -47,8 +47,8 @@ Deploy to your own web server:
 server {
     listen 80;
     server_name api-demo.example.com;
-    root /var/www/dividia-api;
-    index nvr-api-demo.html;
+    root /var/www/api;
+    index nvr-demo.html;
 }
 
 # HTTPS (for remote access)
@@ -57,8 +57,8 @@ server {
     server_name api-demo.example.com;
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
-    root /var/www/dividia-api;
-    index nvr-api-demo.html;
+    root /var/www/api;
+    index nvr-demo.html;
 }
 ```
 
@@ -71,7 +71,7 @@ const fs = require('fs');
 const path = require('path');
 
 http.createServer((req, res) => {
-    let filePath = path.join(__dirname, req.url === '/' ? 'nvr-api-demo.html' : req.url);
+    let filePath = path.join(__dirname, req.url === '/' ? 'nvr-demo.html' : req.url);
     fs.readFile(filePath, (err, data) => {
         if (err) {
             res.writeHead(404);
@@ -100,7 +100,7 @@ const options = {
 };
 
 https.createServer(options, (req, res) => {
-    let filePath = path.join(__dirname, req.url === '/' ? 'nvr-api-demo.html' : req.url);
+    let filePath = path.join(__dirname, req.url === '/' ? 'nvr-demo.html' : req.url);
     fs.readFile(filePath, (err, data) => {
         if (err) {
             res.writeHead(404);
@@ -150,10 +150,10 @@ Without these headers, cross-origin requests will fail.
 
 | File | Description |
 |------|-------------|
-| `nvr-api-demo.html` | Combined live + playback demo |
+| `nvr-demo.html` | Combined live + playback demo |
 | `live-test.html` | Live video streaming demo |
 | `playback-test.html` | Recorded video playback demo |
-| `dividia-api-reference.html` | Complete API documentation |
+| `api-reference.html` | Complete API documentation |
 
 ## Troubleshooting
 
