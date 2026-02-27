@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividia NVR API Reference</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #1e3a5f; border-bottom: 3px solid #1e3a5f; padding-bottom: 10px; }
+        h2 { color: #1e3a5f; margin-top: 40px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+        h3 { color: #2563eb; margin-top: 30px; }
+        h4 { color: #555; margin-top: 20px; margin-bottom: 10px; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 14px;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        pre .comment { color: #6a9955; }
+        pre .string { color: #ce9178; }
+        pre .keyword { color: #569cd6; }
+        pre .number { color: #b5cea8; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .note strong { color: #856404; }
+        .warning {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning strong { color: #721c24; }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .info strong { color: #0c5460; }
+        .toc {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .toc ul { margin: 0; padding-left: 20px; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: #2563eb; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .endpoint {
+            background: #e8f4fd;
+            border: 1px solid #b8daff;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .method {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Print styles - more compact */
+        @media print {
+            body {
+                font-size: 10px;
+                line-height: 1.4;
+                padding: 0;
+                max-width: none;
+            }
+            h1 { font-size: 18px; padding-bottom: 5px; margin-bottom: 10px; }
+            h2 { font-size: 14px; margin-top: 20px; padding-bottom: 4px; }
+            h3 { font-size: 12px; margin-top: 15px; }
+            h4 { font-size: 11px; margin-top: 10px; margin-bottom: 5px; }
+            p { margin: 8px 0; }
+            pre {
+                font-size: 9px;
+                padding: 8px;
+                line-height: 1.3;
+            }
+            code { font-size: 9px; }
+            table { margin: 8px 0; }
+            th, td { padding: 4px 6px; font-size: 9px; }
+            .toc { padding: 10px 15px; margin: 10px 0; }
+            .toc li { margin: 4px 0; }
+            .note, .warning, .info { padding: 6px 10px; margin: 8px 0; font-size: 9px; }
+            .endpoint { padding: 5px 10px; margin: 5px 0; font-size: 10px; }
+            .method { font-size: 9px; padding: 1px 5px; }
+            footer { margin-top: 20px; padding-top: 10px; font-size: 9px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Dividia NVR API Reference</h1>
+    <p><strong>Version:</strong> 1.0 &nbsp;|&nbsp; <strong>Last Updated:</strong> February 2026</p>
+
+    <div class="toc">
+        <strong>Table of Contents</strong>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#authentication">1. Authentication</a></li>
+            <li><a href="#sessions">2. Session Management</a></li>
+            <li><a href="#cameras">3. Camera Configuration</a></li>
+            <li><a href="#events">4. Event Retrieval</a></li>
+            <li><a href="#playback">5. Video Playback (Recorded)</a></li>
+            <li><a href="#live">6. Live Video Streaming</a></li>
+            <li><a href="#timezone">7. Timezone Handling</a></li>
+            <li><a href="#errors">8. Error Handling</a></li>
+        </ul>
+    </div>
+
+    <h2 id="overview">Overview</h2>
+    <p>The Dividia NVR provides a JSON-RPC 2.0 API for integrating with third-party applications. This document covers authentication, camera enumeration, event retrieval, recorded video playback, and live video streaming.</p>
+
+    <h3>Base URL</h3>
+    <div class="endpoint">
+        <span class="method">POST</span> http://&lt;NVR_ADDRESS&gt;:&lt;PORT&gt;/JSON/
+    </div>
+
+    <h3>Request Format</h3>
+    <p>All API calls use JSON-RPC 2.0 format:</p>
+    <pre>{
+  "jsonrpc": "2.0",
+  "method": "namespace.methodName",
+  "params": [param1, param2, ...],
+  "id": 1
+}</pre>
+
+    <h3>Response Format</h3>
+    <p>All responses return a result array: <code>[success, data]</code></p>
+    <pre><span class="comment">// Success</span>
+{"jsonrpc": "2.0", "result": [true, &lt;data&gt;], "id": 1}
+
+<span class="comment">// Failure</span>
+{"jsonrpc": "2.0", "result": [false, "&lt;error_code&gt;"], "id": 1}</pre>
+
+    <div class="note">
+        <strong>Note:</strong> The <code>id</code> field can be any number or string. The server echoes it back in the response for request/response matching.
+    </div>
+
+    <h2 id="authentication">1. Authentication</h2>
+
+    <h3>auth.loginUser</h3>
+    <p>Authenticates a user and creates a session for subsequent API calls.</p>
+
+    <div class="endpoint">
+        <span class="method">POST</span> /JSON/
+    </div>
+
+    <h4>Request</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "method": "auth.loginUser",
+  "params": ["username", "password", true, false],
+  "id": 1
+}</pre>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+        <tr><td>0</td><td>username</td><td>string</td><td>NVR username</td></tr>
+        <tr><td>1</td><td>password</td><td>string</td><td>User password</td></tr>
+        <tr><td>2</td><td>force</td><td>boolean</td><td>If <code>true</code>, terminates any existing session for this user</td></tr>
+        <tr><td>3</td><td>remote</td><td>boolean</td><td>Set <code>true</code> when accessing via <code>*.dvr.dividia.net</code></td></tr>
+    </table>
+
+    <h4>Response</h4>
+    <pre><span class="comment">// Success - returns 32-character session token</span>
+{"jsonrpc": "2.0", "result": [true, "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"], "id": 1}
+
+<span class="comment">// Failure</span>
+{"jsonrpc": "2.0", "result": [false, "noauth"], "id": 1}</pre>
+
+    <h4>Error Codes</h4>
+    <table>
+        <tr><th>Code</th><th>Description</th></tr>
+        <tr><td><code>noauth</code></td><td>Invalid username or password</td></tr>
+        <tr><td><code>exists</code></td><td>Session already exists and <code>force=false</code></td></tr>
+        <tr><td><code>noaccess</code></td><td>User account lacks access permissions</td></tr>
+        <tr><td><code>noremote</code></td><td>User not permitted for remote access</td></tr>
+        <tr><td><code>maxsession</code></td><td>Maximum concurrent sessions reached</td></tr>
+    </table>
+
+    <div class="info">
+        <strong>Recommendation:</strong> Set <code>force=true</code> for API integrations to avoid session conflicts.
+    </div>
+
+    <div class="note">
+        <strong>Remote Access:</strong> When connecting via <code>*.dvr.dividia.net</code>, use HTTPS (port 443) and set <code>remote=true</code>.
+    </div>
+
+    <h2 id="sessions">2. Session Management</h2>
+
+    <h3>Single Session Per User</h3>
+    <p>The NVR enforces a <strong>single-session-per-user</strong> policy. Only one active session can exist for each user account at any time.</p>
+
+    <div class="info">
+        <strong>For API Integrations:</strong> Always use <code>force=true</code> when calling <code>auth.loginUser</code>. This ensures you receive a valid session token regardless of whether a previous session existed. Without <code>force=true</code>, login will return <code>exists</code> if a session is already active, requiring a second login attempt.
+    </div>
+
+    <div class="warning">
+        <strong>Session Invalidation:</strong> When a new session is created, any previous session for that user is immediately invalidated. API calls using the old session token will fail. Use <code>auth.checkExists</code> to detect if your session has been invalidated by a login elsewhere.
+    </div>
+
+    <h3>Session Timeout</h3>
+    <p>Sessions expire after <strong>2 hours (7200 seconds)</strong> of inactivity. The NVR runs a cleanup process approximately every 30 minutes that removes expired sessions from the database.</p>
+
+    <h3>What Keeps a Session Alive</h3>
+    <p>Only <strong>JSON-RPC API calls</strong> update the session's last-access timestamp. Each API call resets the 2-hour timeout window.</p>
+
+    <div class="warning">
+        <strong>Important:</strong> Video streaming does <em>not</em> keep sessions alive. The <code>/camstream</code> (recorded video) and <code>/ws</code> (live WebSocket) endpoints validate the session once at connection time but do not update the session timestamp during streaming.
+    </div>
+
+    <h4>Session Activity by Endpoint</h4>
+    <table>
+        <tr><th>Endpoint</th><th>Session Validated</th><th>Keeps Session Alive</th></tr>
+        <tr><td>JSON-RPC API (<code>/JSON/</code>)</td><td>Yes, every call</td><td><strong>Yes</strong></td></tr>
+        <tr><td><code>/camstream</code> (recorded video)</td><td>Once at start</td><td>No</td></tr>
+        <tr><td><code>/ws</code> (WebSocket live video)</td><td>Once at handshake</td><td>No</td></tr>
+    </table>
+
+    <h3>Session Expiration Scenario</h3>
+    <p>If a client authenticates and then only watches video streams for more than 2 hours without making any API calls, the session will expire. The video stream will continue working (already authenticated), but subsequent API calls will fail with <code>nosession</code> or <code>noauth</code>.</p>
+
+    <h3>Handling Session Expiration</h3>
+    <p>When your session expires, API calls will return a failure. Re-authenticate using <code>auth.loginUser</code> to obtain a new session token.</p>
+
+    <pre><span class="comment">// Expired session response</span>
+{"jsonrpc": "2.0", "result": [true, "nosession"], "id": 1}
+
+<span class="comment">// Or for some methods</span>
+{"jsonrpc": "2.0", "result": [false, "nosession"], "id": 1}</pre>
+
+    <h3>auth.checkExists (Keep-Alive)</h3>
+    <p>Validates that a session is still active. As a side effect, this updates the session's last-access timestamp, making it ideal for keeping sessions alive.</p>
+
+    <div class="endpoint">
+        <span class="method">POST</span> /JSON/
+    </div>
+
+    <h4>Request</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "method": "auth.checkExists",
+  "params": ["session_id"],
+  "id": 1
+}</pre>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+        <tr><td>0</td><td>session</td><td>string</td><td>Session ID to validate</td></tr>
+    </table>
+
+    <h4>Response</h4>
+    <pre><span class="comment">// Session is valid</span>
+{"jsonrpc": "2.0", "result": [true, true], "id": 1}
+
+<span class="comment">// Session is expired or invalid</span>
+{"jsonrpc": "2.0", "result": [true, false], "id": 1}</pre>
+
+    <div class="info">
+        <strong>Keep-Alive Strategy:</strong> Call <code>auth.checkExists</code> every 30-60 minutes to prevent session expiration. This is a lightweight call that validates the session and refreshes the timeout window.
+    </div>
+
+    <h2 id="cameras">3. Camera Configuration</h2>
+
+    <h3>config.camera.getAllCameras</h3>
+    <p>Retrieves a list of all configured cameras on the NVR. This is a required step after authentication to obtain camera IDs for use in other API calls such as <code>event.getEvents</code>.</p>
+
+    <div class="endpoint">
+        <span class="method">POST</span> /JSON/
+    </div>
+
+    <h4>Request</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "method": "config.camera.getAllCameras",
+  "params": ["session_id"],
+  "id": 2
+}</pre>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+        <tr><td>0</td><td>session</td><td>string</td><td>Session ID from <code>auth.loginUser</code></td></tr>
+    </table>
+
+    <h4>Response</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "result": [true, [
+    {
+      "bID": 1,
+      "sName": "Front Parking",
+      "fEnable": true,
+      "fFail": false,
+      "sRecordType": "motion",
+      "sResolution": "320x240",
+      "bFramerate": 5,
+      "bQuality": 4,
+      "bPreCapture": 2,
+      "bPostCapture": 15,
+      "bSensitivity": 25,
+      "bNoise": 16,
+      "bDeviceID": 2,
+      "bDeviceSubID": 1,
+      "bChannel": 1,
+      "fMPE": true,
+      ...
+    }
+  ]],
+  "id": 2
+}</pre>
+
+    <h4>Camera Object Fields</h4>
+    <p>The camera object contains many configuration fields. Key fields for integration are listed below:</p>
+
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>bID</td><td>int</td><td>Camera ID (1-based, used in other API calls)</td></tr>
+        <tr><td>sName</td><td>string</td><td>User-assigned camera display name</td></tr>
+        <tr><td>fEnable</td><td>bool</td><td>Whether the camera is enabled</td></tr>
+        <tr><td>fFail</td><td>bool</td><td>Whether the camera is in a failed/offline state</td></tr>
+        <tr><td>sRecordType</td><td>string</td><td>Recording mode: <code>"motion"</code>, <code>"continuous"</code>, or <code>"never"</code></td></tr>
+        <tr><td>sResolution</td><td>string</td><td>Recording resolution (e.g., <code>"320x240"</code>, <code>"1920x1080"</code>)</td></tr>
+        <tr><td>bFramerate</td><td>int</td><td>Recording framerate (fps)</td></tr>
+        <tr><td>bQuality</td><td>int</td><td>Recording quality level (1-5)</td></tr>
+        <tr><td>bPreCapture</td><td>int</td><td>Pre-event capture time in seconds</td></tr>
+        <tr><td>bPostCapture</td><td>int</td><td>Post-event capture time in seconds</td></tr>
+        <tr><td>bSensitivity</td><td>int</td><td>Motion detection sensitivity (0-100)</td></tr>
+        <tr><td>bNoise</td><td>int</td><td>Motion detection noise threshold</td></tr>
+        <tr><td>bDeviceID</td><td>int</td><td>Capture device ID</td></tr>
+        <tr><td>bDeviceSubID</td><td>int</td><td>Capture device stream index</td></tr>
+        <tr><td>bChannel</td><td>int</td><td>Channel number on device</td></tr>
+        <tr><td>fLPR</td><td>bool</td><td>License plate recognition enabled</td></tr>
+        <tr><td>fPos</td><td>bool</td><td>Point-of-sale integration enabled</td></tr>
+        <tr><td>fMPE</td><td>bool</td><td>Media processing engine enabled</td></tr>
+    </table>
+
+    <div class="note">
+        <strong>Field Naming Convention:</strong> Fields prefixed with <code>b</code> are integers (byte/number), <code>s</code> are strings, and <code>f</code> are boolean flags.
+    </div>
+
+    <div class="info">
+        <strong>Usage:</strong> Use the <code>bID</code> field when calling other APIs like <code>event.getEvents</code>. Filter by <code>fEnable</code> to show only active cameras, and check <code>fFail</code> to identify cameras that are currently offline.
+    </div>
+
+    <h2 id="events">4. Event Retrieval</h2>
+
+    <h3>event.getEvents</h3>
+    <p>Retrieves recorded events (video clips) for a camera within a time range.</p>
+
+    <div class="endpoint">
+        <span class="method">POST</span> /JSON/
+    </div>
+
+    <h4>Request</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "method": "event.getEvents",
+  "params": ["session_id", 1, "20260225120000", 0, 10, ""],
+  "id": 3
+}</pre>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+        <tr><td>0</td><td>session</td><td>string</td><td>Session ID from <code>auth.loginUser</code></td></tr>
+        <tr><td>1</td><td>camera</td><td>int</td><td>Camera ID (1-based)</td></tr>
+        <tr><td>2</td><td>timestamp</td><td>string</td><td>Start timestamp in <code>YYYYMMDDHHMMSS</code> format</td></tr>
+        <tr><td>3</td><td>flags</td><td>int</td><td>Search direction: <code>0</code> = forward, <code>1</code> = backward</td></tr>
+        <tr><td>4</td><td>numEvents</td><td>int</td><td>Maximum events to return (pagination size)</td></tr>
+        <tr><td>5</td><td>tags</td><td>string</td><td>Filter by tags (empty string for all events)</td></tr>
+    </table>
+
+    <h4>Response</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "result": [true, ["20260225100000", "20260225140000", [
+    {
+      "sTimestamp": "20260225120000",
+      "bCamera": 1,
+      "bLength": 30,
+      "bSize": 5242880,
+      "sPreview": "/videostore/vs1/dividia/cam1/2026/02/25/120000.jpg",
+      "sMovie": "/videostore/vs1/dividia/cam1/2026/02/25/120000.mp4"
+    }
+  ]]],
+  "id": 3
+}</pre>
+
+    <h4>Response Structure</h4>
+    <table>
+        <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+        <tr><td>0</td><td>prevTimestamp</td><td>string</td><td>Timestamp for previous page (empty if none)</td></tr>
+        <tr><td>1</td><td>nextTimestamp</td><td>string</td><td>Timestamp for next page (empty if none)</td></tr>
+        <tr><td>2</td><td>events</td><td>array</td><td>Array of event objects</td></tr>
+    </table>
+
+    <h4>Event Object Fields</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>sTimestamp</td><td>string</td><td>Event start time (<code>YYYYMMDDHHMMSS</code>)</td></tr>
+        <tr><td>bCamera</td><td>int</td><td>Camera ID</td></tr>
+        <tr><td>bLength</td><td>int</td><td>Duration in seconds</td></tr>
+        <tr><td>bSize</td><td>int</td><td>File size in bytes</td></tr>
+        <tr><td>sPreview</td><td>string</td><td>Path to preview image</td></tr>
+        <tr><td>sMovie</td><td>string</td><td>Path to video file</td></tr>
+    </table>
+
+    <div class="note">
+        <strong>Timestamp Format:</strong> All timestamps use <code>YYYYMMDDHHMMSS</code> format with no separators. Example: <code>20260225143000</code> represents February 25, 2026 at 2:30:00 PM.
+    </div>
+
+    <h2 id="playback">5. Video Playback (Recorded)</h2>
+
+    <p>Video files and images are served via the <code>/camstream/</code> endpoint using standard HTTP GET requests. The browser's native HTML5 video player handles playback.</p>
+
+    <h3>Fetch Video File</h3>
+    <div class="endpoint">
+        <span class="method">GET</span> /camstream/?cmd=fetch&amp;session=SESSION_ID&amp;file=VIDEO_PATH
+    </div>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Name</th><th>Type</th><th>Description</th></tr>
+        <tr><td>cmd</td><td>string</td><td>Must be <code>fetch</code> for video/image retrieval</td></tr>
+        <tr><td>session</td><td>string</td><td>Session ID from <code>auth.loginUser</code></td></tr>
+        <tr><td>file</td><td>string</td><td>Path to video file (<code>sMovie</code> from event)</td></tr>
+    </table>
+
+    <h4>Example</h4>
+    <pre>GET /camstream/?cmd=fetch&amp;session=abc123...&amp;file=/videostore/vs1/dividia/cam1/2026/02/25/120000.mp4</pre>
+
+    <div class="warning">
+        <strong>Important:</strong> Use <code>cmd=fetch</code> (not <code>cmd=play</code>). The endpoint returns the complete MP4 file with proper HTTP headers for browser playback.
+    </div>
+
+    <h3>Fetch Thumbnail Image</h3>
+    <p>Preview images can be fetched at full size or as thumbnails by appending a size suffix.</p>
+
+    <pre><span class="comment">// Full-size preview</span>
+GET /camstream/?cmd=fetch&amp;session=xxx&amp;file=/path/to/image.jpg
+
+<span class="comment">// Thumbnail (append size suffix)</span>
+GET /camstream/?cmd=fetch&amp;session=xxx&amp;file=/path/to/image.jpg.112x84</pre>
+
+    <h3>HTML5 Video Implementation</h3>
+    <pre>&lt;video
+  src="/camstream/?cmd=fetch&amp;session=SESSION_ID&amp;file=/path/to/video.mp4"
+  type="video/mp4"
+  controls
+  autoplay
+  muted
+  playsinline&gt;
+&lt;/video&gt;</pre>
+
+    <h4>Recommended Attributes</h4>
+    <table>
+        <tr><th>Attribute</th><th>Purpose</th></tr>
+        <tr><td><code>controls</code></td><td>Show native playback controls (play, pause, seek, volume)</td></tr>
+        <tr><td><code>autoplay</code></td><td>Start playback automatically when src is set</td></tr>
+        <tr><td><code>muted</code></td><td>Required for autoplay in most modern browsers</td></tr>
+        <tr><td><code>playsinline</code></td><td>Prevent fullscreen on mobile devices</td></tr>
+    </table>
+
+    <h3>JavaScript Playback Control</h3>
+    <pre>const video = document.getElementById('my-video');
+
+<span class="comment">// Playback control</span>
+video.play();                    <span class="comment">// Start playback</span>
+video.pause();                   <span class="comment">// Pause playback</span>
+video.currentTime = 0;           <span class="comment">// Seek to beginning</span>
+video.currentTime += 10;         <span class="comment">// Skip forward 10 seconds</span>
+video.playbackRate = 2.0;        <span class="comment">// 2x speed (0.5 to 4.0 typical)</span>
+
+<span class="comment">// Event listeners</span>
+video.ontimeupdate = () => { };  <span class="comment">// Fires during playback</span>
+video.onended = () => { };       <span class="comment">// Fires when clip ends</span>
+video.onerror = () => { };       <span class="comment">// Fires on playback error</span></pre>
+
+    <div class="info">
+        <strong>HTTP Range Requests:</strong> The camstream endpoint supports HTTP Range headers, enabling seek functionality. The browser handles this automatically.
+    </div>
+
+    <h2 id="live">6. Live Video Streaming</h2>
+
+    <p>The NVR provides live camera feeds via the <code>/mpe/</code> endpoint. Multiple streaming methods are available, each with different trade-offs for compatibility, bandwidth, and latency.</p>
+
+    <h3>Streaming Methods Overview</h3>
+    <table>
+        <tr><th>Method</th><th>Endpoint</th><th>Best For</th><th>Browser Support</th></tr>
+        <tr>
+            <td><strong>JPEG Polling</strong></td>
+            <td><code>/mpe/cam{N}.jpg</code></td>
+            <td>Simple dashboards, debugging, maximum compatibility</td>
+            <td>All browsers</td>
+        </tr>
+        <tr>
+            <td><strong>MJPEG Stream</strong></td>
+            <td><code>/mpe/cam{N}.mjpg</code></td>
+            <td>Smooth video without codec support</td>
+            <td>Chrome, Firefox, Safari</td>
+        </tr>
+        <tr>
+            <td><strong>WebSocket H.264</strong></td>
+            <td><code>/ws/cam{N}-pro{P}</code></td>
+            <td>Low latency, efficient bandwidth, multiple cameras</td>
+            <td>Chrome 94+, Edge 94+, Safari 16.4+ <em>(HTTPS required)</em></td>
+        </tr>
+    </table>
+
+    <h3>Method 1: JPEG Snapshot Polling</h3>
+    <p>The simplest approach: fetch a JPEG image and poll at regular intervals. Each request returns a single frame.</p>
+
+    <div class="endpoint">
+        <span class="method">GET</span> /mpe/cam{CAMERA_ID}.jpg?sess=SESSION_ID&amp;ts=TIMESTAMP
+    </div>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>CAMERA_ID</td><td>int</td><td>Camera number from <code>bID</code> field (1, 2, 3...)</td></tr>
+        <tr><td>sess</td><td>string</td><td>Session token from <code>auth.loginUser</code></td></tr>
+        <tr><td>ts</td><td>int</td><td>Cache-buster timestamp (e.g., <code>Date.now()</code>) - forces browser to fetch new image</td></tr>
+    </table>
+
+    <h4>Image Profiles</h4>
+    <table>
+        <tr><th>Endpoint</th><th>Profile</th><th>Resolution</th><th>Use Case</th></tr>
+        <tr><td><code>/mpe/cam{N}.jpg</code></td><td>Profile 1</td><td>Full resolution</td><td>Single camera view, high quality</td></tr>
+        <tr><td><code>/mpe/scam{N}.jpg</code></td><td>Profile 2</td><td>Lower resolution</td><td>Multi-camera grids, low bandwidth</td></tr>
+    </table>
+
+    <h4>Example Implementation</h4>
+    <pre><span class="comment">// HTML</span>
+&lt;img id="live-camera" /&gt;
+
+<span class="comment">// JavaScript - Poll every second</span>
+const session = 'abc123...';  <span class="comment">// From auth.loginUser</span>
+const cameraId = 1;
+
+<span class="comment">// Update image every 1000ms (1 fps)</span>
+setInterval(() =&gt; {
+    const img = document.getElementById('live-camera');
+    img.src = '/mpe/cam' + cameraId + '.jpg?sess=' + session + '&amp;ts=' + Date.now();
+}, 1000);
+
+<span class="comment">// Handle errors</span>
+document.getElementById('live-camera').onerror = () =&gt; {
+    console.error('Failed to load camera image');
+};</pre>
+
+    <div class="info">
+        <strong>Pros:</strong> Works on all browsers, simple implementation, easy to debug, no codec dependencies.
+    </div>
+
+    <div class="warning">
+        <strong>Cons:</strong> Higher bandwidth (full JPEG per frame), limited to ~1-4 fps practically, higher latency, each frame is a separate HTTP request.
+    </div>
+
+    <h3>Method 2: MJPEG Continuous Stream</h3>
+    <p>Motion JPEG streams multiple JPEG frames over a single HTTP connection using <code>multipart/x-mixed-replace</code> content type. The browser automatically displays each frame as it arrives - no polling required.</p>
+
+    <div class="endpoint">
+        <span class="method">GET</span> /mpe/cam{CAMERA_ID}.mjpg?sess=SESSION_ID
+    </div>
+
+    <h4>Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>CAMERA_ID</td><td>int</td><td>Camera number from <code>bID</code> field (1, 2, 3...)</td></tr>
+        <tr><td>sess</td><td>string</td><td>Session token from <code>auth.loginUser</code></td></tr>
+    </table>
+
+    <h4>Image Profiles</h4>
+    <table>
+        <tr><th>Endpoint</th><th>Profile</th><th>Resolution</th><th>Use Case</th></tr>
+        <tr><td><code>/mpe/cam{N}.mjpg</code></td><td>Profile 1</td><td>Full resolution</td><td>Single camera view, high quality</td></tr>
+        <tr><td><code>/mpe/scam{N}.mjpg</code></td><td>Profile 2</td><td>Lower resolution</td><td>Multi-camera grids, low bandwidth</td></tr>
+    </table>
+
+    <h4>Example Implementation</h4>
+    <pre><span class="comment">// HTML - Simply set the src, browser handles the stream</span>
+&lt;img id="live-camera" src="/mpe/cam1.mjpg?sess=abc123..." /&gt;
+
+<span class="comment">// JavaScript</span>
+const img = document.getElementById('live-camera');
+img.src = '/mpe/cam' + cameraId + '.mjpg?sess=' + session;
+
+<span class="comment">// To stop the stream, clear the src</span>
+img.src = '';</pre>
+
+    <div class="info">
+        <strong>Pros:</strong> Simpler than JPEG polling (single connection), smooth video at camera framerate, no JavaScript timers needed, works on most browsers.
+    </div>
+
+    <div class="warning">
+        <strong>Cons:</strong> Higher bandwidth than H.264 (no inter-frame compression), single long-lived HTTP connection per camera, may have issues with some proxy servers.
+    </div>
+
+    <h3>Method 3: WebSocket H.264</h3>
+    <p>For lowest latency and bandwidth, the NVR supports WebSocket-based H.264 streaming using the browser's WebCodecs API for hardware-accelerated decoding.</p>
+
+    <div class="endpoint">
+        <span class="method">WS</span> /ws/cam{CAMERA_ID}-pro{PROFILE}?sess=SESSION_ID
+    </div>
+
+    <h4>Authentication Methods</h4>
+    <p>The WebSocket endpoint supports three authentication methods:</p>
+    <table>
+        <tr><th>Method</th><th>Parameter(s)</th><th>Description</th></tr>
+        <tr><td><strong>Session (Recommended)</strong></td><td><code>sess</code></td><td>Session token from <code>auth.loginUser</code> - consistent with other APIs</td></tr>
+        <tr><td>Credentials</td><td><code>user</code> + <code>pass</code></td><td>Direct username and password (URL-encoded)</td></tr>
+        <tr><td>Basic Auth</td><td><code>auth</code></td><td>Base64-encoded "username:password" string</td></tr>
+    </table>
+
+    <h4>URL Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>CAMERA_ID</td><td>int</td><td>Camera number (1, 2, 3...)</td></tr>
+        <tr><td>PROFILE</td><td>int</td><td>Video profile: <code>1</code> (full resolution) or <code>2</code> (lower resolution)</td></tr>
+        <tr><td>sess</td><td>string</td><td>Session token from <code>auth.loginUser</code> (recommended)</td></tr>
+    </table>
+
+    <h4>Example URLs</h4>
+    <pre><span class="comment">// Session-based auth (recommended) - consistent with other API calls</span>
+wss://8888.dvr.dividia.net:443/ws/cam1-pro1?sess=a1b2c3d4e5f6...
+
+<span class="comment">// Profile 2 (Lower resolution) for multi-camera grids</span>
+wss://8888.dvr.dividia.net:443/ws/cam1-pro2?sess=a1b2c3d4e5f6...
+
+<span class="comment">// Alternative: Direct credentials (if session not available)</span>
+wss://nvr.example.com:443/ws/cam1-pro1?user=admin&amp;pass=secret123</pre>
+
+    <div class="note">
+        <strong>Protocol Selection:</strong> Use <code>wss://</code> for HTTPS connections (required for WebCodecs). The <code>ws://</code> protocol only works with <code>http://localhost</code> during development.
+    </div>
+
+    <h4>Data Format</h4>
+    <p>The WebSocket connection receives two types of messages:</p>
+    <table>
+        <tr><th>Message Type</th><th>Content</th><th>Description</th></tr>
+        <tr><td>Text frames</td><td>JSON</td><td>Metadata (camera info, detected objects)</td></tr>
+        <tr><td>Binary frames</td><td>H.264 NAL units</td><td>Video data in Annex B format</td></tr>
+    </table>
+
+    <h4>NAL Unit Types</h4>
+    <p>Binary messages contain H.264 NAL units with Annex B start codes (<code>00 00 00 01</code>):</p>
+    <table>
+        <tr><th>NAL Type</th><th>Name</th><th>Description</th></tr>
+        <tr><td>7</td><td>SPS</td><td>Sequence Parameter Set - codec configuration</td></tr>
+        <tr><td>8</td><td>PPS</td><td>Picture Parameter Set - codec configuration</td></tr>
+        <tr><td>5</td><td>IDR</td><td>Keyframe (I-frame) - complete picture</td></tr>
+        <tr><td>1</td><td>Non-IDR</td><td>Delta frame (P-frame) - references previous frames</td></tr>
+    </table>
+
+    <h4>Rendering</h4>
+    <p>VideoDecoder renders to a <strong>&lt;canvas&gt;</strong> element, not a &lt;video&gt; tag. The decoder outputs <code>VideoFrame</code> objects which are drawn to the canvas using <code>drawImage()</code>.</p>
+    <pre><span class="comment">// HTML setup - use canvas, not video</span>
+&lt;canvas id="video-canvas" width="640" height="480"&gt;&lt;/canvas&gt;
+
+<span class="comment">// Get canvas context for drawing</span>
+<span class="keyword">const</span> canvas = document.getElementById(<span class="string">'video-canvas'</span>);
+<span class="keyword">const</span> ctx = canvas.getContext(<span class="string">'2d'</span>);</pre>
+
+    <h4>Implementation</h4>
+    <pre><span class="comment">// 1. Check WebCodecs support (requires secure context)</span>
+<span class="keyword">if</span> (!window.isSecureContext || <span class="keyword">typeof</span> VideoDecoder === <span class="string">'undefined'</span>) {
+    console.error(<span class="string">'WebCodecs not supported - use MJPEG fallback'</span>);
+    <span class="keyword">return</span>;
+}
+
+<span class="comment">// 2. Create WebSocket connection (use session from auth.loginUser)</span>
+<span class="keyword">const</span> ws = <span class="keyword">new</span> WebSocket(<span class="string">'wss://nvr.example.com/ws/cam1-pro1?sess='</span> + session);
+ws.binaryType = <span class="string">'arraybuffer'</span>;
+
+<span class="comment">// 3. Initialize VideoDecoder - outputs to canvas via callback</span>
+<span class="keyword">const</span> decoder = <span class="keyword">new</span> VideoDecoder({
+    output: frame => {
+        <span class="comment">// Draw frame to canvas (not to &lt;video&gt; element)</span>
+        ctx.drawImage(frame, <span class="number">0</span>, <span class="number">0</span>, canvas.width, canvas.height);
+        frame.close();  <span class="comment">// Important: release the frame</span>
+    },
+    error: e => console.error(<span class="string">'Decoder error:'</span>, e)
+});
+
+decoder.configure({
+    codec: <span class="string">'avc1.42C01E'</span>,      <span class="comment">// H.264 Baseline</span>
+    avc: { format: <span class="string">'annexb'</span> },
+    hardwareAcceleration: <span class="string">'prefer-hardware'</span>
+});
+
+<span class="comment">// 4. Cache SPS/PPS and decode frames</span>
+<span class="keyword">let</span> sps = <span class="keyword">null</span>, pps = <span class="keyword">null</span>;
+
+ws.onmessage = (ev) => {
+    <span class="keyword">if</span> (<span class="keyword">typeof</span> ev.data === <span class="string">'string'</span>) {
+        <span class="comment">// JSON metadata</span>
+        <span class="keyword">const</span> metadata = JSON.parse(ev.data);
+    } <span class="keyword">else</span> {
+        <span class="comment">// Binary NAL unit</span>
+        <span class="keyword">const</span> nal = <span class="keyword">new</span> Uint8Array(ev.data);
+        <span class="keyword">const</span> nalType = nal[<span class="number">4</span>] & <span class="number">0x1F</span>;  <span class="comment">// After 4-byte start code</span>
+
+        <span class="keyword">if</span> (nalType === <span class="number">7</span>) sps = nal;       <span class="comment">// Cache SPS</span>
+        <span class="keyword">else if</span> (nalType === <span class="number">8</span>) pps = nal;  <span class="comment">// Cache PPS</span>
+        <span class="keyword">else if</span> (nalType === <span class="number">5</span>) {          <span class="comment">// IDR (keyframe)</span>
+            <span class="keyword">const</span> au = concat(sps, pps, nal);
+            decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'key'</span>, timestamp: ts++, data: au }));
+        }
+        <span class="keyword">else if</span> (nalType === <span class="number">1</span>) {          <span class="comment">// P-frame</span>
+            decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'delta'</span>, timestamp: ts++, data: nal }));
+        }
+    }
+};</pre>
+
+    <div class="warning">
+        <strong>Secure Context Required:</strong> WebCodecs API only works in <strong>secure contexts</strong>:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li><strong>HTTPS</strong> - <code>https://192.168.0.22</code> or <code>https://nvr.domain.com</code></li>
+            <li><strong>localhost</strong> - <code>http://localhost</code> (development exception)</li>
+        </ul>
+        <p style="margin-top: 10px;">Local HTTP access (<code>http://192.168.x.x</code>) is <em>not</em> a secure context. WebSocket H.264 will not work. Use MJPEG or JPEG for local HTTP access.</p>
+        <p style="margin-top: 5px;">For HTTPS on local network with self-signed certificates, users must accept the certificate warning in their browser before WebSocket connections will work.</p>
+    </div>
+
+    <div class="note">
+        <strong>Browser Requirements:</strong> WebSocket H.264 requires modern browser support for the WebCodecs API:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li>Chrome 94+ / Edge 94+</li>
+            <li>Safari 16.4+</li>
+            <li>Firefox: Not supported (use MJPEG fallback)</li>
+        </ul>
+    </div>
+
+    <div class="info">
+        <strong>Advantages:</strong> WebSocket H.264 offers approximately 10x lower bandwidth than MJPEG, lowest latency, hardware-accelerated decoding, and supports metadata overlays (object detection bounding boxes).
+    </div>
+
+    <h3>Choosing a Streaming Method</h3>
+    <table>
+        <tr><th>Requirement</th><th>Recommended Method</th></tr>
+        <tr><td>Maximum browser compatibility</td><td>JPEG Polling</td></tr>
+        <tr><td>Simple integration / debugging</td><td>JPEG Polling</td></tr>
+        <tr><td>Local network HTTP access</td><td>MJPEG (WebSocket requires HTTPS)</td></tr>
+        <tr><td>Smooth video display</td><td>MJPEG or WebSocket H.264</td></tr>
+        <tr><td>Multiple simultaneous cameras</td><td>WebSocket H.264 (HTTPS only)</td></tr>
+        <tr><td>Low bandwidth / efficient</td><td>WebSocket H.264 (HTTPS only)</td></tr>
+        <tr><td>Low latency required</td><td>WebSocket H.264 (HTTPS only)</td></tr>
+    </table>
+
+    <h3>Third-Party Integration Guide</h3>
+    <p>WebSocket H.264 streaming requires a web browser with WebCodecs support. For other platforms, use the following recommendations:</p>
+
+    <table>
+        <tr><th>Platform</th><th>Recommended Approach</th><th>Notes</th></tr>
+        <tr>
+            <td><strong>Web Browser</strong></td>
+            <td>WebSocket H.264 (HTTPS) or MJPEG (HTTP)</td>
+            <td>WebSocket requires HTTPS; use MJPEG for local HTTP access</td>
+        </tr>
+        <tr>
+            <td><strong>Native Mobile/Desktop</strong></td>
+            <td>RTSP stream or MJPEG</td>
+            <td>Native apps have built-in H.264 decoders; no WebCodecs needed</td>
+        </tr>
+        <tr>
+            <td><strong>Server-Side / Backend</strong></td>
+            <td>MJPEG or RTSP</td>
+            <td>WebCodecs is browser-only; use standard video libraries</td>
+        </tr>
+        <tr>
+            <td><strong>Embedded / IoT</strong></td>
+            <td>JPEG Polling or MJPEG</td>
+            <td>Simple HTTP requests; no special libraries required</td>
+        </tr>
+    </table>
+
+    <div class="note">
+        <strong>Self-Signed Certificates:</strong> For local HTTPS access with the NVR's self-signed certificate:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li><strong>Web browsers:</strong> User must navigate to the NVR's HTTPS URL and accept the certificate warning before WebSocket connections will work.</li>
+            <li><strong>Native apps:</strong> Configure the HTTP client to trust the NVR's certificate, or add it to the app's trust store.</li>
+            <li><strong>Server-side:</strong> Use appropriate flags to skip certificate validation (e.g., <code>curl --insecure</code>) or import the certificate into the system trust store.</li>
+        </ul>
+    </div>
+
+    <h2 id="timezone">7. Timezone Handling</h2>
+
+    <p>All event timestamps are stored and returned in the <strong>NVR's local timezone</strong>, not UTC. If your client application is in a different timezone than the NVR, you should query the NVR's configured timezone.</p>
+
+    <h3>config.dtime.getTimezone</h3>
+    <p>Retrieves the NVR's configured timezone.</p>
+
+    <div class="endpoint">
+        <span class="method">POST</span> /JSON/
+    </div>
+
+    <h4>Request</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "method": "config.dtime.getTimezone",
+  "params": ["session_id"],
+  "id": 4
+}</pre>
+
+    <h4>Response</h4>
+    <pre>{
+  "jsonrpc": "2.0",
+  "result": [true, "America/Chicago"],
+  "id": 4
+}</pre>
+
+    <div class="note">
+        <strong>Note:</strong> The timezone is returned as an IANA timezone identifier (e.g., <code>America/Chicago</code>, <code>America/New_York</code>, <code>Europe/London</code>).
+    </div>
+
+    <h2 id="errors">8. Error Handling</h2>
+
+    <h3>Response Format</h3>
+    <p>API methods return a result array: <code>[status, data]</code>. However, interpreting success varies by method.</p>
+
+    <h3>Authentication Responses</h3>
+    <p>For <code>auth.loginUser</code>, the response is always <code>[true, value]</code>. You must check <code>result[1]</code> to determine success:</p>
+
+    <pre><span class="comment">// Successful authentication - result[1] is a 32-character session token</span>
+{"jsonrpc": "2.0", "result": [true, "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"], "id": 1}
+
+<span class="comment">// Failed authentication - result[1] is a failure reason</span>
+{"jsonrpc": "2.0", "result": [true, "noauth"], "id": 1}</pre>
+
+    <p><strong>To validate authentication:</strong> Check that <code>result[1]</code> is a valid session token (32+ characters) and not one of the failure reasons below.</p>
+
+    <h4>Authentication Failure Reasons</h4>
+    <table>
+        <tr><th>Value in result[1]</th><th>Meaning</th><th>Resolution</th></tr>
+        <tr><td><code>noauth</code></td><td>Invalid credentials</td><td>Check username and password</td></tr>
+        <tr><td><code>noaccess</code></td><td>Insufficient permissions</td><td>Use an account with appropriate access</td></tr>
+        <tr><td><code>exists</code></td><td>Session already exists for user</td><td>Use <code>force=true</code> when authenticating</td></tr>
+        <tr><td><code>noremote</code></td><td>Remote access not permitted</td><td>Enable remote access for the user account</td></tr>
+        <tr><td><code>maxsession</code></td><td>Maximum sessions reached</td><td>Wait for existing sessions to expire or use <code>force=true</code></td></tr>
+    </table>
+
+    <h3>Other API Responses</h3>
+    <p>For most other methods, <code>result[0]</code> indicates success (<code>true</code>) or failure (<code>false</code>):</p>
+
+    <pre><span class="comment">// Success</span>
+{"jsonrpc": "2.0", "result": [true, &lt;data&gt;], "id": 1}
+
+<span class="comment">// Failure</span>
+{"jsonrpc": "2.0", "result": [false, "nosession"], "id": 1}</pre>
+
+    <p>Common failure reason: <code>nosession</code> — Session expired or invalid. Re-authenticate with <code>auth.loginUser</code>.</p>
+
+    <h3>Best Practices</h3>
+    <ul>
+        <li>For authentication: validate that <code>result[1]</code> is a session token, not a failure string</li>
+        <li>For other calls: check <code>result[0]</code> before processing <code>result[1]</code></li>
+        <li>Implement session refresh logic to handle <code>nosession</code> failures (Dividia is exploring options for persistent API sessions)</li>
+        <li>Use <code>force=true</code> for automated integrations to avoid session conflicts</li>
+        <li>Handle network errors and timeouts gracefully</li>
+    </ul>
+
+    <footer>
+        <p><strong>Dividia NVR API Reference</strong> &mdash; For technical support, contact your Dividia representative.</p>
+        <p>&copy; 2026 Dividia. All rights reserved.</p>
+    </footer>
+    <script>
+        // Auto-trigger print dialog if opened with ?print=1
+        if (window.location.search.includes('print=1')) {
+            window.onload = function() {
+                window.print();
+            };
+        }
+    </script>
+</body>
+</html>

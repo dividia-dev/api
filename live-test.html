@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividia NVR API : Live Video</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px 30px;
+            background: #f5f5f5;
+            min-width: 1360px;
+        }
+        .page-title {
+            background: #f5f5f5;
+            padding: 12px 30px;
+            margin: -20px -30px 0 -30px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .page-title h1 {
+            margin: 0;
+        }
+        .page-title .header-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .page-title .header-btn {
+            background: #1e3a5f;
+            color: white;
+            padding: 0 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #1e3a5f;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 38px;
+            line-height: 1;
+            box-sizing: border-box;
+            font-family: inherit;
+            margin: 0;
+        }
+        .page-title .header-btn:hover {
+            background: #2a4a73;
+            border-color: #2a4a73;
+        }
+        .page-title .header-btn.secondary {
+            background: white;
+            color: #1e3a5f;
+            border: 1px solid #1e3a5f;
+        }
+        .page-title .header-btn.secondary:hover {
+            background: #f0f4f8;
+            border-color: #1e3a5f;
+        }
+        .page-description {
+            text-align: center;
+            margin: 15px auto 20px auto;
+        }
+        .page-content {
+            display: flex;
+            gap: 24px;
+            min-width: 1300px;
+        }
+        .left-column {
+            flex: 1.4;
+            min-width: 0;
+        }
+        .right-column {
+            flex: 1;
+            min-width: 0;
+        }
+        .right-column .section {
+            position: sticky;
+            top: 80px;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #1e3a5f; margin-top: 0; }
+        h2 { margin-top: 0; color: #333; }
+        label { display: block; margin: 10px 0 5px; font-weight: 500; }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background: #1d4ed8; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .row { display: flex; gap: 15px; }
+        .row > div { flex: 1; }
+        #log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 374px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-error { color: #e57373; }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .status-connected { background: #c8e6c9; color: #2e7d32; }
+        .status-disconnected { background: #ffcdd2; color: #c62828; }
+        .help-text { font-size: 12px; color: #666; margin-top: 5px; }
+        .api-output-wrapper {
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .api-output-toggle {
+            background: #2d2d2d;
+            color: #9cdcfe;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .api-output-toggle:hover { background: #3d3d3d; }
+        .api-output-toggle.collapsed { color: #888; }
+        .api-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 12px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .api-output.collapsed { display: none; }
+        .api-output .label { color: #9cdcfe; }
+        .api-output .string { color: #ce9178; }
+        .api-output .success { color: #81c784; }
+        .api-output .error { color: #e57373; }
+        .api-ref-toggle {
+            background: none;
+            border: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+            padding: 6px 12px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        .api-ref-toggle:hover { background: #f5f5f5; color: #333; }
+        .api-ref-toggle::before { content: '▶ '; }
+        .api-ref-toggle.open::before { content: '▼ '; }
+        .api-ref {
+            display: none;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .api-ref.open { display: block; }
+        .api-ref h4 { margin: 0 0 10px 0; color: #1e3a5f; font-size: 14px; }
+        .api-ref table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .api-ref th, .api-ref td {
+            text-align: left;
+            padding: 6px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+        .api-ref th { background: #e8e8e8; font-weight: 600; }
+        .api-ref code {
+            background: #e8e8e8;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .api-ref .note {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            padding: 8px 12px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        #video-container {
+            background: #000;
+            border-radius: 4px;
+            height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            position: relative;
+            overflow: hidden;
+        }
+        #video-container video, #video-container img {
+            max-width: 100%;
+            max-height: 380px;
+            object-fit: contain;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            line-height: 1.5;
+        }
+        .video-overlay .cam-num { color: #fff; display: block; font-weight: 600; }
+        .video-overlay .cam-name { color: #4fc3f7; display: block; }
+        .video-overlay .live-indicator { color: #81c784; display: block; font-size: 12px; }
+        .video-overlay-br {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: monospace;
+            font-size: 13px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            text-align: right;
+            line-height: 1.4;
+        }
+        .video-overlay-br .cam-label { color: #4fc3f7; }
+        .video-overlay-br .timestamp { color: #81c784; font-weight: 600; }
+
+        /* Viewer tabs */
+        .viewer-tabs {
+            display: flex;
+            gap: 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            width: fit-content;
+        }
+        .viewer-tab {
+            background: #f5f5f5;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+            border-right: 1px solid #ddd;
+            margin: 0;
+        }
+        .viewer-tab:last-child { border-right: none; }
+        .viewer-tab:hover:not(:disabled) { background: #e8e8e8; }
+        .viewer-tab.active {
+            background: #1e3a5f;
+            color: white;
+        }
+        /* Color-coded active tabs */
+        .viewer-tab.active.tab-jpeg { background: #e65100; }
+        .viewer-tab.active.tab-mjpeg { background: #1565c0; }
+        .viewer-tab.active.tab-websocket { background: #2e7d32; }
+        .viewer-tab:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .viewer-description {
+            background: #f8f9fa;
+            border-left: 3px solid #1e3a5f;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #444;
+        }
+
+        /* Live stream image */
+        #live-image {
+            max-width: 100%;
+            max-height: 450px;
+            display: block;
+        }
+        .stream-stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #81c784;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+
+        /* Collapsible method sections in API Reference */
+        .method-section {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .method-header {
+            padding: 10px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .method-header:hover { opacity: 0.9; }
+        .method-header .toggle-icon { font-size: 12px; }
+        .method-header.collapsed .toggle-icon::before { content: '▶'; }
+        .method-header:not(.collapsed) .toggle-icon::before { content: '▼'; }
+        .method-content {
+            padding: 15px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+        .method-content.collapsed { display: none; }
+
+        /* Method-specific colors */
+        .method-section.jpeg .method-header { background: #fff3e0; color: #e65100; }
+        .method-section.jpeg .method-content { background: #fffaf5; }
+        .method-section.mjpeg .method-header { background: #e3f2fd; color: #1565c0; }
+        .method-section.mjpeg .method-content { background: #f5faff; }
+        .method-section.websocket .method-header { background: #e8f5e9; color: #2e7d32; }
+        .method-section.websocket .method-content { background: #f5fff5; }
+
+        /* Comparison table */
+        .comparison-section {
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .comparison-header {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 13px;
+            color: #333;
+        }
+        .comparison-header:hover { background: #f0f0f0; }
+        .comparison-content { padding: 0; }
+        .comparison-content.collapsed { display: none; }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .comparison-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .comparison-table tr:last-child td { border-bottom: none; }
+        .comparison-table .method-name { font-weight: 600; }
+        .comparison-table .good { color: #2e7d32; }
+        .comparison-table .fair { color: #f57c00; }
+        .comparison-table .poor { color: #c62828; }
+    </style>
+</head>
+<body>
+    <div class="page-title">
+        <h1>Dividia NVR API : Live Video</h1>
+        <div class="header-buttons">
+            <a href="dividia-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
+            <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
+        </div>
+    </div>
+    <p class="page-description">Test page for API integration - stream live video from a Dividia NVR.</p>
+    <p style="text-align: center; font-size: 12px; color: #317e3a;">code base: <a style="margin: 10px 0 0 0; font-size: 12px; color: #317e3a;" href="https://github.com/dividia-dev/nvr-api-demo" target="_blank">https://github.com/dividia-dev/nvr-api-demo</a></p>
+
+    <div class="page-content">
+        <div class="left-column">
+            <div class="section">
+                <h2>1. Connect to NVR</h2>
+        <div class="row">
+            <div style="flex: 2;">
+                <label>NVR Address <span style="color:#c62828">*</span></label>
+                <input type="text" id="nvr-host" placeholder="e.g., 192.168.1.100 or 8888.dvr.dividia.net" required oninput="validateConnectForm()">
+                <div class="help-text">Enter IP for local access or serial.dvr.dividia.net for remote</div>
+            </div>
+            <div style="flex: 1;">
+                <label>Protocol</label>
+                <select id="protocol" onchange="updateProtocol()">
+                    <option value="http">HTTP (local network)</option>
+                    <option value="https">HTTPS (remote/secure)</option>
+                </select>
+            </div>
+            <div style="flex: 0; min-width: 100px;">
+                <label>Port</label>
+                <input type="number" id="nvr-port" value="80" min="1" max="65535">
+                <div class="help-text">HTTP only</div>
+            </div>
+        </div>
+        <div id="protocol-warning" style="display:none; background: #fff3cd; border-left: 3px solid #ffc107; padding: 8px 12px; margin: 10px 0; font-size: 12px; color: #856404;"></div>
+        <div class="row">
+            <div>
+                <label>Username <span style="color:#c62828">*</span></label>
+                <input type="text" id="username" value="admin" required oninput="validateConnectForm()">
+            </div>
+            <div>
+                <label>Password <span style="color:#c62828">*</span></label>
+                <input type="password" id="password" required oninput="validateConnectForm()">
+            </div>
+        </div>
+        <button onclick="connect()" id="btn-connect" disabled>Connect</button>
+        <span id="connection-status" class="status status-disconnected" style="margin-left: 10px;">Disconnected</span>
+        <div class="api-output-wrapper" id="connect-api-wrapper" style="display:none; margin-top: 15px;">
+            <div class="api-output-toggle" onclick="toggleApiOutput(this)">▼ Request/Response</div>
+            <div id="connect-api" class="api-output"></div>
+        </div>
+
+        <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+        <div class="api-ref">
+            <h4>Method: auth.loginUser</h4>
+            <p>Authenticates a user and creates a session for subsequent API calls.</p>
+
+            <strong>Example Request</strong>
+            <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">POST http://192.168.1.100/JSON/
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "auth.loginUser",
+  "params": ["admin", "password123", true, false],
+  "id": 1
+}</pre>
+
+            <strong>Parameters</strong>
+            <table>
+                <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+                <tr><td>0</td><td>username</td><td>string</td><td>NVR username</td></tr>
+                <tr><td>1</td><td>password</td><td>string</td><td>User password</td></tr>
+                <tr><td>2</td><td>force</td><td>bool</td><td>If <code>true</code>, terminates any existing session for this user</td></tr>
+                <tr><td>3</td><td>remote</td><td>bool</td><td>Set <code>true</code> when accessing via <code>*.dvr.dividia.net</code> (auto-detected)</td></tr>
+            </table>
+
+            <div class="note">
+                <strong>Important:</strong> Set <code>force=true</code> for API integrations. If <code>force=false</code> and a session already exists, the API returns <code>'exists'</code> instead of a session ID, requiring user confirmation to proceed.
+            </div>
+            <div class="note">
+                <strong>Remote Access:</strong> When connecting via <code>*.dvr.dividia.net</code>, this page auto-detects and switches to HTTPS with <code>remote=true</code>.
+            </div>
+
+            <strong>Response</strong>
+            <p style="margin: 5px 0; font-size: 12px;">Authentication always returns <code>[true, value]</code>. Check if <code>value</code> is a valid session token (32+ chars) or a failure reason:</p>
+            <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">// Success - value is a 32-character session token
+{"jsonrpc": "2.0", "result": [true, "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"], "id": 1}
+
+// Failure - value is a failure reason
+{"jsonrpc": "2.0", "result": [true, "noauth"], "id": 1}</pre>
+            <table>
+                <tr><th>result[1] value</th><th>Meaning</th></tr>
+                <tr><td>session_id (32 chars)</td><td>Success - use this token for subsequent calls</td></tr>
+                <tr><td><code>'noauth'</code></td><td>Invalid username or password</td></tr>
+                <tr><td><code>'exists'</code></td><td>Session exists and <code>force=false</code></td></tr>
+                <tr><td><code>'noaccess'</code></td><td>User account lacks access permissions</td></tr>
+                <tr><td><code>'noremote'</code></td><td>User not permitted for remote access</td></tr>
+                <tr><td><code>'maxsession'</code></td><td>Maximum concurrent sessions reached</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. Get Camera List</h2>
+        <p style="margin: 0 0 15px 0; color: #666;">After authenticating, retrieve the list of available cameras from the NVR.</p>
+        <button onclick="getCameras()" id="btn-get-cameras" disabled>Get Camera List</button>
+        <span id="cameras-status" style="margin-left: 10px; color: #666; font-size: 13px;">Connect to NVR first</span>
+
+        <div id="cameras-list-wrapper" class="api-output-wrapper" style="display:none; margin-top: 15px;">
+            <div class="api-output-toggle" onclick="toggleApiOutput(this)" style="background: #e8e8e8; color: #333;">▼ Cameras Found: <span id="camera-count">0</span></div>
+            <div id="cameras-list" class="api-output" style="background: #f5f5f5; color: #333; font-size: 13px;"></div>
+        </div>
+
+        <div class="api-output-wrapper" id="cameras-api-wrapper" style="display:none; margin-top: 15px;">
+            <div class="api-output-toggle" onclick="toggleApiOutput(this)">▼ Request/Response</div>
+            <div id="cameras-api" class="api-output"></div>
+        </div>
+
+        <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+        <div class="api-ref">
+            <h4>Method: config.camera.getAllCameras</h4>
+            <p>Retrieves the list of all configured cameras on the NVR, including their IDs, names, and settings.</p>
+
+            <strong>Example Request</strong>
+            <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">POST http://192.168.1.100/JSON/
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "config.camera.getAllCameras",
+  "params": ["a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"],
+  "id": 2
+}</pre>
+
+            <strong>Parameters</strong>
+            <table>
+                <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+                <tr><td>0</td><td>session</td><td>string</td><td>Session ID from <code>auth.loginUser</code></td></tr>
+            </table>
+
+            <strong>Response: <code>[success, cameras[]]</code></strong>
+            <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">{
+  "jsonrpc": "2.0",
+  "result": [true, [
+    {
+      "bID": 1,
+      "sName": "Front Parking",
+      "fEnable": true,
+      "fFail": false,
+      "sRecordType": "motion",
+      "sResolution": "320x240",
+      "bFramerate": 5,
+      "bPreCapture": 2,
+      "bPostCapture": 15,
+      "bSensitivity": 25,
+      "bDeviceID": 2,
+      "bDeviceSubID": 1,
+      ...
+    }
+  ]],
+  "id": 2
+}</pre>
+
+            <strong>Camera Object Fields (Key Fields)</strong>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td>bID</td><td>int</td><td>Camera ID (1-based, used in other API calls)</td></tr>
+                <tr><td>sName</td><td>string</td><td>User-assigned camera name</td></tr>
+                <tr><td>fEnable</td><td>bool</td><td>Whether the camera is enabled</td></tr>
+                <tr><td>fFail</td><td>bool</td><td>Whether the camera is in a failed/offline state</td></tr>
+                <tr><td>sRecordType</td><td>string</td><td>Recording mode: <code>"motion"</code>, <code>"continuous"</code>, or <code>"never"</code></td></tr>
+                <tr><td>sResolution</td><td>string</td><td>Recording resolution (e.g., <code>"320x240"</code>)</td></tr>
+                <tr><td>bFramerate</td><td>int</td><td>Recording framerate (fps)</td></tr>
+                <tr><td>bPreCapture</td><td>int</td><td>Pre-event capture time (seconds)</td></tr>
+                <tr><td>bPostCapture</td><td>int</td><td>Post-event capture time (seconds)</td></tr>
+                <tr><td>bSensitivity</td><td>int</td><td>Motion detection sensitivity (0-100)</td></tr>
+            </table>
+
+            <div class="note">
+                <strong>Field Naming Convention:</strong> Fields prefixed with <code>b</code> are integers, <code>s</code> are strings, and <code>f</code> are boolean flags.
+            </div>
+            <div class="note">
+                <strong>Usage:</strong> Use the <code>bID</code> field when requesting live video streams. Filter by <code>fEnable</code> to show only active cameras.
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Live Video -->
+    <div class="section">
+        <h2>3. Live Video</h2>
+        <p style="margin: 0 0 15px 0; color: #666;">Select a camera and streaming method to stream live video.</p>
+
+        <!-- Viewer Selection Tabs -->
+        <div class="viewer-tabs">
+            <button class="viewer-tab active tab-jpeg" onclick="selectViewer('jpeg'); this.blur();" id="tab-jpeg">JPEG Snapshot</button>
+            <button class="viewer-tab tab-mjpeg" onclick="selectViewer('mjpeg'); this.blur();" id="tab-mjpeg">MJPEG Stream</button>
+            <button class="viewer-tab tab-websocket" onclick="selectViewer('websocket'); this.blur();" id="tab-websocket">WebSocket H.264</button>
+        </div>
+
+        <!-- Viewer Description -->
+        <div id="viewer-description" class="viewer-description">
+            <strong>JPEG Snapshot Polling</strong> - Simple image refresh every second.<br>
+            <span style="color: #666;">Best for: Low bandwidth, compatibility, debugging.</span>
+        </div>
+
+        <div class="row" style="margin-top: 15px;">
+            <div style="flex: 2;">
+                <label>Camera</label>
+                <select id="camera" disabled onchange="updateLiveControls()">
+                    <option value="">Connect to NVR first</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label>Profile</label>
+                <select id="stream-profile" onchange="handleProfileChange()">
+                    <option value="1" selected>Profile 1 (Full)</option>
+                    <option value="2">Profile 2 (Lower)</option>
+                </select>
+                <div class="help-text">Resolution quality</div>
+            </div>
+            <div style="flex: 1;" id="refresh-rate-container">
+                <label>Refresh Rate</label>
+                <select id="refresh-rate">
+                    <option value="2000">0.5 fps (2 sec)</option>
+                    <option value="1000" selected>1 fps (1 sec)</option>
+                    <option value="500">2 fps (0.5 sec)</option>
+                    <option value="250">4 fps (0.25 sec)</option>
+                </select>
+                <div class="help-text">Faster = more bandwidth</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <button onclick="startLiveStream(); this.blur();" id="btn-start-live" disabled>Start Live Video</button>
+            <button onclick="stopAllStreams(); this.blur();" id="btn-stop-live" disabled style="background: #dc3545;">Stop</button>
+            <span id="live-status" style="margin-left: 10px; color: #666; font-size: 13px;"></span>
+        </div>
+
+        <div id="video-container" style="margin-top: 15px;">
+            <span>Select a camera and click Start Live Video</span>
+        </div>
+
+        <!-- Live Video API Output -->
+        <div class="api-output-wrapper" id="live-api-wrapper" style="display:none; margin-top: 15px;">
+            <div class="api-output-toggle" onclick="toggleApiOutput(this)">▼ Request Details</div>
+            <div id="live-api" class="api-output"></div>
+        </div>
+
+        <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+        <div class="api-ref">
+            <!-- JPEG Section -->
+            <div class="method-section jpeg" id="api-section-jpeg">
+                <div class="method-header" onclick="toggleMethodSection('jpeg')">
+                    <span>JPEG Snapshot Polling</span>
+                    <span class="toggle-icon"></span>
+                </div>
+                <div class="method-content" id="api-content-jpeg">
+                    <p style="margin-top: 0;">Retrieve live camera snapshots by polling a JPEG endpoint. The browser fetches a new image at regular intervals.</p>
+
+                    <strong>Endpoint</strong>
+                    <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">GET /mpe/cam{CAMERA_ID}.jpg?sess={SESSION_ID}&ts={TIMESTAMP}
+
+# Profile 1 (Full) - /mpe/cam1.jpg
+# Profile 2 (Lower) - /mpe/scam1.jpg</pre>
+
+                    <strong>Parameters</strong>
+                    <table>
+                        <tr><th>Parameter</th><th>Description</th></tr>
+                        <tr><td>CAMERA_ID</td><td>Camera number (1, 2, 3...)</td></tr>
+                        <tr><td>sess</td><td>Session token</td></tr>
+                        <tr><td>ts</td><td>Cache-buster timestamp</td></tr>
+                    </table>
+
+                    <strong>Implementation</strong>
+                    <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">setInterval(() => {
+    img.src = '/mpe/cam1.jpg?sess=' + session + '&ts=' + Date.now();
+}, 1000);</pre>
+                </div>
+            </div>
+
+            <!-- MJPEG Section -->
+            <div class="method-section mjpeg" id="api-section-mjpeg">
+                <div class="method-header collapsed" onclick="toggleMethodSection('mjpeg')">
+                    <span>MJPEG Continuous Stream</span>
+                    <span class="toggle-icon"></span>
+                </div>
+                <div class="method-content collapsed" id="api-content-mjpeg">
+                    <p style="margin-top: 0;">Motion JPEG streams frames over a single HTTP connection. The browser automatically displays each frame as it arrives.</p>
+
+                    <strong>Endpoint</strong>
+                    <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">GET /mpe/cam{CAMERA_ID}.mjpg?sess={SESSION_ID}
+
+# Profile 1 (Full) - /mpe/cam1.mjpg
+# Profile 2 (Lower) - /mpe/scam1.mjpg</pre>
+
+                    <strong>Parameters</strong>
+                    <table>
+                        <tr><th>Parameter</th><th>Description</th></tr>
+                        <tr><td>CAMERA_ID</td><td>Camera number (1, 2, 3...)</td></tr>
+                        <tr><td>sess</td><td>Session token</td></tr>
+                    </table>
+
+                    <strong>Implementation</strong>
+                    <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">// Just set src - no polling needed!
+img.src = '/mpe/cam1.mjpg?sess=' + session;
+
+// To stop: img.src = '';</pre>
+                </div>
+            </div>
+
+            <!-- WebSocket Section -->
+            <div class="method-section websocket" id="api-section-websocket">
+                <div class="method-header collapsed" onclick="toggleMethodSection('websocket')">
+                    <span>WebSocket H.264</span>
+                    <span class="toggle-icon"></span>
+                </div>
+                <div class="method-content collapsed" id="api-content-websocket">
+                    <p style="margin-top: 0;">H.264 video via WebSocket with WebCodecs API for hardware-accelerated decoding. Lowest bandwidth and latency.</p>
+
+                    <strong>Endpoint</strong>
+                    <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;">WS /ws/cam{CAMERA_ID}-pro{PROFILE}?user={USER}&pass={PASSWORD}
+
+# Profile 1 (Full) - /ws/cam1-pro1?user=admin&pass=...
+# Profile 2 (Lower) - /ws/cam1-pro2?user=admin&pass=...</pre>
+
+                    <strong>Parameters</strong>
+                    <table>
+                        <tr><th>Parameter</th><th>Description</th></tr>
+                        <tr><td>CAMERA_ID</td><td>Camera number (1, 2, 3...)</td></tr>
+                        <tr><td>PROFILE</td><td>Video profile: 1 (full) or 2 (lower resolution)</td></tr>
+                        <tr><td>user</td><td>NVR username (URL-encoded)</td></tr>
+                        <tr><td>pass</td><td>NVR password (URL-encoded)</td></tr>
+                    </table>
+
+                    <strong>Data Format</strong>
+                    <table>
+                        <tr><th>Type</th><th>Content</th></tr>
+                        <tr><td>Text frames</td><td>JSON metadata (camera info, detected objects)</td></tr>
+                        <tr><td>Binary frames</td><td>H.264 NAL units (Annex B format)</td></tr>
+                    </table>
+
+                    <strong>NAL Unit Types</strong>
+                    <table>
+                        <tr><th>Type</th><th>Name</th><th>Description</th></tr>
+                        <tr><td>7</td><td>SPS</td><td>Sequence Parameter Set (codec config)</td></tr>
+                        <tr><td>8</td><td>PPS</td><td>Picture Parameter Set (codec config)</td></tr>
+                        <tr><td>5</td><td>IDR</td><td>Keyframe (I-frame)</td></tr>
+                        <tr><td>1</td><td>Non-IDR</td><td>Delta frame (P-frame)</td></tr>
+                    </table>
+
+                    <strong>Requirements</strong>
+                    <div style="background: #fff3e0; border-left: 3px solid #ff9800; padding: 8px 12px; margin: 10px 0; font-size: 12px;">
+                        <strong style="color: #e65100;">Secure Context Required:</strong> WebCodecs API only works in secure contexts:
+                        <ul style="margin: 5px 0 0 15px; padding: 0;">
+                            <li><strong>HTTPS</strong> - <code>https://192.168.0.22</code> or <code>https://nvr.domain.com</code></li>
+                            <li><strong>localhost</strong> - <code>http://localhost</code> (exception for development)</li>
+                        </ul>
+                        <p style="margin: 8px 0 0 0;">Local HTTP (<code>http://192.168.x.x</code>) is NOT a secure context. Use MJPEG for local HTTP access.</p>
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Browser support for <strong>WebCodecs API</strong>:</p>
+                    <ul style="font-size: 12px; color: #666; margin: 0 0 10px 20px; padding: 0;">
+                        <li>Chrome 94+ / Edge 94+</li>
+                        <li>Safari 16.4+</li>
+                        <li>Firefox: Not supported (use MJPEG fallback)</li>
+                    </ul>
+
+                    <strong>Implementation</strong>
+                    <pre style="background:#1e1e1e; color:#d4d4d4; padding:10px; border-radius:4px; font-size:11px; overflow-x:auto;"><span style="color: #608b4e;">// 1. Create WebSocket connection</span>
+const ws = new WebSocket('ws://nvr:80/ws/cam1-pro1?user=admin&pass=secret');
+ws.binaryType = 'arraybuffer';
+
+<span style="color: #608b4e;">// 2. Initialize VideoDecoder (WebCodecs API)</span>
+const decoder = new VideoDecoder({
+    output: frame => {
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        frame.close();
+    },
+    error: e => console.error('Decoder error:', e)
+});
+
+decoder.configure({
+    codec: 'avc1.42C01E',      <span style="color: #608b4e;">// H.264 Baseline</span>
+    avc: { format: 'annexb' },
+    hardwareAcceleration: 'prefer-hardware'
+});
+
+<span style="color: #608b4e;">// 3. Handle incoming messages</span>
+ws.onmessage = (ev) => {
+    if (typeof ev.data === 'string') {
+        <span style="color: #608b4e;">// JSON metadata</span>
+        const metadata = JSON.parse(ev.data);
+    } else {
+        <span style="color: #608b4e;">// Binary NAL unit - aggregate & decode</span>
+        const nalBytes = new Uint8Array(ev.data);
+        <span style="color: #608b4e;">// NAL aggregation and decoding logic...</span>
+    }
+};</pre>
+
+                    <div class="note" style="background: #e8f5e9; border-left-color: #2e7d32;">
+                        <strong>Advantages:</strong> Lowest bandwidth (~10x less than MJPEG), lowest latency, hardware-accelerated decoding, metadata support (object detection).
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        </div><!-- end left-column -->
+
+        <div class="right-column">
+            <div class="section">
+                <h2>Debug Log</h2>
+                <div id="log"></div>
+                <button onclick="document.getElementById('log').innerHTML=''">Clear Log</button>
+
+                <!-- Streaming Methods Comparison -->
+                <div class="comparison-section">
+                    <div class="comparison-header" onclick="toggleComparison(this)">
+                        <span>Streaming Methods Comparison</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="comparison-content">
+                        <table class="comparison-table">
+                            <tr>
+                                <th>Method</th>
+                                <th>Bandwidth</th>
+                                <th>Latency</th>
+                                <th>Requires</th>
+                            </tr>
+                            <tr>
+                                <td class="method-name" style="color: #e65100;">JPEG</td>
+                                <td class="poor">High</td>
+                                <td class="fair">Medium</td>
+                                <td class="good">HTTP/HTTPS</td>
+                            </tr>
+                            <tr>
+                                <td class="method-name" style="color: #1565c0;">MJPEG</td>
+                                <td class="fair">Medium</td>
+                                <td class="good">Low</td>
+                                <td class="good">HTTP/HTTPS</td>
+                            </tr>
+                            <tr>
+                                <td class="method-name" style="color: #2e7d32;">WebSocket</td>
+                                <td class="good">Low</td>
+                                <td class="good">Low</td>
+                                <td class="fair">HTTPS only</td>
+                            </tr>
+                        </table>
+                        <div style="padding: 10px; font-size: 11px; color: #666; border-top: 1px solid #eee;">
+                            <strong>Quick Guide:</strong><br>
+                            • <strong style="color: #e65100;">JPEG</strong> - Best for compatibility & debugging<br>
+                            • <strong style="color: #1565c0;">MJPEG</strong> - Best for local HTTP access<br>
+                            • <strong style="color: #2e7d32;">WebSocket</strong> - Best for production (HTTPS required)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- end right-column -->
+    </div><!-- end page-content -->
+
+    <script>
+        // Print API Reference - opens document with print parameter to trigger print dialog
+        function printApiReference() {
+            window.open('dividia-api-reference.html?print=1', '_blank');
+        }
+
+        // State
+        let session = null;
+        let authUser = null;
+        let authPass = null;
+        let nvrHost = null;
+        let baseUrl = null;
+        let protocol = 'http';
+        let cameras = [];
+
+        // Validate connect form - enable button only if all required fields have values
+        function validateConnectForm() {
+            const host = document.getElementById('nvr-host').value.trim();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value;
+            const btn = document.getElementById('btn-connect');
+            btn.disabled = !(host && user && pass);
+        }
+
+        function toggleApiRef(btn) {
+            btn.classList.toggle('open');
+            btn.nextElementSibling.classList.toggle('open');
+        }
+
+        // Toggle method sections in API Reference
+        function toggleMethodSection(method) {
+            const header = document.querySelector('#api-section-' + method + ' .method-header');
+            const content = document.getElementById('api-content-' + method);
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+        }
+
+        // Expand only the selected method's API section
+        function expandApiSection(method) {
+            ['jpeg', 'mjpeg', 'websocket'].forEach(m => {
+                const header = document.querySelector('#api-section-' + m + ' .method-header');
+                const content = document.getElementById('api-content-' + m);
+                if (m === method) {
+                    header.classList.remove('collapsed');
+                    content.classList.remove('collapsed');
+                } else {
+                    header.classList.add('collapsed');
+                    content.classList.add('collapsed');
+                }
+            });
+        }
+
+        // Toggle comparison table
+        function toggleComparison(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            const isCollapsed = content.classList.toggle('collapsed');
+            icon.textContent = isCollapsed ? '▶' : '▼';
+        }
+
+        function toggleApiOutput(toggle) {
+            const content = toggle.nextElementSibling;
+            const isCollapsed = content.classList.toggle('collapsed');
+            toggle.classList.toggle('collapsed', isCollapsed);
+
+            // Preserve custom labels or use default
+            const currentText = toggle.textContent.replace(/^[▶▼]\s*/, '');
+            if (currentText.startsWith('Cameras Found:')) {
+                toggle.innerHTML = (isCollapsed ? '▶' : '▼') + ' ' + currentText;
+            } else if (currentText.startsWith('Request Details')) {
+                toggle.textContent = (isCollapsed ? '▶' : '▼') + ' Request Details';
+            } else {
+                toggle.textContent = (isCollapsed ? '▶' : '▼') + ' Request/Response';
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = `log-${type}`;
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+
+        function showApiOutput(elementId, method, url, request, response, success) {
+            const wrapper = document.getElementById(elementId + '-wrapper');
+            const el = document.getElementById(elementId);
+            const toggle = wrapper.querySelector('.api-output-toggle');
+
+            // Auto-open Response on error for connect and cameras sections
+            if(elementId === 'connect-api' && (!success || !response[1] || response[1].length < 8)) {
+                el.classList.remove('collapsed');
+                toggle.classList.remove('collapsed');
+            }
+            if(elementId === 'cameras-api' && !success) {
+                el.classList.remove('collapsed');
+                toggle.classList.remove('collapsed');
+            }
+
+            wrapper.style.display = 'block';
+
+            if(el.classList.contains('collapsed')) {
+                toggle.textContent = '▶ Request/Response';
+            } else {
+                toggle.textContent = '▼ Request/Response';
+            }
+
+            const statusClass = success ? 'success' : 'error';
+            const statusText = success ? 'OK' : 'FAILED';
+            el.innerHTML =
+                '<span class="label">POST</span> ' + url + '\n' +
+                '<span class="label">Method:</span> <span class="string">"' + method + '"</span>\n' +
+                '<span class="label">Params:</span> ' + JSON.stringify(request, null, 2).split('\n').join('\n        ') + '\n' +
+                '<span class="label">Response:</span> <span class="' + statusClass + '">[' + statusText + ']</span> ' +
+                JSON.stringify(response, null, 2).split('\n').join('\n          ');
+        }
+
+        function updateProtocol() {
+            const proto = document.getElementById('protocol').value;
+            const portInput = document.getElementById('nvr-port');
+            const pageProtocol = window.location.protocol.replace(':', '');
+            const warningEl = document.getElementById('protocol-warning');
+
+            if (proto === 'https') {
+                // HTTPS always uses 443, disable port input
+                portInput.value = '443';
+                portInput.disabled = true;
+            } else {
+                // HTTP allows custom port, default 80
+                portInput.disabled = false;
+                if (portInput.value === '443') {
+                    portInput.value = '80';
+                }
+            }
+
+            // Show warning for mixed content scenarios
+            if (warningEl) {
+                if (pageProtocol === 'https' && proto === 'http') {
+                    warningEl.innerHTML = '<strong>Warning:</strong> This page is served over HTTPS. HTTP requests will be blocked by the browser (mixed content). Use HTTPS.';
+                    warningEl.style.display = 'block';
+                } else if (pageProtocol === 'http' && proto === 'https') {
+                    warningEl.innerHTML = '<strong>Note:</strong> Requesting HTTPS from an HTTP page may fail if the NVR\'s HTTPS endpoint lacks CORS headers. For self-signed certs, visit the HTTPS URL directly first to accept the certificate.';
+                    warningEl.style.display = 'block';
+                } else if (pageProtocol === 'file') {
+                    warningEl.innerHTML = '<strong>Note:</strong> Running from local file. CORS restrictions may apply. For production, serve this page from the NVR.';
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
+                }
+            }
+        }
+
+        // Reset all sections to initial state (called when reconnecting)
+        function resetAllSections() {
+            // Clear session and data
+            session = null;
+            cameras = [];
+
+            // Section 2: Reset camera list
+            document.getElementById('btn-get-cameras').disabled = true;
+            document.getElementById('cameras-status').textContent = 'Connect to NVR first';
+            document.getElementById('cameras-status').style.color = '#666';
+            document.getElementById('cameras-list-wrapper').style.display = 'none';
+            document.getElementById('cameras-list').innerHTML = '';
+            document.getElementById('cameras-api-wrapper').style.display = 'none';
+
+            // Section 3: Reset live video
+            stopAllStreams(); // Stop any running stream
+            const cameraSelect = document.getElementById('camera');
+            cameraSelect.disabled = true;
+            cameraSelect.innerHTML = '<option value="">Connect to NVR first</option>';
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = true;
+            document.getElementById('live-status').innerHTML = '';
+            document.getElementById('refresh-rate').disabled = false;
+            // Profile is always enabled
+            document.getElementById('refresh-rate-container').style.visibility = 'visible';
+            document.getElementById('video-container').innerHTML = '<span>Select a camera and click Start Live Video</span>';
+            document.getElementById('live-api-wrapper').style.display = 'none';
+        }
+
+        async function connect() {
+            // Reset all sections when attempting a new connection
+            resetAllSections();
+
+            nvrHost = document.getElementById('nvr-host').value.trim();
+            protocol = document.getElementById('protocol').value;
+            authUser = document.getElementById('username').value;
+            authPass = document.getElementById('password').value;
+
+            if (!nvrHost) {
+                alert('Please enter NVR address');
+                return;
+            }
+
+            // Auto-detect remote access via dividia.net - force HTTPS
+            const isRemote = nvrHost.includes('.dvr.dividia.net');
+            if (isRemote) {
+                protocol = 'https';
+                document.getElementById('protocol').value = 'https';
+                updateProtocol(); // This sets port to 443 and disables it
+                log('Detected remote access - switching to HTTPS');
+            }
+
+            // Determine port: HTTPS always 443, HTTP uses input or default 80
+            let port;
+            if (protocol === 'https') {
+                port = '443';
+            } else {
+                port = document.getElementById('nvr-port').value.trim() || '80';
+            }
+
+            // Build base URL with port (omit default ports)
+            const defaultPort = (protocol === 'https') ? '443' : '80';
+            const portSuffix = (port !== defaultPort) ? ':' + port : '';
+            baseUrl = protocol + '://' + nvrHost + portSuffix;
+            log('Connecting to ' + baseUrl + '...');
+
+            const apiUrl = baseUrl + '/JSON/';
+            const loginParams = [authUser, authPass, true, isRemote];
+
+            try {
+                // Authenticate - params: [username, password, force, remote]
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'auth.loginUser',
+                        params: loginParams,
+                        id: 1
+                    })
+                });
+                const result = await response.json();
+
+                // Show API output
+                const success = result.result && result.result[0] === true;
+                const sessionValue = result.result ? result.result[1] : null;
+
+                // Check if session looks like a valid token (32+ hex chars) vs an error code
+                const knownErrors = ['noauth', 'exists', 'noaccess', 'noremote', 'maxsession'];
+                const isValidSession = success && sessionValue &&
+                    sessionValue.length >= 16 && !knownErrors.includes(sessionValue);
+
+                showApiOutput('connect-api', 'auth.loginUser', apiUrl,
+                    { username: authUser, password: '***', force: true, remote: isRemote },
+                    result.result, isValidSession);
+
+                if (!isValidSession) {
+                    log('Authentication failed: ' + (sessionValue || 'Unknown error'), 'error');
+                    throw new Error('Authentication failed: ' + (sessionValue || 'Unknown'));
+                }
+
+                session = sessionValue;
+                log('Authenticated. Session: ' + session.substring(0, 8) + '...', 'success');
+
+                // Update UI - connection successful
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status status-connected';
+
+                // Enable Get Camera List button and update its status text
+                document.getElementById('btn-get-cameras').disabled = false;
+                document.getElementById('cameras-status').textContent = 'Ready to retrieve cameras';
+                document.getElementById('cameras-status').style.color = '#2e7d32';
+
+                // Update camera dropdown to show next step needed
+                const cameraSelect = document.getElementById('camera');
+                cameraSelect.innerHTML = '<option value="">Get camera list first (Section 2)</option>';
+
+            } catch (err) {
+                // Detect CORS/network errors and provide helpful diagnostics
+                let errorMsg = err.message;
+                let diagnostics = '';
+
+                if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+                    // This is typically a CORS or network error
+                    diagnostics = '\n\n--- Diagnostics ---';
+                    diagnostics += '\nError Type: Network/CORS failure';
+                    diagnostics += '\nTarget URL: ' + baseUrl + '/JSON/';
+                    diagnostics += '\nPage Origin: ' + window.location.origin;
+                    diagnostics += '\nProtocol: ' + protocol.toUpperCase();
+
+                    if (protocol === 'https') {
+                        diagnostics += '\n\nPossible causes:';
+                        diagnostics += '\n1. CORS: NVR HTTPS endpoint may not send Access-Control-Allow-Origin header';
+                        diagnostics += '\n2. Certificate: Self-signed cert not accepted for fetch() requests';
+                        diagnostics += '\n3. Mixed content: Page is HTTP but requesting HTTPS (or vice versa)';
+                        diagnostics += '\n\nSuggestions:';
+                        diagnostics += '\n• Try HTTP instead of HTTPS for local network access';
+                        diagnostics += '\n• Check browser dev console (F12) for detailed CORS error';
+                        diagnostics += '\n• Verify NVR HTTPS endpoint is running and accessible';
+                    } else {
+                        diagnostics += '\n\nPossible causes:';
+                        diagnostics += '\n1. NVR not reachable at ' + nvrHost;
+                        diagnostics += '\n2. Wrong port (current: ' + (document.getElementById('nvr-port').value || '80') + ')';
+                        diagnostics += '\n3. CORS: NVR not sending Access-Control-Allow-Origin header';
+                        diagnostics += '\n4. Firewall blocking the connection';
+                    }
+
+                    errorMsg = 'Failed to fetch (network/CORS error)';
+                }
+
+                log('Connection failed: ' + errorMsg, 'error');
+                if (diagnostics) {
+                    log(diagnostics, 'error');
+                }
+
+                document.getElementById('connection-status').textContent = 'Failed';
+                document.getElementById('connection-status').className = 'status status-disconnected';
+            }
+        }
+
+        async function getCameras() {
+            if (!session) {
+                alert('Please connect to NVR first');
+                return;
+            }
+
+            log('Retrieving camera list...');
+
+            const apiUrl = baseUrl + '/JSON/';
+            const cameraParams = [session];
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'config.camera.getAllCameras',
+                        params: cameraParams,
+                        id: 2
+                    })
+                });
+                const result = await response.json();
+
+                const success = result.result && result.result[0] === true;
+                showApiOutput('cameras-api', 'config.camera.getAllCameras', apiUrl,
+                    { session: session.substring(0, 8) + '...' },
+                    result.result, success);
+
+                if (!success) {
+                    throw new Error('Failed to get cameras: ' + (result.result ? result.result[1] : 'Unknown'));
+                }
+
+                cameras = result.result[1];
+                log('Found ' + cameras.length + ' cameras', 'success');
+
+                // Update status
+                document.getElementById('cameras-status').textContent = cameras.length + ' camera(s) found';
+                document.getElementById('cameras-status').style.color = '#2e7d32';
+
+                // Show cameras list container
+                const camerasWrapper = document.getElementById('cameras-list-wrapper');
+                const camerasList = document.getElementById('cameras-list');
+                const camerasToggle = camerasWrapper.querySelector('.api-output-toggle');
+                const isFirstLoad = camerasWrapper.style.display === 'none';
+
+                camerasWrapper.style.display = 'block';
+                document.getElementById('camera-count').textContent = cameras.length;
+
+                // Update toggle text to include count
+                const isCollapsed = camerasList.classList.contains('collapsed');
+                camerasToggle.innerHTML = (isCollapsed ? '▶' : '▼') + ' Cameras Found: <span id="camera-count">' + cameras.length + '</span>';
+
+                // On first load, ensure it's expanded; subsequent loads respect current state
+                if (isFirstLoad) {
+                    camerasList.classList.remove('collapsed');
+                    camerasToggle.classList.remove('collapsed');
+                    camerasToggle.innerHTML = '▼ Cameras Found: <span id="camera-count">' + cameras.length + '</span>';
+                }
+
+                // Display camera list
+                camerasList.innerHTML = cameras.map(function(cam) {
+                    return '<div style="padding: 4px 0; border-bottom: 1px solid #ddd;">' +
+                        '<strong>Camera ' + cam.bID + ':</strong> ' + (cam.sName || 'Unnamed') +
+                        (cam.fEnable ? ' <span style="color:#2e7d32">(Enabled)</span>' : ' <span style="color:#c62828">(Disabled)</span>') +
+                        (cam.fFail ? ' <span style="color:#c62828">(Failed)</span>' : '') +
+                        '</div>';
+                }).join('');
+
+                // Populate camera dropdown in Live Video section
+                const cameraSelect = document.getElementById('camera');
+                cameraSelect.disabled = false;
+                cameraSelect.innerHTML = '<option value="">-- Select Camera --</option>';
+                cameras.forEach(function(cam) {
+                    const option = document.createElement('option');
+                    option.value = cam.bID;
+                    const status = cam.fEnable ? '' : ' (Disabled)';
+                    option.textContent = 'Camera ' + cam.bID + ': ' + (cam.sName || 'Unnamed') + status;
+                    cameraSelect.appendChild(option);
+                });
+
+                // Enable start live video button when camera is selected
+                // (updateLiveControls handles this via onchange)
+
+            } catch (err) {
+                log('Failed to get cameras: ' + err.message, 'error');
+                document.getElementById('cameras-status').textContent = 'Failed to retrieve cameras';
+                document.getElementById('cameras-status').style.color = '#c62828';
+            }
+        }
+
+        // Streaming State
+        let jpegStreamTimer = null;
+        let jpegFrameCount = 0;
+        let jpegStartTime = null;
+        let currentViewer = 'jpeg';
+        let mjpegActive = false;
+        let mjpegStartTime = null;
+        let mjpegTimestampTimer = null;
+
+        // WebSocket state
+        let wsConnection = null;
+        let wsActive = false;
+        let wsStartTime = null;
+        let wsFrameCount = 0;
+        let wsTimestampTimer = null;
+        let videoDecoder = null;
+        let nalSPS = null;
+        let nalPPS = null;
+
+        // Select viewer type
+        function selectViewer(type) {
+            // Check if a stream was running
+            const wasStreaming = jpegStreamTimer !== null || mjpegActive;
+            const hadCamera = document.getElementById('camera').value;
+
+            // Stop any running stream first
+            stopAllStreams();
+
+            currentViewer = type;
+
+            // Update tab styling
+            document.querySelectorAll('.viewer-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById('tab-' + type).classList.add('active');
+
+            // Update description with consistent colors
+            const wsCheck = checkWebCodecsSupport();
+            const wsUnavailableNote = !wsCheck.supported ?
+                '<br><span style="color: #c62828; font-size: 12px;">⚠ Unavailable: Requires HTTPS (secure context). Use JPEG or MJPEG.</span>' : '';
+
+            const descriptions = {
+                jpeg: '<strong style="color: #e65100;">JPEG Snapshot Polling</strong> - Simple image refresh every second.<br><span style="color: #666;">Best for: Low bandwidth, compatibility, debugging.</span>',
+                mjpeg: '<strong style="color: #1565c0;">MJPEG Stream</strong> - Motion JPEG continuous stream.<br><span style="color: #666;">Best for: Smooth video, simple implementation.</span>',
+                websocket: '<strong style="color: #2e7d32;">WebSocket H.264</strong> - Efficient H.264 via WebSocket with WebCodecs decoding.<br><span style="color: #666;">Best for: Low latency, low bandwidth, multiple cameras.</span>' + wsUnavailableNote
+            };
+            document.getElementById('viewer-description').innerHTML = descriptions[type];
+
+            // Show/hide refresh rate selector (only for JPEG) - use visibility to maintain layout
+            const refreshRateContainer = document.getElementById('refresh-rate-container');
+            refreshRateContainer.style.visibility = (type === 'jpeg') ? 'visible' : 'hidden';
+
+            // Update API Reference to show the selected method's section
+            expandApiSection(type);
+
+            log('Switched to ' + type.toUpperCase() + ' viewer');
+
+            // Auto-start the new stream if one was running before
+            if (wasStreaming && hadCamera) {
+                startLiveStream();
+            }
+        }
+
+        // Stop all streams
+        function stopAllStreams() {
+            stopJpegStream();
+            stopMjpegStream();
+            stopWebsocketStream();
+        }
+
+        // Update live controls state
+        function updateLiveControls() {
+            const cameraId = document.getElementById('camera').value;
+            document.getElementById('btn-start-live').disabled = !cameraId || !session;
+        }
+
+        // Handle profile change during streaming
+        function handleProfileChange() {
+            const isStreaming = jpegStreamTimer !== null || mjpegActive;
+            if (!isStreaming) return; // Nothing to do if not streaming
+
+            const profile = document.getElementById('stream-profile').value;
+            const profileLabel = (profile === '2') ? 'Profile 2' : 'Profile 1';
+            log('Switching to ' + profileLabel + '...');
+
+            // Simply restart the current stream with new profile
+            if (currentViewer === 'jpeg' && jpegStreamTimer !== null) {
+                // Stop current JPEG polling
+                clearInterval(jpegStreamTimer);
+                jpegStreamTimer = null;
+
+                // Get current camera info
+                const cameraId = document.getElementById('camera').value;
+                const cam = cameras.find(c => c.bID === parseInt(cameraId));
+                const camName = cam ? cam.sName : 'Camera ' + cameraId;
+                const refreshRate = parseInt(document.getElementById('refresh-rate').value);
+                const camPrefix = (profile === '2') ? 'scam' : 'cam';
+
+                // Update URL base and restart polling
+                const urlBase = baseUrl + '/mpe/' + camPrefix + cameraId + '.jpg?sess=' + session + '&ts=';
+                const imageUrl = urlBase + Date.now();
+
+                // Update API output
+                showJpegApiOutput(cameraId, imageUrl, refreshRate, camPrefix);
+
+                // Update live image immediately
+                const img = document.getElementById('live-image');
+                if (img) {
+                    img.src = imageUrl;
+                }
+
+                // Restart polling with new URL
+                jpegStreamTimer = setInterval(function() {
+                    const img = document.getElementById('live-image');
+                    if (img) {
+                        img.src = urlBase.replace(/&ts=$/, '&ts=' + Date.now());
+                    }
+                }, refreshRate);
+
+                log('Switched to ' + profileLabel, 'success');
+
+            } else if (currentViewer === 'mjpeg' && mjpegActive) {
+                // For MJPEG, just update the src
+                const cameraId = document.getElementById('camera').value;
+                const camPrefix = (profile === '2') ? 'scam' : 'cam';
+                const mjpegUrl = baseUrl + '/mpe/' + camPrefix + cameraId + '.mjpg?sess=' + session;
+
+                // Update API output
+                showMjpegApiOutput(cameraId, mjpegUrl, camPrefix);
+
+                // Update the image src
+                const img = document.getElementById('live-image');
+                if (img) {
+                    img.src = mjpegUrl;
+                }
+
+                log('Switched to ' + profileLabel, 'success');
+
+            } else if (currentViewer === 'websocket' && wsActive) {
+                // For WebSocket, need to reconnect with new profile
+                const cameraId = document.getElementById('camera').value;
+                const wsProtocol = (protocol === 'https') ? 'wss' : 'ws';
+                const port = (protocol === 'https') ? '443' : document.getElementById('nvr-port').value || '80';
+                const newWsUrl = wsProtocol + '://' + nvrHost + ':' + port + '/ws/cam' + cameraId + '-pro' + profile + '?sess=' + session;
+
+                // Close existing connection
+                if (wsConnection) {
+                    try {
+                        wsConnection.onclose = null; // Prevent stop logic
+                        wsConnection.close();
+                    } catch (e) {}
+                }
+
+                // Reset decoder state for new stream
+                if (videoDecoder && videoDecoder.state !== 'closed') {
+                    try { videoDecoder.close(); } catch (e) {}
+                }
+                nalSPS = null;
+                nalPPS = null;
+                timestampCounter = 0;
+
+                // Reinitialize decoder
+                const canvas = document.getElementById('ws-canvas');
+                const ctx = canvas.getContext('2d');
+
+                videoDecoder = new VideoDecoder({
+                    output: frame => {
+                        if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+                            canvas.width = frame.displayWidth;
+                            canvas.height = frame.displayHeight;
+                        }
+                        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                        frame.close();
+                        wsFrameCount++;
+                    },
+                    error: e => console.error('VideoDecoder error:', e)
+                });
+
+                videoDecoder.configure({
+                    codec: 'avc1.42C01E',
+                    avc: { format: 'annexb' },
+                    hardwareAcceleration: 'prefer-hardware'
+                });
+
+                // Create new WebSocket connection
+                wsConnection = new WebSocket(newWsUrl);
+                wsConnection.binaryType = 'arraybuffer';
+
+                wsConnection.onopen = () => log('Reconnected with ' + profileLabel, 'success');
+                wsConnection.onerror = () => log('WebSocket reconnect error', 'error');
+                wsConnection.onclose = () => {
+                    if (wsActive) {
+                        const stats = document.getElementById('stream-stats');
+                        if (stats) { stats.style.color = '#888'; stats.textContent = 'Disconnected'; }
+                    }
+                };
+                wsConnection.onmessage = (ev) => {
+                    if (typeof ev.data === 'string') {
+                        try { JSON.parse(ev.data); } catch (e) {}
+                    } else {
+                        processNALUnit(new Uint8Array(ev.data));
+                    }
+                };
+
+                // Update API output
+                showWebsocketApiOutput(cameraId, newWsUrl, profile);
+
+                log('Switched to ' + profileLabel, 'success');
+            }
+        }
+
+        // Start JPEG snapshot polling
+        function startJpegStream() {
+            const cameraId = document.getElementById('camera').value;
+            if (!cameraId) {
+                alert('Please select a camera');
+                return;
+            }
+
+            const refreshRate = parseInt(document.getElementById('refresh-rate').value);
+            const profile = document.getElementById('stream-profile').value;
+            const cam = cameras.find(c => c.bID === parseInt(cameraId));
+            const camName = cam ? cam.sName : 'Camera ' + cameraId;
+
+            // Use 'cam' for profile 1, 'scam' for profile 2
+            const camPrefix = (profile === '2') ? 'scam' : 'cam';
+            const profileLabel = (profile === '2') ? 'Profile 2' : 'Profile 1';
+
+            log('Starting JPEG stream for Camera ' + cameraId + ': ' + camName + ' @ ' + (1000/refreshRate).toFixed(1) + ' fps (' + profileLabel + ')');
+
+            // Reset stats
+            jpegFrameCount = 0;
+            jpegStartTime = Date.now();
+
+            // Build initial URL
+            const imageUrl = baseUrl + '/mpe/' + camPrefix + cameraId + '.jpg?sess=' + session + '&ts=' + Date.now();
+
+            // Show API output
+            showJpegApiOutput(cameraId, imageUrl, refreshRate, camPrefix);
+
+            // Create video container with image and overlays
+            document.getElementById('video-container').innerHTML =
+                '<img id="live-image" src="' + imageUrl + '" alt="Live camera feed" onerror="handleImageError()" onload="handleImageLoad()" />' +
+                '<div class="video-overlay">' +
+                    '<span class="cam-num">Cam ' + cameraId + '</span>' +
+                    '<span class="live-indicator" id="live-indicator" style="color: #e65100;">JPEG</span>' +
+                '</div>' +
+                '<div class="video-overlay-br">' +
+                    '<span class="cam-label">' + camName + '</span><br>' +
+                    '<span class="timestamp" id="live-timestamp">--:--:--</span>' +
+                '</div>' +
+                '<div class="stream-stats" id="stream-stats">Loading...</div>';
+
+            // Start polling (use closure to capture camPrefix)
+            const urlBase = baseUrl + '/mpe/' + camPrefix + cameraId + '.jpg?sess=' + session + '&ts=';
+            jpegStreamTimer = setInterval(function() {
+                const img = document.getElementById('live-image');
+                if (img) {
+                    img.src = urlBase.replace(/&ts=$/, '&ts=' + Date.now());
+                }
+            }, refreshRate);
+
+            // Update UI
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = false;
+            document.getElementById('camera').disabled = true;
+            document.getElementById('refresh-rate').disabled = true;
+            // Keep profile enabled for switching during stream
+            document.getElementById('stream-profile').disabled = false;
+            document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming...</span>';
+
+            log('JPEG stream started', 'success');
+        }
+
+        // Handle successful image load
+        function handleImageLoad() {
+            jpegFrameCount++;
+            const elapsed = (Date.now() - jpegStartTime) / 1000;
+            const fps = (jpegFrameCount / elapsed).toFixed(1);
+            const stats = document.getElementById('stream-stats');
+            if (stats) {
+                stats.textContent = 'Frames: ' + jpegFrameCount + ' | FPS: ' + fps;
+            }
+            // Update timestamp overlay
+            const tsEl = document.getElementById('live-timestamp');
+            if (tsEl) {
+                const now = new Date();
+                tsEl.textContent = now.toLocaleTimeString();
+            }
+        }
+
+        // Handle image load error (JPEG)
+        function handleImageError() {
+            // Only log error if we haven't loaded any frames yet (initial connection failure)
+            // Don't spam errors for occasional frame drops during polling
+            if (jpegFrameCount === 0) {
+                log('Failed to load camera image - check session or camera status', 'error');
+                const stats = document.getElementById('stream-stats');
+                if (stats) {
+                    stats.style.color = '#e57373';
+                    stats.textContent = 'Connection error';
+                }
+                const indicator = document.getElementById('live-indicator');
+                if (indicator) {
+                    indicator.style.color = '#e57373';
+                    indicator.textContent = 'ERROR';
+                }
+            }
+            // If we've already loaded frames, just ignore occasional errors (network hiccup)
+        }
+
+        // Stop JPEG stream
+        function stopJpegStream() {
+            if (jpegStreamTimer) {
+                clearInterval(jpegStreamTimer);
+                jpegStreamTimer = null;
+                log('JPEG stream stopped');
+            }
+
+            // Update UI - re-enable controls
+            document.getElementById('btn-start-live').disabled = !document.getElementById('camera').value;
+            document.getElementById('btn-stop-live').disabled = true;
+            document.getElementById('camera').disabled = false;
+            document.getElementById('refresh-rate').disabled = false;
+            // Profile stays enabled (always accessible)
+            document.getElementById('live-status').innerHTML = '';
+
+            // Show stopped state
+            const container = document.getElementById('video-container');
+            if (container && container.querySelector('#live-image')) {
+                const stats = document.getElementById('stream-stats');
+                if (stats) {
+                    stats.style.color = '#888';
+                    stats.textContent = 'Stopped (Frames: ' + jpegFrameCount + ')';
+                }
+                const indicator = document.getElementById('live-indicator');
+                if (indicator) {
+                    indicator.style.color = '#888';
+                    indicator.textContent = 'STOPPED';
+                }
+            }
+        }
+
+        // Show JPEG API output
+        function showJpegApiOutput(cameraId, imageUrl, refreshRate, camPrefix) {
+            const wrapper = document.getElementById('live-api-wrapper');
+            const el = document.getElementById('live-api');
+            const profileLabel = (camPrefix === 'scam') ? 'Profile 2 (Lower res)' : 'Profile 1 (Full res)';
+
+            wrapper.style.display = 'block';
+
+            el.innerHTML =
+                '<span class="label">Method:</span> JPEG Snapshot Polling\n' +
+                '<span class="label">Endpoint:</span> <span class="string">/mpe/' + camPrefix + cameraId + '.jpg</span>\n' +
+                '<span class="label">Profile:</span> ' + profileLabel + '\n' +
+                '<span class="label">Full URL:</span> ' + imageUrl.replace(/&ts=\d+/, '&ts={timestamp}') + '\n\n' +
+                '<span class="label">Parameters:</span>\n' +
+                '  sess: <span class="string">"' + session.substring(0, 8) + '..."</span> (session token)\n' +
+                '  ts:   <span class="string">{timestamp}</span> (cache-buster, updates each poll)\n\n' +
+                '<span class="label">Refresh Rate:</span> ' + refreshRate + 'ms (' + (1000/refreshRate).toFixed(1) + ' fps)\n\n' +
+                '<span class="label">Implementation:</span>\n' +
+                '<span style="color: #608b4e;">// Poll every ' + refreshRate + 'ms</span>\n' +
+                'setInterval(() => {\n' +
+                '    img.src = "' + baseUrl + '/mpe/' + camPrefix + cameraId + '.jpg?sess=" + session + "&ts=" + Date.now();\n' +
+                '}, ' + refreshRate + ');';
+        }
+
+        // Start live stream based on selected viewer
+        function startLiveStream() {
+            if (currentViewer === 'jpeg') {
+                startJpegStream();
+            } else if (currentViewer === 'mjpeg') {
+                startMjpegStream();
+            } else if (currentViewer === 'websocket') {
+                startWebsocketStream();
+            }
+        }
+
+        // Start MJPEG stream
+        function startMjpegStream() {
+            const cameraId = document.getElementById('camera').value;
+            if (!cameraId) {
+                alert('Please select a camera');
+                return;
+            }
+
+            const profile = document.getElementById('stream-profile').value;
+            const cam = cameras.find(c => c.bID === parseInt(cameraId));
+            const camName = cam ? cam.sName : 'Camera ' + cameraId;
+
+            // Use 'cam' for profile 1, 'scam' for profile 2
+            const camPrefix = (profile === '2') ? 'scam' : 'cam';
+            const profileLabel = (profile === '2') ? 'Profile 2' : 'Profile 1';
+
+            log('Starting MJPEG stream for Camera ' + cameraId + ': ' + camName + ' (' + profileLabel + ')');
+
+            mjpegActive = true;
+            mjpegStartTime = Date.now();
+
+            // Build MJPEG URL
+            const mjpegUrl = baseUrl + '/mpe/' + camPrefix + cameraId + '.mjpg?sess=' + session;
+
+            // Show API output
+            showMjpegApiOutput(cameraId, mjpegUrl, camPrefix);
+
+            // Create video container with MJPEG image and overlays
+            document.getElementById('video-container').innerHTML =
+                '<img id="live-image" src="' + mjpegUrl + '" alt="Live MJPEG stream" onerror="handleMjpegError()" />' +
+                '<div class="video-overlay">' +
+                    '<span class="cam-num">Cam ' + cameraId + '</span>' +
+                    '<span class="live-indicator" id="live-indicator" style="color: #1565c0;">MJPEG</span>' +
+                '</div>' +
+                '<div class="video-overlay-br">' +
+                    '<span class="cam-label">' + camName + '</span><br>' +
+                    '<span class="timestamp" id="live-timestamp">--:--:--</span>' +
+                '</div>' +
+                '<div class="stream-stats" id="stream-stats">Streaming...</div>';
+
+            // Start timestamp update timer
+            mjpegTimestampTimer = setInterval(function() {
+                const tsEl = document.getElementById('live-timestamp');
+                if (tsEl) {
+                    tsEl.textContent = new Date().toLocaleTimeString();
+                }
+                const stats = document.getElementById('stream-stats');
+                if (stats && mjpegActive) {
+                    const elapsed = Math.floor((Date.now() - mjpegStartTime) / 1000);
+                    const mins = Math.floor(elapsed / 60);
+                    const secs = elapsed % 60;
+                    stats.textContent = 'Streaming: ' + mins + ':' + (secs < 10 ? '0' : '') + secs;
+                }
+            }, 1000);
+
+            // Update UI
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = false;
+            document.getElementById('camera').disabled = true;
+            // Keep profile enabled for switching during stream
+            document.getElementById('stream-profile').disabled = false;
+            document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (MJPEG)...</span>';
+
+            log('MJPEG stream started', 'success');
+        }
+
+        // Handle MJPEG stream error
+        function handleMjpegError() {
+            log('MJPEG stream error - check session or camera status', 'error');
+            const stats = document.getElementById('stream-stats');
+            if (stats) {
+                stats.style.color = '#e57373';
+                stats.textContent = 'Stream error';
+            }
+            const indicator = document.getElementById('live-indicator');
+            if (indicator) {
+                indicator.style.color = '#e57373';
+                indicator.textContent = 'ERROR';
+            }
+        }
+
+        // Stop MJPEG stream
+        function stopMjpegStream() {
+            if (mjpegTimestampTimer) {
+                clearInterval(mjpegTimestampTimer);
+                mjpegTimestampTimer = null;
+            }
+
+            if (mjpegActive) {
+                mjpegActive = false;
+                log('MJPEG stream stopped');
+
+                // Clear the image src to stop the stream
+                const img = document.getElementById('live-image');
+                if (img) {
+                    img.src = '';
+                }
+
+                // Update UI - re-enable controls
+                document.getElementById('btn-start-live').disabled = !document.getElementById('camera').value;
+                document.getElementById('btn-stop-live').disabled = true;
+                document.getElementById('camera').disabled = false;
+                // Profile stays enabled (always accessible)
+                document.getElementById('live-status').innerHTML = '';
+
+                // Show stopped state
+                const stats = document.getElementById('stream-stats');
+                if (stats) {
+                    const elapsed = Math.floor((Date.now() - mjpegStartTime) / 1000);
+                    stats.style.color = '#888';
+                    stats.textContent = 'Stopped (Duration: ' + elapsed + 's)';
+                }
+                const indicator = document.getElementById('live-indicator');
+                if (indicator) {
+                    indicator.style.color = '#888';
+                    indicator.textContent = 'STOPPED';
+                }
+            }
+        }
+
+        // Show MJPEG API output
+        function showMjpegApiOutput(cameraId, mjpegUrl, camPrefix) {
+            const wrapper = document.getElementById('live-api-wrapper');
+            const el = document.getElementById('live-api');
+            const profileLabel = (camPrefix === 'scam') ? 'Profile 2 (Lower res)' : 'Profile 1 (Full res)';
+
+            wrapper.style.display = 'block';
+
+            el.innerHTML =
+                '<span class="label">Method:</span> MJPEG Continuous Stream\n' +
+                '<span class="label">Endpoint:</span> <span class="string">/mpe/' + camPrefix + cameraId + '.mjpg</span>\n' +
+                '<span class="label">Profile:</span> ' + profileLabel + '\n' +
+                '<span class="label">Full URL:</span> ' + mjpegUrl + '\n\n' +
+                '<span class="label">Parameters:</span>\n' +
+                '  sess: <span class="string">"' + session.substring(0, 8) + '..."</span> (session token)\n\n' +
+                '<span class="label">Content-Type:</span> multipart/x-mixed-replace\n\n' +
+                '<span class="label">Implementation:</span>\n' +
+                '<span style="color: #608b4e;">// Simply set the image src - browser handles the stream</span>\n' +
+                '&lt;img src="' + baseUrl + '/mpe/' + camPrefix + cameraId + '.mjpg?sess=' + session.substring(0, 8) + '..." /&gt;\n\n' +
+                '<span style="color: #608b4e;">// No polling needed - single HTTP connection streams continuously</span>';
+        }
+
+        // Check WebCodecs support and secure context
+        function checkWebCodecsSupport() {
+            // Check if we're in a secure context (required for WebCodecs)
+            if (!window.isSecureContext) {
+                return {
+                    supported: false,
+                    reason: 'WebCodecs requires a secure context (HTTPS).\n\n' +
+                            'Current page is served over HTTP which is not a secure context.\n\n' +
+                            'Options:\n' +
+                            '• Use HTTPS (https://' + window.location.host + ')\n' +
+                            '• Use localhost (http://localhost)\n' +
+                            '• Use MJPEG or JPEG viewers instead'
+                };
+            }
+
+            // Check if VideoDecoder is available
+            if (typeof VideoDecoder === 'undefined') {
+                return {
+                    supported: false,
+                    reason: 'VideoDecoder not available.\n\nUse Chrome 94+, Edge 94+, or Safari 16.4+.'
+                };
+            }
+
+            return { supported: true };
+        }
+
+        // Check if WebSocket viewer should be enabled
+        function updateWebsocketAvailability() {
+            const wsTab = document.getElementById('tab-websocket');
+            const check = checkWebCodecsSupport();
+
+            if (!check.supported) {
+                wsTab.disabled = true;
+                wsTab.title = 'Requires HTTPS (secure context)';
+                // Add visual indicator
+                wsTab.style.textDecoration = 'line-through';
+                wsTab.style.opacity = '0.6';
+            } else {
+                wsTab.disabled = false;
+                wsTab.title = '';
+                wsTab.style.textDecoration = 'none';
+                wsTab.style.opacity = '1';
+            }
+        }
+
+        // Start WebSocket H.264 stream
+        function startWebsocketStream() {
+            const cameraId = document.getElementById('camera').value;
+            if (!cameraId) {
+                alert('Please select a camera');
+                return;
+            }
+
+            // Check WebCodecs support
+            const webCodecsCheck = checkWebCodecsSupport();
+            if (!webCodecsCheck.supported) {
+                log('WebCodecs not supported: ' + webCodecsCheck.reason, 'error');
+                alert('WebCodecs API not supported in this browser.\n\n' + webCodecsCheck.reason);
+                return;
+            }
+
+            const profile = document.getElementById('stream-profile').value;
+            const cam = cameras.find(c => c.bID === parseInt(cameraId));
+            const camName = cam ? cam.sName : 'Camera ' + cameraId;
+            const profileLabel = (profile === '2') ? 'Profile 2' : 'Profile 1';
+
+            log('Starting WebSocket H.264 stream for Camera ' + cameraId + ': ' + camName + ' (' + profileLabel + ')');
+
+            // Reset state
+            wsActive = true;
+            wsStartTime = Date.now();
+            wsFrameCount = 0;
+            nalSPS = null;
+            nalPPS = null;
+
+            // Build WebSocket URL - use session-based auth (consistent with other APIs)
+            const wsProtocol = (protocol === 'https') ? 'wss' : 'ws';
+            const port = (protocol === 'https') ? '443' : document.getElementById('nvr-port').value || '80';
+            const wsUrl = wsProtocol + '://' + nvrHost + ':' + port + '/ws/cam' + cameraId + '-pro' + profile + '?sess=' + session;
+
+            // Show API output
+            showWebsocketApiOutput(cameraId, wsUrl, profile);
+
+            // Create canvas container
+            document.getElementById('video-container').innerHTML =
+                '<canvas id="ws-canvas" width="640" height="480" style="max-width: 100%; max-height: 380px; object-fit: contain;"></canvas>' +
+                '<div class="video-overlay">' +
+                    '<span class="cam-num">Cam ' + cameraId + '</span>' +
+                    '<span class="live-indicator" id="live-indicator" style="color: #2e7d32;">WS</span>' +
+                '</div>' +
+                '<div class="video-overlay-br">' +
+                    '<span class="cam-label">' + camName + '</span><br>' +
+                    '<span class="timestamp" id="live-timestamp">--:--:--</span>' +
+                '</div>' +
+                '<div class="stream-stats" id="stream-stats">Connecting...</div>';
+
+            const canvas = document.getElementById('ws-canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Initialize VideoDecoder
+            try {
+                videoDecoder = new VideoDecoder({
+                    output: frame => {
+                        // Update canvas size to match video
+                        if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+                            canvas.width = frame.displayWidth;
+                            canvas.height = frame.displayHeight;
+                        }
+                        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                        frame.close();
+                        wsFrameCount++;
+                    },
+                    error: e => {
+                        console.error('VideoDecoder error:', e);
+                        log('Decoder error: ' + e.message, 'error');
+                    }
+                });
+
+                videoDecoder.configure({
+                    codec: 'avc1.42C01E',
+                    avc: { format: 'annexb' },
+                    hardwareAcceleration: 'prefer-hardware'
+                });
+
+                log('VideoDecoder initialized', 'success');
+            } catch (e) {
+                log('Failed to initialize VideoDecoder: ' + e.message, 'error');
+                return;
+            }
+
+            // Create WebSocket connection
+            try {
+                wsConnection = new WebSocket(wsUrl);
+                wsConnection.binaryType = 'arraybuffer';
+
+                wsConnection.onopen = () => {
+                    log('WebSocket connected', 'success');
+                    const stats = document.getElementById('stream-stats');
+                    if (stats) stats.textContent = 'Connected, waiting for video...';
+                };
+
+                wsConnection.onerror = (err) => {
+                    log('WebSocket error', 'error');
+                    const indicator = document.getElementById('live-indicator');
+                    if (indicator) {
+                        indicator.style.color = '#e57373';
+                        indicator.textContent = 'ERROR';
+                    }
+                };
+
+                wsConnection.onclose = () => {
+                    log('WebSocket closed');
+                    if (wsActive) {
+                        const stats = document.getElementById('stream-stats');
+                        if (stats) {
+                            stats.style.color = '#888';
+                            stats.textContent = 'Disconnected';
+                        }
+                    }
+                };
+
+                wsConnection.onmessage = (ev) => {
+                    if (typeof ev.data === 'string') {
+                        // JSON metadata
+                        try {
+                            const metadata = JSON.parse(ev.data);
+                            log('Received metadata: ' + JSON.stringify(metadata).substring(0, 100) + '...');
+                        } catch (e) {
+                            log('Invalid metadata JSON', 'error');
+                        }
+                    } else {
+                        // Binary H.264 NAL unit
+                        processNALUnit(new Uint8Array(ev.data));
+                    }
+                };
+
+            } catch (e) {
+                log('Failed to create WebSocket: ' + e.message, 'error');
+                return;
+            }
+
+            // Start timestamp update timer
+            wsTimestampTimer = setInterval(function() {
+                const tsEl = document.getElementById('live-timestamp');
+                if (tsEl) {
+                    tsEl.textContent = new Date().toLocaleTimeString();
+                }
+                const stats = document.getElementById('stream-stats');
+                if (stats && wsActive) {
+                    const elapsed = (Date.now() - wsStartTime) / 1000;
+                    const fps = elapsed > 0 ? (wsFrameCount / elapsed).toFixed(1) : '0.0';
+                    stats.textContent = 'Frames: ' + wsFrameCount + ' | FPS: ' + fps;
+                }
+            }, 1000);
+
+            // Update UI
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = false;
+            document.getElementById('camera').disabled = true;
+            document.getElementById('stream-profile').disabled = false; // Keep enabled for switching
+            document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket)...</span>';
+
+            log('WebSocket stream started', 'success');
+        }
+
+        // Process NAL unit from WebSocket
+        function processNALUnit(bytes) {
+            const nalType = getNALType(bytes);
+
+            // Cache SPS and PPS
+            if (nalType === 7) {
+                nalSPS = bytes;
+                return;
+            }
+            if (nalType === 8) {
+                nalPPS = bytes;
+                return;
+            }
+
+            // IDR frame (keyframe) - needs SPS + PPS prepended
+            if (nalType === 5) {
+                if (!nalSPS || !nalPPS) {
+                    console.warn('IDR received but no SPS/PPS cached');
+                    return;
+                }
+                // Concatenate SPS + PPS + IDR
+                const completeAU = concatBuffers([nalSPS, nalPPS, bytes]);
+                decodeFrame(completeAU, true);
+                return;
+            }
+
+            // P-frame (delta)
+            if (nalType === 1) {
+                decodeFrame(bytes, false);
+                return;
+            }
+        }
+
+        // Get NAL type from bytes
+        function getNALType(bytes) {
+            let hdr = 0;
+            if (bytes[0] === 0x00 && bytes[1] === 0x00 && bytes[2] === 0x01) {
+                hdr = 3;
+            } else if (bytes[0] === 0x00 && bytes[1] === 0x00 && bytes[2] === 0x00 && bytes[3] === 0x01) {
+                hdr = 4;
+            }
+            return bytes[hdr] & 0x1F;
+        }
+
+        // Concatenate multiple Uint8Arrays
+        function concatBuffers(arrays) {
+            const totalLength = arrays.reduce((sum, arr) => sum + arr.byteLength, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const arr of arrays) {
+                result.set(arr, offset);
+                offset += arr.byteLength;
+            }
+            return result;
+        }
+
+        // Decode frame using VideoDecoder
+        let timestampCounter = 0;
+        function decodeFrame(bytes, isKey) {
+            if (!videoDecoder || videoDecoder.state === 'closed') return;
+
+            try {
+                videoDecoder.decode(new EncodedVideoChunk({
+                    type: isKey ? 'key' : 'delta',
+                    timestamp: timestampCounter++,
+                    data: bytes
+                }));
+            } catch (e) {
+                console.error('Decode error:', e);
+            }
+        }
+
+        // Stop WebSocket stream
+        function stopWebsocketStream() {
+            if (wsTimestampTimer) {
+                clearInterval(wsTimestampTimer);
+                wsTimestampTimer = null;
+            }
+
+            if (wsConnection) {
+                try {
+                    wsConnection.onclose = null;
+                    wsConnection.onerror = null;
+                    wsConnection.onmessage = null;
+                    wsConnection.onopen = null;
+                    wsConnection.close();
+                } catch (e) {}
+                wsConnection = null;
+            }
+
+            if (videoDecoder && videoDecoder.state !== 'closed') {
+                try {
+                    videoDecoder.close();
+                } catch (e) {}
+                videoDecoder = null;
+            }
+
+            if (wsActive) {
+                wsActive = false;
+                log('WebSocket stream stopped');
+
+                // Update UI
+                document.getElementById('btn-start-live').disabled = !document.getElementById('camera').value;
+                document.getElementById('btn-stop-live').disabled = true;
+                document.getElementById('camera').disabled = false;
+                document.getElementById('live-status').innerHTML = '';
+
+                // Show stopped state
+                const stats = document.getElementById('stream-stats');
+                if (stats) {
+                    stats.style.color = '#888';
+                    stats.textContent = 'Stopped (Frames: ' + wsFrameCount + ')';
+                }
+                const indicator = document.getElementById('live-indicator');
+                if (indicator) {
+                    indicator.style.color = '#888';
+                    indicator.textContent = 'STOPPED';
+                }
+            }
+
+            // Reset NAL cache
+            nalSPS = null;
+            nalPPS = null;
+            timestampCounter = 0;
+        }
+
+        // Show WebSocket API output
+        function showWebsocketApiOutput(cameraId, wsUrl, profile) {
+            const wrapper = document.getElementById('live-api-wrapper');
+            const el = document.getElementById('live-api');
+            const profileLabel = (profile === '2') ? 'Profile 2 (Lower res)' : 'Profile 1 (Full res)';
+            const wsProtocol = (protocol === 'https') ? 'wss' : 'ws';
+
+            wrapper.style.display = 'block';
+
+            el.innerHTML =
+                '<span class="label">Method:</span> WebSocket H.264\n' +
+                '<span class="label">Endpoint:</span> <span class="string">/ws/cam' + cameraId + '-pro' + profile + '</span>\n' +
+                '<span class="label">Profile:</span> ' + profileLabel + '\n' +
+                '<span class="label">Full URL:</span> ' + wsUrl.replace(session, session.substring(0, 8) + '...') + '\n\n' +
+                '<span class="label">Parameters:</span>\n' +
+                '  sess: <span class="string">"' + session.substring(0, 8) + '..."</span> (session token from auth.loginUser)\n\n' +
+                '<span class="label">Binary Format:</span> H.264 NAL units (Annex B)\n' +
+                '<span class="label">Decoder:</span> WebCodecs VideoDecoder\n\n' +
+                '<span class="label">Implementation:</span>\n' +
+                '<span style="color: #608b4e;">// WebSocket + WebCodecs API (uses session auth)</span>\n' +
+                'const ws = new WebSocket("' + wsProtocol + '://' + nvrHost + '/ws/cam' + cameraId + '-pro' + profile + '?sess=" + session);\n' +
+                'ws.binaryType = "arraybuffer";\n\n' +
+                '<span style="color: #608b4e;">// Decode H.264 NAL units with VideoDecoder</span>\n' +
+                'decoder.decode(new EncodedVideoChunk({ type: "key", data: nalBytes }));';
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !session && !document.getElementById('btn-connect').disabled) {
+                connect();
+            }
+        });
+
+        // Load saved NVR host from localStorage
+        const savedHost = localStorage.getItem('dividia-nvr-host');
+        if (savedHost) {
+            document.getElementById('nvr-host').value = savedHost;
+        }
+
+        // Save NVR host on change
+        document.getElementById('nvr-host').addEventListener('change', function(e) {
+            localStorage.setItem('dividia-nvr-host', e.target.value);
+        });
+
+        // Auto-detect and lock protocol based on how page is served
+        function initializeProtocol() {
+            const pageProtocol = window.location.protocol.replace(':', '');
+            const protocolSelect = document.getElementById('protocol');
+            const warningEl = document.getElementById('protocol-warning');
+
+            if (pageProtocol === 'https') {
+                // HTTPS page - lock to HTTPS only
+                protocolSelect.value = 'https';
+                protocolSelect.disabled = true;
+                warningEl.innerHTML = '<strong>HTTPS Mode:</strong> This page is served over HTTPS. Only HTTPS connections to NVRs will work (use serial.dvr.dividia.net). Local IPs (192.168.x.x) will not work due to mixed content restrictions.';
+                warningEl.style.display = 'block';
+                warningEl.style.background = '#e3f2fd';
+                warningEl.style.borderLeftColor = '#1565c0';
+                warningEl.style.color = '#0d47a1';
+            } else if (pageProtocol === 'http') {
+                // HTTP page - lock to HTTP only
+                protocolSelect.value = 'http';
+                protocolSelect.disabled = true;
+
+                // Check if localhost (secure context exception)
+                const isLocalhost = window.location.hostname === 'localhost' ||
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.hostname === '';
+
+                if (isLocalhost) {
+                    warningEl.innerHTML = '<strong>HTTP Mode (Localhost):</strong> Running on localhost. Local IPs work. WebSocket H.264 is available (localhost = secure context).';
+                    warningEl.style.display = 'block';
+                    warningEl.style.background = '#e8f5e9';
+                    warningEl.style.borderLeftColor = '#4caf50';
+                    warningEl.style.color = '#2e7d32';
+                } else {
+                    warningEl.innerHTML = '<strong>HTTP Mode:</strong> This page is served over HTTP. Use local IPs (192.168.x.x). Remote URLs (serial.dvr.dividia.net) require HTTPS. <strong>WebSocket H.264 unavailable</strong> - use MJPEG or JPEG.';
+                    warningEl.style.display = 'block';
+                    warningEl.style.background = '#fff3e0';
+                    warningEl.style.borderLeftColor = '#ff9800';
+                    warningEl.style.color = '#e65100';
+                }
+            } else if (pageProtocol === 'file') {
+                // File protocol - show error
+                protocolSelect.disabled = true;
+                warningEl.innerHTML = '<strong>Error:</strong> Cannot run from local file (file://). Please serve via web server: <code>python3 -m http.server 8080</code>';
+                warningEl.style.display = 'block';
+                warningEl.style.background = '#ffebee';
+                warningEl.style.borderLeftColor = '#f44336';
+                warningEl.style.color = '#c62828';
+            }
+
+            updateProtocol();
+        }
+
+        // Initial validation check (in case username has default value)
+        validateConnectForm();
+
+        // Initialize protocol based on how page is served
+        initializeProtocol();
+
+        // Check WebSocket availability on page load
+        updateWebsocketAvailability();
+    </script>
+</body>
+</html>
