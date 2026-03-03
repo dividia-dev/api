@@ -110,7 +110,10 @@
             margin-top: 10px;
         }
         button:hover { background: #1d4ed8; }
-        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        button:disabled { background: #9ca3af !important; cursor: not-allowed; }
+        .btn-stop { background: #dc3545; }
+        .btn-stop:hover:not(:disabled) { background: #b02a37; }
+        .btn-stop:disabled { background: #9ca3af !important; }
         .row { display: flex; gap: 15px; }
         .row > div { flex: 1; }
 
@@ -469,6 +472,45 @@
             padding: 4px 8px;
             border-radius: 3px;
         }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            color: #fff;
+            font-size: 14px;
+            margin-top: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .loading-subtext {
+            color: #888;
+            font-size: 11px;
+            margin-top: 4px;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -497,6 +539,7 @@
                     <li>Use serial.dvr.dividia.net URLs</li>
                     <li>All viewers supported</li>
                     <li>WebSocket H.264 available</li>
+                    <li>Local IPs work after accepting NVR certificate</li>
                 </ul>
             </div>
         </div>
@@ -579,6 +622,32 @@
                     <div class="api-output-toggle" onclick="toggleApiOutput(this)">▼ Request/Response</div>
                     <div id="cameras-api" class="api-output"></div>
                 </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>Method: config.camera.getAllCameras</h4>
+                    <p>Retrieves the list of all cameras configured on the NVR, including their names, IDs, and status.</p>
+                    <strong>Parameters</strong>
+                    <table>
+                        <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>0</td><td>session</td><td>string</td><td>Session token from auth.loginUser</td></tr>
+                    </table>
+                    <strong style="display: block; margin-top: 10px;">Response</strong>
+                    <table>
+                        <tr><th>Index</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>0</td><td>bool</td><td><code>true</code> if successful</td></tr>
+                        <tr><td>1</td><td>array</td><td>Array of camera objects</td></tr>
+                    </table>
+                    <strong style="display: block; margin-top: 10px;">Camera Object Properties</strong>
+                    <table>
+                        <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>bID</td><td>int</td><td>Camera ID (1-16)</td></tr>
+                        <tr><td>sName</td><td>string</td><td>Camera name/label</td></tr>
+                        <tr><td>fEnable</td><td>bool</td><td><code>true</code> if camera is enabled</td></tr>
+                        <tr><td>fFailed</td><td>bool</td><td><code>true</code> if camera connection failed</td></tr>
+                        <tr><td>sURL</td><td>string</td><td>Camera RTSP/stream URL</td></tr>
+                    </table>
+                </div>
             </div>
 
             <!-- Tab Navigation -->
@@ -637,7 +706,7 @@
 
                     <div style="margin-top: 15px;">
                         <button onclick="startLiveStream(); this.blur();" id="btn-start-live" disabled>Start Live Video</button>
-                        <button onclick="stopAllStreams(); this.blur();" id="btn-stop-live" disabled style="background: #dc3545;">Stop</button>
+                        <button onclick="stopAllStreams(); this.blur();" id="btn-stop-live" class="btn-stop" disabled>Stop</button>
                         <span id="live-status" style="margin-left: 10px; color: #666; font-size: 13px;"></span>
                     </div>
 
@@ -768,7 +837,14 @@
     </div><!-- end page-content -->
 
     <script>
+        // ==================== DEBUG CONFIG ====================
+        // Set to true for development/troubleshooting, false for production
+        const DEBUG = false;  // Set to true for console logging
+        const WS_DEBUG = DEBUG && false;  // Verbose WebSocket NAL packet logging (requires DEBUG)
+
         // ==================== SHARED STATE ====================
+        let wsPacketCount = 0;  // Track packet count for debug
+
         let session = null;
         let authUser = null;
         let authPass = null;
@@ -793,7 +869,17 @@
         let videoDecoder = null;
         let nalSPS = null;
         let nalPPS = null;
+        let nalVPS = null;  // HEVC Video Parameter Set
+        let currentCodec = null;
         let timestampCounter = 0;
+        let decoderErrorCount = 0;
+        let useHardwareAccel = true;  // Will fallback to software if hardware fails
+        let wsCanvas = null;  // Canvas reference for decoder recovery
+        let wsCanvasCtx = null;
+        let streamType = null;  // 'h264' or 'hevc' - auto-detected
+        let wsStreamingTimeout = null;  // Timeout for no-frame detection
+        const MAX_DECODER_ERRORS = 15;  // Stop after this many consecutive errors
+        const STREAMING_TIMEOUT_MS = 12000;  // Stop if no frames after 12 seconds
 
         // Playback state
         let events = [];
@@ -873,7 +959,10 @@
             toggle.classList.toggle('collapsed', isCollapsed);
             const currentText = toggle.textContent.replace(/^[▶▼]\s*/, '');
             if (currentText.startsWith('Cameras Found:')) {
-                toggle.innerHTML = (isCollapsed ? '▶' : '▼') + ' ' + currentText;
+                // Preserve the camera-count span element
+                const countSpan = toggle.querySelector('#camera-count');
+                const count = countSpan ? countSpan.textContent : '0';
+                toggle.innerHTML = (isCollapsed ? '▶' : '▼') + ' Cameras Found: <span id="camera-count">' + count + '</span>';
             } else if (currentText.startsWith('Request Details')) {
                 toggle.textContent = (isCollapsed ? '▶' : '▼') + ' Request Details';
             } else {
@@ -920,7 +1009,7 @@
             const className = `log-${type}`;
             logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
             logEl.scrollTop = logEl.scrollHeight;
-            console.log(`[${type}] ${message}`);
+            if (DEBUG) console.log(`[${type}] ${message}`);
         }
 
         // ==================== API OUTPUT DISPLAY ====================
@@ -1227,9 +1316,10 @@
                 }
 
                 cameras = result.result[1];
-                log('Found ' + cameras.length + ' cameras', 'success');
+                const enabledCount = cameras.filter(function(cam) { return cam.fEnable; }).length;
+                log('Found ' + cameras.length + ' cameras (' + enabledCount + ' enabled)', 'success');
 
-                document.getElementById('cameras-status').textContent = cameras.length + ' camera(s) found';
+                document.getElementById('cameras-status').textContent = enabledCount + ' enabled camera(s) found';
                 document.getElementById('cameras-status').style.color = '#2e7d32';
 
                 const camerasWrapper = document.getElementById('cameras-list-wrapper');
@@ -1257,23 +1347,25 @@
                         '</div>';
                 }).join('');
 
-                // Populate live camera dropdown
+                // Filter to only enabled cameras
+                const enabledCameras = cameras.filter(function(cam) { return cam.fEnable; });
+
+                // Populate live camera dropdown (enabled cameras only)
                 const cameraLive = document.getElementById('camera-live');
                 cameraLive.disabled = false;
                 cameraLive.innerHTML = '<option value="">-- Select Camera --</option>';
-                cameras.forEach(function(cam) {
+                enabledCameras.forEach(function(cam) {
                     const option = document.createElement('option');
                     option.value = cam.bID;
-                    const status = cam.fEnable ? '' : ' (Disabled)';
-                    option.textContent = 'Camera ' + cam.bID + ': ' + (cam.sName || 'Unnamed') + status;
+                    option.textContent = 'Camera ' + cam.bID + ': ' + (cam.sName || 'Unnamed');
                     cameraLive.appendChild(option);
                 });
 
-                // Populate playback camera dropdown
+                // Populate playback camera dropdown (enabled cameras only)
                 const cameraPlayback = document.getElementById('camera-playback');
                 cameraPlayback.disabled = false;
                 cameraPlayback.innerHTML = '<option value="">-- Select Camera --</option>';
-                cameras.forEach(function(cam) {
+                enabledCameras.forEach(function(cam) {
                     const option = document.createElement('option');
                     option.value = cam.bID;
                     option.textContent = 'Camera ' + cam.bID + ': ' + (cam.sName || 'Unnamed');
@@ -1388,7 +1480,7 @@
             showJpegApiOutput(cameraId, imageUrl, refreshRate, camPrefix);
 
             document.getElementById('live-video-container').innerHTML =
-                '<img id="live-image" src="' + imageUrl + '" alt="Live camera feed" onerror="handleImageError()" onload="handleImageLoad()" />' +
+                '<img id="live-image" src="' + imageUrl + '" alt="Live camera feed" onerror="handleImageError()" onload="handleImageLoad()" style="display:none;" />' +
                 '<div class="video-overlay">' +
                     '<span class="cam-num">Cam ' + cameraId + '</span>' +
                     '<span class="live-indicator" id="live-indicator" style="color: #e65100;">JPEG</span>' +
@@ -1397,7 +1489,12 @@
                     '<span class="cam-label">' + camName + '</span><br>' +
                     '<span class="timestamp" id="live-timestamp">--:--:--</span>' +
                 '</div>' +
-                '<div class="stream-stats" id="stream-stats">Loading...</div>';
+                '<div class="stream-stats" id="stream-stats">Loading...</div>' +
+                '<div class="loading-overlay" id="loading-overlay">' +
+                    '<div class="loading-spinner"></div>' +
+                    '<div class="loading-text">Connecting...</div>' +
+                    '<div class="loading-subtext" id="loading-status">Loading JPEG snapshot</div>' +
+                '</div>';
 
             const urlBase = baseUrl + '/mpe/' + camPrefix + cameraId + '.jpg?sess=' + session + '&ts=';
             jpegStreamTimer = setInterval(function() {
@@ -1414,6 +1511,12 @@
         }
 
         function handleImageLoad() {
+            // Show image and hide loading on first frame
+            if (jpegFrameCount === 0) {
+                const img = document.getElementById('live-image');
+                if (img) img.style.display = '';
+                hideLoadingOverlay();
+            }
             jpegFrameCount++;
             const elapsed = (Date.now() - jpegStartTime) / 1000;
             const fps = (jpegFrameCount / elapsed).toFixed(1);
@@ -1424,12 +1527,15 @@
         }
 
         function handleImageError() {
+            // Ignore errors if JPEG stream is no longer active (e.g., switched to WebSocket)
+            if (!jpegStreamTimer) return;
             if (jpegFrameCount === 0) {
                 log('Failed to load camera image - check session or camera status', 'error');
                 const stats = document.getElementById('stream-stats');
                 if (stats) { stats.style.color = '#e57373'; stats.textContent = 'Connection error'; }
                 const indicator = document.getElementById('live-indicator');
                 if (indicator) { indicator.style.color = '#e57373'; indicator.textContent = 'ERROR'; }
+                showLoadingError('Failed to load image');
             }
         }
 
@@ -1474,12 +1580,13 @@
 
             mjpegActive = true;
             mjpegStartTime = Date.now();
+            mjpegLoaded = false;  // Reset loaded flag
 
             const mjpegUrl = baseUrl + '/mpe/' + camPrefix + cameraId + '.mjpg?sess=' + session;
             showMjpegApiOutput(cameraId, mjpegUrl, camPrefix);
 
             document.getElementById('live-video-container').innerHTML =
-                '<img id="live-image" src="' + mjpegUrl + '" alt="Live MJPEG stream" onerror="handleMjpegError()" />' +
+                '<img id="live-image" src="' + mjpegUrl + '" alt="Live MJPEG stream" onerror="handleMjpegError()" onload="handleMjpegLoad()" style="display:none;" />' +
                 '<div class="video-overlay">' +
                     '<span class="cam-num">Cam ' + cameraId + '</span>' +
                     '<span class="live-indicator" id="live-indicator" style="color: #1565c0;">MJPEG</span>' +
@@ -1488,7 +1595,12 @@
                     '<span class="cam-label">' + camName + '</span><br>' +
                     '<span class="timestamp" id="live-timestamp">--:--:--</span>' +
                 '</div>' +
-                '<div class="stream-stats" id="stream-stats">Streaming...</div>';
+                '<div class="stream-stats" id="stream-stats">Connecting...</div>' +
+                '<div class="loading-overlay" id="loading-overlay">' +
+                    '<div class="loading-spinner"></div>' +
+                    '<div class="loading-text">Connecting...</div>' +
+                    '<div class="loading-subtext" id="loading-status">Loading MJPEG stream</div>' +
+                '</div>';
 
             mjpegTimestampTimer = setInterval(function() {
                 const tsEl = document.getElementById('live-timestamp');
@@ -1509,12 +1621,29 @@
             log('MJPEG stream started', 'success');
         }
 
+        let mjpegLoaded = false;  // Track if MJPEG has loaded
+
+        function handleMjpegLoad() {
+            // Show image and hide loading on first load
+            if (!mjpegLoaded) {
+                mjpegLoaded = true;
+                const img = document.getElementById('live-image');
+                if (img) img.style.display = '';
+                hideLoadingOverlay();
+            }
+        }
+
         function handleMjpegError() {
+            // Ignore errors if MJPEG stream is no longer active (e.g., switched to WebSocket)
+            if (!mjpegActive) return;
             log('MJPEG stream error - check session or camera status', 'error');
             const stats = document.getElementById('stream-stats');
             if (stats) { stats.style.color = '#e57373'; stats.textContent = 'Stream error'; }
             const indicator = document.getElementById('live-indicator');
             if (indicator) { indicator.style.color = '#e57373'; indicator.textContent = 'ERROR'; }
+            if (!mjpegLoaded) {
+                showLoadingError('Stream connection failed');
+            }
         }
 
         function stopMjpegStream() {
@@ -1576,6 +1705,95 @@
             }
         }
 
+        // Loading overlay helper functions
+        function updateLoadingStatus(text) {
+            const status = document.getElementById('loading-status');
+            if (status) status.textContent = text;
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function showLoadingError(text) {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = overlay ? overlay.querySelector('.loading-text') : null;
+            const spinner = overlay ? overlay.querySelector('.loading-spinner') : null;
+            if (loadingText) {
+                loadingText.textContent = 'Error';
+                loadingText.style.color = '#e57373';
+            }
+            if (spinner) spinner.style.display = 'none';  // Hide spinner on error
+            updateLoadingStatus(text);
+        }
+
+        // Create VideoDecoder with error recovery support
+        // Called on initial stream start and when decoder needs recreation after errors
+        function createVideoDecoder(canvas, ctx) {
+            // Close existing decoder if any
+            if (videoDecoder && videoDecoder.state !== 'closed') {
+                try { videoDecoder.close(); } catch (e) {}
+            }
+
+            try {
+                videoDecoder = new VideoDecoder({
+                    output: frame => {
+                        // Hide loading overlay on first successful frame
+                        if (wsFrameCount === 0) {
+                            hideLoadingOverlay();
+                            // Clear streaming timeout - we got video
+                            if (wsStreamingTimeout) {
+                                clearTimeout(wsStreamingTimeout);
+                                wsStreamingTimeout = null;
+                            }
+                        }
+                        if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+                            canvas.width = frame.displayWidth;
+                            canvas.height = frame.displayHeight;
+                        }
+                        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                        frame.close();
+                        wsFrameCount++;
+                        decoderErrorCount = 0;  // Reset error count on successful frame
+                    },
+                    error: e => {
+                        if (DEBUG) console.error('VideoDecoder error:', e);
+                        decoderErrorCount++;
+
+                        // If hardware acceleration failed, try software decoding
+                        if (decoderErrorCount === 1 && useHardwareAccel) {
+                            log('Decoder error (hardware): ' + e.message + ' - trying software decode...', 'error');
+                            updateLoadingStatus('Hardware decode failed, trying software...');
+                            useHardwareAccel = false;
+                            // Reset codec so next SPS will reconfigure with software
+                            currentCodec = null;
+                        } else if (decoderErrorCount <= 3) {
+                            log('Decoder error: ' + e.message + ' - waiting for next keyframe...', 'error');
+                            updateLoadingStatus('Waiting for keyframe...');
+                        } else if (decoderErrorCount >= MAX_DECODER_ERRORS) {
+                            // Too many errors - give up
+                            log('Too many decode errors (' + decoderErrorCount + ') - stopping stream', 'error');
+                            showLoadingError('Stream format not supported');
+                            stopWebsocketStream();
+                            return;
+                        } else {
+                            updateLoadingStatus('Decode errors (' + decoderErrorCount + ')...');
+                        }
+                        // After too many errors, decoder will be recreated on next SPS
+                    }
+                });
+                // Don't configure yet - will configure when we receive SPS with correct codec
+                log('VideoDecoder created' + (useHardwareAccel ? '' : ' (software mode)') + ', waiting for SPS...', 'success');
+                updateLoadingStatus('Decoder ready, waiting for SPS...');
+                return true;
+            } catch (e) {
+                log('Failed to create VideoDecoder: ' + e.message, 'error');
+                showLoadingError('Decoder creation failed');
+                return false;
+            }
+        }
+
         function startWebsocketStream() {
             const cameraId = document.getElementById('camera-live').value;
             if (!cameraId) { alert('Please select a camera'); return; }
@@ -1597,8 +1815,27 @@
             wsActive = true;
             wsStartTime = Date.now();
             wsFrameCount = 0;
+            wsPacketCount = 0;  // Reset packet counter for debug
             nalSPS = null;
             nalPPS = null;
+            nalVPS = null;
+            currentCodec = null;  // Track current codec for reconfiguration
+            decoderErrorCount = 0;
+            useHardwareAccel = true;  // Reset to try hardware first
+            streamType = null;  // Will be auto-detected
+
+            // Clear any existing timeout
+            if (wsStreamingTimeout) {
+                clearTimeout(wsStreamingTimeout);
+            }
+            // Set timeout to stop stream if no frames received
+            wsStreamingTimeout = setTimeout(() => {
+                if (wsFrameCount === 0 && wsActive) {
+                    log('No video frames received after ' + (STREAMING_TIMEOUT_MS / 1000) + ' seconds - stopping', 'error');
+                    showLoadingError('Stream timeout - no video received');
+                    stopWebsocketStream();
+                }
+            }, STREAMING_TIMEOUT_MS);
 
             const wsProtocol = (protocol === 'https') ? 'wss' : 'ws';
             const port = (protocol === 'https') ? '443' : document.getElementById('nvr-port').value || '80';
@@ -1616,36 +1853,18 @@
                     '<span class="cam-label">' + camName + '</span><br>' +
                     '<span class="timestamp" id="live-timestamp">--:--:--</span>' +
                 '</div>' +
-                '<div class="stream-stats" id="stream-stats">Connecting...</div>';
+                '<div class="stream-stats" id="stream-stats">Connecting...</div>' +
+                '<div class="loading-overlay" id="loading-overlay">' +
+                    '<div class="loading-spinner"></div>' +
+                    '<div class="loading-text">Connecting...</div>' +
+                    '<div class="loading-subtext" id="loading-status">Establishing WebSocket</div>' +
+                '</div>';
 
-            const canvas = document.getElementById('ws-canvas');
-            const ctx = canvas.getContext('2d');
+            wsCanvas = document.getElementById('ws-canvas');
+            wsCanvasCtx = wsCanvas.getContext('2d');
 
-            try {
-                videoDecoder = new VideoDecoder({
-                    output: frame => {
-                        if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
-                            canvas.width = frame.displayWidth;
-                            canvas.height = frame.displayHeight;
-                        }
-                        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
-                        frame.close();
-                        wsFrameCount++;
-                    },
-                    error: e => {
-                        console.error('VideoDecoder error:', e);
-                        log('Decoder error: ' + e.message, 'error');
-                    }
-                });
-
-                videoDecoder.configure({
-                    codec: 'avc1.42C01E',
-                    avc: { format: 'annexb' },
-                    hardwareAcceleration: 'prefer-hardware'
-                });
-                log('VideoDecoder initialized', 'success');
-            } catch (e) {
-                log('Failed to initialize VideoDecoder: ' + e.message, 'error');
+            // Create decoder with error recovery
+            if (!createVideoDecoder(wsCanvas, wsCanvasCtx)) {
                 return;
             }
 
@@ -1657,12 +1876,14 @@
                     log('WebSocket connected', 'success');
                     const stats = document.getElementById('stream-stats');
                     if (stats) stats.textContent = 'Connected, waiting for video...';
+                    updateLoadingStatus('Waiting for video data...');
                 };
 
                 wsConnection.onerror = () => {
                     log('WebSocket error', 'error');
                     const indicator = document.getElementById('live-indicator');
                     if (indicator) { indicator.style.color = '#e57373'; indicator.textContent = 'ERROR'; }
+                    showLoadingError('Connection failed');
                 };
 
                 wsConnection.onclose = () => {
@@ -1703,17 +1924,518 @@
             log('WebSocket stream started', 'success');
         }
 
-        function processNALUnit(bytes) {
-            const nalType = getNALType(bytes);
-            if (nalType === 7) { nalSPS = bytes; return; }
-            if (nalType === 8) { nalPPS = bytes; return; }
-            if (nalType === 5) {
-                if (!nalSPS || !nalPPS) return;
-                const completeAU = concatBuffers([nalSPS, nalPPS, bytes]);
-                decodeFrame(completeAU, true);
-                return;
+        // Parse all NAL units from a packet (server sends complete Access Units with multiple NALs)
+        function parseNALUnits(bytes) {
+            const nalUnits = [];
+            let i = 0;
+
+            while (i < bytes.length - 4) {
+                // Look for NAL start code: 00 00 00 01 or 00 00 01
+                let startCodeLen = 0;
+
+                if (i + 3 < bytes.length &&
+                    bytes[i] === 0x00 && bytes[i+1] === 0x00 && bytes[i+2] === 0x00 && bytes[i+3] === 0x01) {
+                    startCodeLen = 4;
+                } else if (i + 2 < bytes.length &&
+                           bytes[i] === 0x00 && bytes[i+1] === 0x00 && bytes[i+2] === 0x01) {
+                    startCodeLen = 3;
+                }
+
+                if (startCodeLen > 0) {
+                    const nalType = bytes[i + startCodeLen] & 0x1F;
+
+                    // Find the next start code or end of buffer
+                    let nextStart = i + startCodeLen + 1;
+                    while (nextStart < bytes.length - 3) {
+                        if ((bytes[nextStart] === 0x00 && bytes[nextStart+1] === 0x00 && bytes[nextStart+2] === 0x01) ||
+                            (bytes[nextStart] === 0x00 && bytes[nextStart+1] === 0x00 && bytes[nextStart+2] === 0x00 && bytes[nextStart+3] === 0x01)) {
+                            break;
+                        }
+                        nextStart++;
+                    }
+                    if (nextStart >= bytes.length - 3) nextStart = bytes.length;
+
+                    // Extract this NAL unit
+                    nalUnits.push({ type: nalType, data: bytes.slice(i, nextStart) });
+                    i = nextStart;
+                } else {
+                    i++;
+                }
             }
-            if (nalType === 1) { decodeFrame(bytes, false); }
+
+            return nalUnits;
+        }
+
+        // Extract codec string from SPS NAL unit (e.g., "avc1.640028" for High profile)
+        function getCodecFromSPS(spsData) {
+            // Find the NAL header to get to the SPS payload
+            let offset = 0;
+            if (spsData[0] === 0x00 && spsData[1] === 0x00 && spsData[2] === 0x00 && spsData[3] === 0x01) {
+                offset = 5; // 4-byte start code + 1-byte NAL header
+            } else if (spsData[0] === 0x00 && spsData[1] === 0x00 && spsData[2] === 0x01) {
+                offset = 4; // 3-byte start code + 1-byte NAL header
+            } else {
+                offset = 1; // No start code, just NAL header
+            }
+
+            // SPS payload: profile_idc (1 byte), constraint_set_flags (1 byte), level_idc (1 byte)
+            const profileIdc = spsData[offset];
+            const constraintFlags = spsData[offset + 1];
+            const levelIdc = spsData[offset + 2];
+
+            // Build codec string: avc1.XXYYZZ
+            const codec = 'avc1.' +
+                profileIdc.toString(16).padStart(2, '0') +
+                constraintFlags.toString(16).padStart(2, '0') +
+                levelIdc.toString(16).padStart(2, '0');
+
+            return codec;
+        }
+
+        // ==================== HEVC/H.265 SUPPORT ====================
+        // HEVC NAL types: 32=VPS, 33=SPS, 34=PPS, 19/20=IDR, 1=P-frame
+        // HEVC NAL header is 2 bytes, type is bits 1-6 of first byte
+
+        // Parse NAL units as HEVC (2-byte NAL header)
+        function parseHEVCNALUnits(bytes) {
+            const nalUnits = [];
+            let i = 0;
+
+            while (i < bytes.length - 4) {
+                let startCodeLen = 0;
+
+                if (i + 3 < bytes.length &&
+                    bytes[i] === 0x00 && bytes[i+1] === 0x00 && bytes[i+2] === 0x00 && bytes[i+3] === 0x01) {
+                    startCodeLen = 4;
+                } else if (i + 2 < bytes.length &&
+                           bytes[i] === 0x00 && bytes[i+1] === 0x00 && bytes[i+2] === 0x01) {
+                    startCodeLen = 3;
+                }
+
+                if (startCodeLen > 0) {
+                    // HEVC NAL type is bits 1-6 of first byte after start code
+                    const nalType = (bytes[i + startCodeLen] >> 1) & 0x3F;
+
+                    let nextStart = i + startCodeLen + 1;
+                    while (nextStart < bytes.length - 3) {
+                        if ((bytes[nextStart] === 0x00 && bytes[nextStart+1] === 0x00 && bytes[nextStart+2] === 0x01) ||
+                            (bytes[nextStart] === 0x00 && bytes[nextStart+1] === 0x00 && bytes[nextStart+2] === 0x00 && bytes[nextStart+3] === 0x01)) {
+                            break;
+                        }
+                        nextStart++;
+                    }
+                    if (nextStart >= bytes.length - 3) nextStart = bytes.length;
+
+                    nalUnits.push({ type: nalType, data: bytes.slice(i, nextStart) });
+                    i = nextStart;
+                } else {
+                    i++;
+                }
+            }
+            return nalUnits;
+        }
+
+        // Detect if stream is HEVC based on NAL types
+        // Skip B2 header (NAL type 18 = Dividia metadata) and SEI (type 6)
+        function detectStreamType(bytes) {
+            // Parse as H.264 first
+            const h264NALs = parseNALUnits(bytes);
+            // Filter out non-video NALs: 6=SEI, 18=B2 header (Dividia metadata)
+            const h264VideoTypes = h264NALs.map(n => n.type).filter(t => t !== 6 && t !== 18);
+
+            // H.264 should have SPS (7), PPS (8), IDR (5), P-frame (1)
+            const hasH264SPS = h264VideoTypes.includes(7);
+            const hasH264PPS = h264VideoTypes.includes(8);
+            const hasH264IDR = h264VideoTypes.includes(5);
+            const hasH264PFrame = h264VideoTypes.includes(1);
+
+            if (hasH264SPS || hasH264PPS) {
+                return 'h264';
+            }
+
+            // If we have IDR or P-frames (1 or 5) and no weird high types, assume H.264
+            if ((hasH264IDR || hasH264PFrame) && h264VideoTypes.every(t => t <= 12)) {
+                return 'h264';
+            }
+
+            // Parse as HEVC
+            const hevcNALs = parseHEVCNALUnits(bytes);
+            const hevcTypes = hevcNALs.map(n => n.type);
+
+            // HEVC should have VPS (32), SPS (33), PPS (34), IDR (19/20)
+            const hasHEVCVPS = hevcTypes.includes(32);
+            const hasHEVCSPS = hevcTypes.includes(33);
+            const hasHEVCPPS = hevcTypes.includes(34);
+            const hasHEVCIDR = hevcTypes.includes(19) || hevcTypes.includes(20);
+
+            if (hasHEVCVPS || hasHEVCSPS || hasHEVCPPS || hasHEVCIDR) {
+                return 'hevc';
+            }
+
+            // Default to H.264 if we can't determine (most common)
+            // The previous heuristic of "high NAL types = HEVC" was wrong
+            // because NAL type 18 is B2 header, not HEVC
+            if (h264VideoTypes.length > 0) {
+                return 'h264';
+            }
+
+            return 'unknown';
+        }
+
+        // Extract HEVC codec string from SPS
+        // Format: hev1.P.C.TL (e.g., hev1.1.6.L93.B0)
+        function getCodecFromHEVCSPS(spsData) {
+            // For HEVC, we'll use a general codec string that works for most streams
+            // Full parsing of HEVC SPS is complex; using a safe default
+            // hev1.1.6.L120.90 = Main profile, level 4.0
+            // The browser will accept this and negotiate the actual profile
+            return 'hev1.1.6.L120.90';
+        }
+
+        // Configure decoder for HEVC
+        function configureDecoderForHEVC(spsData) {
+            const codec = getCodecFromHEVCSPS(spsData);
+
+            if (!videoDecoder || videoDecoder.state === 'closed') {
+                log('Decoder needs recreation for HEVC', 'info');
+                if (!wsCanvas || !wsCanvasCtx) {
+                    log('Cannot recreate decoder: no canvas reference', 'error');
+                    return false;
+                }
+                if (!createVideoDecoder(wsCanvas, wsCanvasCtx)) {
+                    return false;
+                }
+                currentCodec = null;
+            }
+
+            if (codec === currentCodec && videoDecoder.state === 'configured') {
+                return true;
+            }
+
+            try {
+                if (videoDecoder.state === 'configured') {
+                    videoDecoder.reset();
+                }
+
+                const hwAccel = useHardwareAccel ? 'prefer-hardware' : 'prefer-software';
+                videoDecoder.configure({
+                    codec: codec,
+                    hardwareAcceleration: hwAccel
+                });
+                currentCodec = codec;
+                log('HEVC Decoder configured: ' + codec + ' (' + hwAccel + ')', 'success');
+                updateLoadingStatus('Decoding HEVC ' + codec + '...');
+                return true;
+            } catch (e) {
+                if (DEBUG) console.error('Failed to configure HEVC decoder:', e);
+                log('HEVC decoder config failed: ' + e.message, 'error');
+                updateLoadingStatus('HEVC not supported: ' + e.message);
+                return false;
+            }
+        }
+
+        // Configure decoder with codec extracted from SPS
+        // Handles decoder recovery if decoder was closed due to errors
+        function configureDecoderFromSPS(spsData) {
+            const codec = getCodecFromSPS(spsData);
+
+            // Check if decoder needs recreation (closed state or null)
+            if (!videoDecoder || videoDecoder.state === 'closed') {
+                log('Decoder needs recreation (was ' + (videoDecoder ? videoDecoder.state : 'null') + ')', 'info');
+                if (!wsCanvas || !wsCanvasCtx) {
+                    log('Cannot recreate decoder: no canvas reference', 'error');
+                    return false;
+                }
+                if (!createVideoDecoder(wsCanvas, wsCanvasCtx)) {
+                    return false;
+                }
+                currentCodec = null;  // Force reconfiguration
+            }
+
+            // Only reconfigure if codec changed or decoder just created
+            if (codec === currentCodec && videoDecoder.state === 'configured') {
+                return true;
+            }
+
+            try {
+                // Reset existing decoder if configured with different codec
+                if (videoDecoder.state === 'configured') {
+                    videoDecoder.reset();
+                }
+
+                const hwAccel = useHardwareAccel ? 'prefer-hardware' : 'prefer-software';
+                videoDecoder.configure({
+                    codec: codec,
+                    avc: { format: 'annexb' },
+                    hardwareAcceleration: hwAccel
+                });
+                currentCodec = codec;
+                log('Decoder configured: ' + codec + ' (' + hwAccel + ')', 'success');
+                updateLoadingStatus('Decoding ' + codec + '...');
+                return true;
+            } catch (e) {
+                if (DEBUG) console.error('Failed to configure decoder with codec ' + codec + ':', e);
+                log('Decoder config failed: ' + codec, 'error');
+                updateLoadingStatus('Codec config failed: ' + codec);
+                return false;
+            }
+        }
+
+        // Process WebSocket message containing H.264 or HEVC Access Unit
+        // H.264 NAL Types: 1=P-frame, 5=IDR, 6=SEI, 7=SPS, 8=PPS
+        // HEVC NAL Types: 1=P-frame, 19/20=IDR, 32=VPS, 33=SPS, 34=PPS
+        function processNALUnit(bytes) {
+            wsPacketCount++;
+
+            // Auto-detect stream type on first packet
+            if (!streamType && wsPacketCount === 1) {
+                streamType = detectStreamType(bytes);
+                if (WS_DEBUG) {
+                    console.log('[WS Debug] Detected stream type: ' + streamType);
+                    console.log('[WS Debug] First 20 bytes:', Array.from(bytes.slice(0, 20)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                }
+                if (streamType === 'hevc') {
+                    log('Detected HEVC/H.265 stream', 'info');
+                    updateLoadingStatus('HEVC stream detected...');
+                } else if (streamType === 'h264') {
+                    log('Detected H.264 stream', 'info');
+                }
+            }
+
+            // Parse based on detected stream type
+            const nalUnits = (streamType === 'hevc') ? parseHEVCNALUnits(bytes) : parseNALUnits(bytes);
+
+            // Debug logging
+            if (WS_DEBUG && wsPacketCount <= 10) {
+                const types = nalUnits.map(n => 'NAL' + n.type).join('+');
+                console.log('[WS Debug] Packet #' + wsPacketCount + ' (' + streamType + '): ' + bytes.length + ' bytes, NALs: ' + types);
+            }
+
+            if (nalUnits.length === 0) return;
+
+            // Handle based on stream type
+            if (streamType === 'hevc') {
+                processHEVCNALUnits(nalUnits);
+            } else {
+                processH264NALUnits(nalUnits);
+            }
+        }
+
+        // Process H.264 NAL units
+        function processH264NALUnits(nalUnits) {
+            // First pass: cache SPS and PPS, configure decoder
+            // Skip non-video NAL types: 0=unspecified, 6=SEI, 18=B2 header, >23=reserved
+            const videoNALs = nalUnits.filter(n => n.type >= 1 && n.type <= 12);
+
+            for (const nal of videoNALs) {
+                if (nal.type === 7 && !currentCodec) {
+                    // Only configure from SPS if we don't already have a codec
+                    // (prevents reconfiguring after fallback with garbage data)
+                    nalSPS = nal.data;
+                    configureDecoderFromSPS(nal.data);
+                } else if (nal.type === 8) {
+                    nalPPS = nal.data;
+                }
+            }
+
+            // Fallback: If no SPS after several packets, try fallback codecs
+            // Some cameras/NVRs don't send SPS/PPS in the stream
+            if (!nalSPS && wsPacketCount >= 3 && !currentCodec) {
+                const hasIDR = videoNALs.some(n => n.type === 5);
+                const hasVideo = videoNALs.some(n => n.type === 1 || n.type === 5);
+                if (hasIDR || hasVideo) {
+                    log('No H.264 SPS found after ' + wsPacketCount + ' packets - trying fallback codec', 'info');
+                    tryH264Fallback();
+                }
+            }
+
+            // Don't decode if decoder not ready
+            if (!videoDecoder || videoDecoder.state === 'closed') return;
+            if (videoDecoder.state !== 'configured') return;
+
+            // After errors, wait for keyframe
+            if (decoderErrorCount > 0) {
+                const hasKeyframe = videoNALs.some(n => n.type === 5);
+                if (!hasKeyframe) return;
+            }
+
+            // Decode frames - use filtered video NALs
+            for (const nal of videoNALs) {
+                if (nal.type === 5) {
+                    if (nalSPS && nalPPS) {
+                        const completeAU = concatBuffers([nalSPS, nalPPS, nal.data]);
+                        decodeFrame(completeAU, true);
+                    } else {
+                        // Try decoding IDR directly (fallback codec should handle it)
+                        decodeFrame(nal.data, true);
+                    }
+                    return;
+                }
+                if (nal.type === 1) {
+                    decodeFrame(nal.data, false);
+                    return;
+                }
+            }
+        }
+
+        // Process HEVC NAL units
+        function processHEVCNALUnits(nalUnits) {
+            // First pass: cache VPS, SPS, PPS and configure decoder
+            for (const nal of nalUnits) {
+                if (nal.type === 32) {  // VPS
+                    nalVPS = nal.data;
+                } else if (nal.type === 33) {  // SPS
+                    nalSPS = nal.data;
+                    configureDecoderForHEVC(nal.data);
+                } else if (nal.type === 34) {  // PPS
+                    nalPPS = nal.data;
+                }
+            }
+
+            // Fallback: If no VPS/SPS/PPS after 3 packets, try configuring with defaults
+            if (!nalVPS && !nalSPS && wsPacketCount === 3) {
+                log('No HEVC parameters found - trying fallback codec', 'info');
+                tryFallbackCodec();
+            }
+
+            // Don't decode if decoder not ready
+            if (!videoDecoder || videoDecoder.state === 'closed') return;
+            if (videoDecoder.state !== 'configured') return;
+
+            // After errors, wait for keyframe
+            if (decoderErrorCount > 0) {
+                const hasKeyframe = nalUnits.some(n => n.type === 19 || n.type === 20 || n.type === 1);
+                if (!hasKeyframe) return;
+            }
+
+            // Decode frames - try different slice types
+            for (const nal of nalUnits) {
+                // IDR frames (types 19, 20) - prepend VPS+SPS+PPS if we have them
+                if (nal.type === 19 || nal.type === 20) {
+                    if (nalVPS && nalSPS && nalPPS) {
+                        const completeAU = concatBuffers([nalVPS, nalSPS, nalPPS, nal.data]);
+                        decodeFrame(completeAU, true);
+                    } else {
+                        // Try decoding without parameters (some decoders can handle this)
+                        decodeFrame(nal.data, true);
+                    }
+                    return;
+                }
+                // TRAIL_R (type 1) - common P-frame type
+                if (nal.type === 1) {
+                    decodeFrame(nal.data, false);
+                    return;
+                }
+                // TSA_R (type 2) - temporal sub-layer access
+                if (nal.type === 2) {
+                    decodeFrame(nal.data, false);
+                    return;
+                }
+            }
+        }
+
+        // Try fallback codec configurations when no parameters received
+        function tryFallbackCodec() {
+            if (!videoDecoder || videoDecoder.state === 'closed') {
+                if (!wsCanvas || !wsCanvasCtx) return;
+                if (!createVideoDecoder(wsCanvas, wsCanvasCtx)) return;
+            }
+
+            // Try common HEVC codec strings
+            const codecs = [
+                'hev1.1.6.L93.B0',   // Main profile, Level 3.1
+                'hev1.1.6.L120.90', // Main profile, Level 4.0
+                'hvc1.1.6.L93.B0',  // Alternative format
+            ];
+
+            for (const codec of codecs) {
+                try {
+                    if (videoDecoder.state === 'configured') {
+                        videoDecoder.reset();
+                    }
+                    const hwAccel = useHardwareAccel ? 'prefer-hardware' : 'prefer-software';
+                    videoDecoder.configure({
+                        codec: codec,
+                        hardwareAcceleration: hwAccel
+                    });
+                    currentCodec = codec;
+                    log('Fallback HEVC codec: ' + codec, 'success');
+                    updateLoadingStatus('Trying ' + codec + '...');
+                    return true;
+                } catch (e) {
+                    if (DEBUG) console.log('Codec ' + codec + ' not supported:', e.message);
+                }
+            }
+
+            // If HEVC fails, maybe it's actually H.264 with weird NAL types
+            log('HEVC codecs failed - trying H.264 fallback', 'info');
+            tryH264Fallback();
+        }
+
+        // Try H.264 fallback when stream type is ambiguous
+        function tryH264Fallback() {
+            const codecs = [
+                'avc1.42001f',  // Baseline, Level 3.1
+                'avc1.4d001f',  // Main, Level 3.1
+                'avc1.640028',  // High, Level 4.0
+                'avc1.420028',  // Baseline, Level 4.0 (like Camera 1 Profile 1)
+            ];
+
+            for (const codec of codecs) {
+                try {
+                    if (videoDecoder.state === 'configured') {
+                        videoDecoder.reset();
+                    }
+                    const hwAccel = useHardwareAccel ? 'prefer-hardware' : 'prefer-software';
+                    videoDecoder.configure({
+                        codec: codec,
+                        avc: { format: 'annexb' },
+                        hardwareAcceleration: hwAccel
+                    });
+                    currentCodec = codec;
+                    streamType = 'h264';  // Switch back to H.264 processing
+                    log('Fallback H.264 codec: ' + codec, 'success');
+                    updateLoadingStatus('Trying H.264 ' + codec + '...');
+                    return true;
+                } catch (e) {
+                    if (DEBUG) console.log('Codec ' + codec + ' not supported:', e.message);
+                }
+            }
+
+            log('No compatible codec found for this stream', 'error');
+            updateLoadingStatus('Unsupported stream format');
+            return false;
+        }
+
+        // Legacy compatibility - keep old code path for transition
+        function processNALUnitLegacy(nalUnits) {
+            // After decoder errors, wait for next keyframe before attempting decode
+            if (decoderErrorCount > 0) {
+                const hasKeyframe = nalUnits.some(n => n.type === 5);
+                if (!hasKeyframe) {
+                    // Skip P-frames until we get a keyframe
+                    return;
+                }
+            }
+
+            // Second pass: process video frames
+            for (const nal of nalUnits) {
+                // IDR frame (keyframe) - needs SPS + PPS prepended
+                if (nal.type === 5) {
+                    if (!nalSPS || !nalPPS) {
+                        if (DEBUG) console.warn('IDR received but no SPS/PPS cached');
+                        continue;
+                    }
+                    const completeAU = concatBuffers([nalSPS, nalPPS, nal.data]);
+                    decodeFrame(completeAU, true);
+                    return;
+                }
+                // P-frame (non-IDR slice)
+                if (nal.type === 1) {
+                    decodeFrame(nal.data, false);
+                    return;
+                }
+            }
         }
 
         function getNALType(bytes) {
@@ -1739,10 +2461,11 @@
                     timestamp: timestampCounter++,
                     data: bytes
                 }));
-            } catch (e) { console.error('Decode error:', e); }
+            } catch (e) { if (DEBUG) console.error('Decode error:', e); }
         }
 
         function stopWebsocketStream() {
+            if (wsStreamingTimeout) { clearTimeout(wsStreamingTimeout); wsStreamingTimeout = null; }
             if (wsTimestampTimer) { clearInterval(wsTimestampTimer); wsTimestampTimer = null; }
             if (wsConnection) {
                 try { wsConnection.close(); } catch (e) {}
@@ -1762,7 +2485,13 @@
             }
             nalSPS = null;
             nalPPS = null;
+            nalVPS = null;
+            currentCodec = null;
             timestampCounter = 0;
+            decoderErrorCount = 0;
+            wsCanvas = null;
+            wsCanvasCtx = null;
+            streamType = null;
         }
 
         function showWebsocketApiOutput(cameraId, wsUrl, profile) {
@@ -1897,7 +2626,20 @@
             document.getElementById('playback-info').textContent = 'Duration: ' + event.bLength + 's';
 
             currentVideo.onerror = function() {
-                log('Video playback error: ' + (currentVideo.error ? currentVideo.error.message : 'Unknown error'), 'error');
+                const errorMsg = currentVideo.error ? currentVideo.error.message : 'Unknown error';
+                log('Video playback error: ' + errorMsg, 'error');
+
+                // Check for decode errors (common with certain H.264 profiles)
+                if (errorMsg.includes('PIPELINE_ERROR_DECODE') || errorMsg.includes('-12909')) {
+                    container.innerHTML +=
+                        '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+                        'background:rgba(0,0,0,0.85);color:white;padding:20px;border-radius:8px;text-align:center;max-width:90%;">' +
+                        '<div style="font-size:24px;margin-bottom:10px;">&#9888;</div>' +
+                        '<div style="font-weight:bold;margin-bottom:8px;">Video Decode Error</div>' +
+                        '<div style="font-size:13px;color:#ccc;">This video uses a codec profile that your browser cannot decode.<br>' +
+                        'Try a different browser or use VLC to play the file directly.</div>' +
+                        '</div>';
+                }
             };
         }
 

@@ -695,11 +695,12 @@ wss://nvr.example.com:443/ws/cam1-pro1?user=admin&amp;pass=secret123</pre>
     <table>
         <tr><th>Message Type</th><th>Content</th><th>Description</th></tr>
         <tr><td>Text frames</td><td>JSON</td><td>Metadata (camera info, detected objects)</td></tr>
-        <tr><td>Binary frames</td><td>H.264 NAL units</td><td>Video data in Annex B format</td></tr>
+        <tr><td>Binary frames</td><td>H.264 Access Units</td><td>Complete video frames in Annex B format</td></tr>
     </table>
 
     <h4>NAL Unit Types</h4>
-    <p>Binary messages contain H.264 NAL units with Annex B start codes (<code>00 00 00 01</code>):</p>
+    <p><strong>Important:</strong> Each binary message contains a complete <strong>Access Unit</strong> which may include multiple NAL units concatenated together. For example, a keyframe message contains: <code>[SPS][PPS][IDR]</code> all in one packet. You must parse the packet to extract individual NAL units by scanning for start codes (<code>00 00 00 01</code> or <code>00 00 01</code>).</p>
+    <p>H.264 NAL unit types:</p>
     <table>
         <tr><th>NAL Type</th><th>Name</th><th>Description</th></tr>
         <tr><td>7</td><td>SPS</td><td>Sequence Parameter Set - codec configuration</td></tr>
@@ -738,32 +739,77 @@ ws.binaryType = <span class="string">'arraybuffer'</span>;
     error: e => console.error(<span class="string">'Decoder error:'</span>, e)
 });
 
-decoder.configure({
-    codec: <span class="string">'avc1.42C01E'</span>,      <span class="comment">// H.264 Baseline</span>
-    avc: { format: <span class="string">'annexb'</span> },
-    hardwareAcceleration: <span class="string">'prefer-hardware'</span>
-});
+<span class="comment">// Don't configure yet - will configure dynamically from SPS</span>
+<span class="comment">// Different cameras may use different H.264 profiles (Baseline, Main, High)</span>
 
-<span class="comment">// 4. Cache SPS/PPS and decode frames</span>
-<span class="keyword">let</span> sps = <span class="keyword">null</span>, pps = <span class="keyword">null</span>;
+<span class="comment">// 4. Parse NAL units from Access Unit (packets may contain multiple NALs)</span>
+<span class="keyword">function</span> parseNALUnits(bytes) {
+    <span class="keyword">const</span> nalUnits = [];
+    <span class="keyword">let</span> i = <span class="number">0</span>;
+    <span class="keyword">while</span> (i < bytes.length - <span class="number">4</span>) {
+        <span class="keyword">let</span> startCodeLen = <span class="number">0</span>;
+        <span class="keyword">if</span> (bytes[i]===<span class="number">0</span> && bytes[i+<span class="number">1</span>]===<span class="number">0</span> && bytes[i+<span class="number">2</span>]===<span class="number">0</span> && bytes[i+<span class="number">3</span>]===<span class="number">1</span>) startCodeLen = <span class="number">4</span>;
+        <span class="keyword">else if</span> (bytes[i]===<span class="number">0</span> && bytes[i+<span class="number">1</span>]===<span class="number">0</span> && bytes[i+<span class="number">2</span>]===<span class="number">1</span>) startCodeLen = <span class="number">3</span>;
+        <span class="keyword">if</span> (startCodeLen > <span class="number">0</span>) {
+            <span class="keyword">const</span> nalType = bytes[i + startCodeLen] & <span class="number">0x1F</span>;
+            <span class="keyword">let</span> nextStart = i + startCodeLen + <span class="number">1</span>;
+            <span class="keyword">while</span> (nextStart < bytes.length - <span class="number">3</span>) {
+                <span class="keyword">if</span> ((bytes[nextStart]===<span class="number">0</span> && bytes[nextStart+<span class="number">1</span>]===<span class="number">0</span> && bytes[nextStart+<span class="number">2</span>]===<span class="number">1</span>) ||
+                    (bytes[nextStart]===<span class="number">0</span> && bytes[nextStart+<span class="number">1</span>]===<span class="number">0</span> && bytes[nextStart+<span class="number">2</span>]===<span class="number">0</span> && bytes[nextStart+<span class="number">3</span>]===<span class="number">1</span>)) <span class="keyword">break</span>;
+                nextStart++;
+            }
+            <span class="keyword">if</span> (nextStart >= bytes.length - <span class="number">3</span>) nextStart = bytes.length;
+            nalUnits.push({ type: nalType, data: bytes.slice(i, nextStart) });
+            i = nextStart;
+        } <span class="keyword">else</span> { i++; }
+    }
+    <span class="keyword">return</span> nalUnits;
+}
+
+<span class="comment">// 5. Extract codec from SPS (cameras may use different H.264 profiles)</span>
+<span class="keyword">function</span> getCodecFromSPS(spsData) {
+    <span class="keyword">let</span> offset = (spsData[<span class="number">2</span>] === <span class="number">1</span>) ? <span class="number">4</span> : <span class="number">5</span>;  <span class="comment">// Skip start code + NAL header</span>
+    <span class="keyword">const</span> profile = spsData[offset].toString(<span class="number">16</span>).padStart(<span class="number">2</span>, <span class="string">'0'</span>);
+    <span class="keyword">const</span> constraints = spsData[offset+<span class="number">1</span>].toString(<span class="number">16</span>).padStart(<span class="number">2</span>, <span class="string">'0'</span>);
+    <span class="keyword">const</span> level = spsData[offset+<span class="number">2</span>].toString(<span class="number">16</span>).padStart(<span class="number">2</span>, <span class="string">'0'</span>);
+    <span class="keyword">return</span> <span class="string">'avc1.'</span> + profile + constraints + level;
+}
+
+<span class="comment">// 6. Cache SPS/PPS, configure decoder dynamically, decode frames</span>
+<span class="keyword">let</span> sps = <span class="keyword">null</span>, pps = <span class="keyword">null</span>, ts = <span class="number">0</span>, currentCodec = <span class="keyword">null</span>;
 
 ws.onmessage = (ev) => {
     <span class="keyword">if</span> (<span class="keyword">typeof</span> ev.data === <span class="string">'string'</span>) {
-        <span class="comment">// JSON metadata</span>
-        <span class="keyword">const</span> metadata = JSON.parse(ev.data);
+        <span class="keyword">const</span> metadata = JSON.parse(ev.data);  <span class="comment">// JSON metadata</span>
     } <span class="keyword">else</span> {
-        <span class="comment">// Binary NAL unit</span>
-        <span class="keyword">const</span> nal = <span class="keyword">new</span> Uint8Array(ev.data);
-        <span class="keyword">const</span> nalType = nal[<span class="number">4</span>] & <span class="number">0x1F</span>;  <span class="comment">// After 4-byte start code</span>
+        <span class="keyword">const</span> nalUnits = parseNALUnits(<span class="keyword">new</span> Uint8Array(ev.data));
 
-        <span class="keyword">if</span> (nalType === <span class="number">7</span>) sps = nal;       <span class="comment">// Cache SPS</span>
-        <span class="keyword">else if</span> (nalType === <span class="number">8</span>) pps = nal;  <span class="comment">// Cache PPS</span>
-        <span class="keyword">else if</span> (nalType === <span class="number">5</span>) {          <span class="comment">// IDR (keyframe)</span>
-            <span class="keyword">const</span> au = concat(sps, pps, nal);
-            decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'key'</span>, timestamp: ts++, data: au }));
+        <span class="comment">// First pass: cache SPS/PPS, configure decoder from SPS</span>
+        <span class="keyword">for</span> (<span class="keyword">const</span> nal <span class="keyword">of</span> nalUnits) {
+            <span class="keyword">if</span> (nal.type === <span class="number">7</span>) {
+                sps = nal.data;
+                <span class="keyword">const</span> codec = getCodecFromSPS(nal.data);
+                <span class="keyword">if</span> (codec !== currentCodec) {
+                    <span class="keyword">if</span> (decoder.state === <span class="string">'configured'</span>) decoder.reset();
+                    decoder.configure({ codec, avc: { format: <span class="string">'annexb'</span> }, hardwareAcceleration: <span class="string">'prefer-hardware'</span> });
+                    currentCodec = codec;
+                }
+            }
+            <span class="keyword">else if</span> (nal.type === <span class="number">8</span>) pps = nal.data;
         }
-        <span class="keyword">else if</span> (nalType === <span class="number">1</span>) {          <span class="comment">// P-frame</span>
-            decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'delta'</span>, timestamp: ts++, data: nal }));
+
+        <span class="keyword">if</span> (decoder.state !== <span class="string">'configured'</span>) <span class="keyword">return</span>;  <span class="comment">// Wait for SPS</span>
+
+        <span class="comment">// Second pass: decode video frames</span>
+        <span class="keyword">for</span> (<span class="keyword">const</span> nal <span class="keyword">of</span> nalUnits) {
+            <span class="keyword">if</span> (nal.type === <span class="number">5</span> && sps && pps) {  <span class="comment">// IDR (keyframe)</span>
+                decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'key'</span>, timestamp: ts++, data: concat(sps, pps, nal.data) }));
+                <span class="keyword">return</span>;
+            }
+            <span class="keyword">if</span> (nal.type === <span class="number">1</span>) {  <span class="comment">// P-frame</span>
+                decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'delta'</span>, timestamp: ts++, data: nal.data }));
+                <span class="keyword">return</span>;
+            }
         }
     }
 };</pre>
@@ -779,12 +825,27 @@ ws.onmessage = (ev) => {
     </div>
 
     <div class="note">
+        <strong>Dynamic Codec Detection:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High). The SPS NAL unit contains the profile/level information. Extract the codec string dynamically from the SPS (e.g., <code>avc1.640028</code> for High profile) rather than hardcoding <code>avc1.42C01E</code> (Baseline). Configure the decoder only after receiving the first SPS.
+    </div>
+
+    <div class="note">
         <strong>Browser Requirements:</strong> WebSocket H.264 requires modern browser support for the WebCodecs API:
         <ul style="margin: 5px 0 0 20px; padding: 0;">
             <li>Chrome 94+ / Edge 94+</li>
             <li>Safari 16.4+</li>
             <li>Firefox: Not supported (use MJPEG fallback)</li>
         </ul>
+    </div>
+
+    <div class="note">
+        <strong>Decoder Error Recovery:</strong> The VideoDecoder enters a <code>closed</code> state after decode errors, requiring recreation. Best practices:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li><strong>Check decoder state</strong> before decoding: <code>if (decoder.state === 'closed') { /* recreate decoder */ }</code></li>
+            <li><strong>Fallback to software decoding</strong> if hardware decode fails: use <code>hardwareAcceleration: 'prefer-software'</code></li>
+            <li><strong>Wait for keyframe</strong> after errors: skip P-frames until next IDR (type 5) arrives</li>
+            <li><strong>Store canvas references</strong> globally so decoder can be recreated without losing the rendering target</li>
+        </ul>
+        <p style="margin-top: 8px;">Different cameras may use different H.264 profiles (Baseline vs Main). Some hardware decoders may have issues with certain stream configurations. The software decoder provides a reliable fallback.</p>
     </div>
 
     <div class="info">

@@ -29,9 +29,17 @@ GitHub Pages provides free HTTPS hosting.
 
 For testing with local IP addresses:
 
+**Python:**
 ```bash
 cd api
 python3 -m http.server 8080
+```
+
+**Node.js (no install needed):**
+```bash
+cd api
+npx serve -p 8080
+# or: npx http-server -p 8080
 ```
 
 Open: `http://localhost:8080/nvr-demo.html`
@@ -145,6 +153,16 @@ Without these headers, cross-origin requests will fail.
 - Self-signed certificates require manual browser acceptance
 - Session tokens expire after 2 hours of inactivity
 - Use `force=true` in `auth.loginUser` for API integrations
+
+## Connecting to Local NVRs from HTTPS
+
+HTTPS pages can connect to NVRs on local IP addresses. Before the demo page will work:
+
+1. **Accept the NVR's certificate** - Visit `https://[NVR-IP]` directly in your browser and accept the security warning. This only needs to be done once per browser.
+
+2. **Allow local network access** (Chrome only) - Chrome may show a permission prompt asking to access devices on your local network. Click "Allow" when prompted.
+
+Without step 1, the browser will silently block connections to the NVR. The certificate acceptance persists until the browser data is cleared.
 
 ## Files
 

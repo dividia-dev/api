@@ -46,8 +46,12 @@ For testing with local IP addresses:
 git clone https://github.com/dividia-dev/api.git
 cd api
 
-# Start local HTTP server
+# Start local HTTP server (Python)
 python3 -m http.server 8080
+
+# Or use Node.js (no install needed)
+npx serve -p 8080
+# or: npx http-server -p 8080
 
 # Open in browser
 # http://localhost:8080/nvr-demo.html
