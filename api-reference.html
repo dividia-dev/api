@@ -317,8 +317,8 @@
 
     <h2 id="cameras">3. Camera Configuration</h2>
 
-    <h3>config.camera.getAllCameras</h3>
-    <p>Retrieves a list of all configured cameras on the NVR. This is a required step after authentication to obtain camera IDs for use in other API calls such as <code>event.getEvents</code>.</p>
+    <h3>config.camera.getUserCameras</h3>
+    <p>Retrieves the list of cameras the authenticated user has access to. This is a required step after authentication to obtain camera IDs for use in other API calls such as <code>event.getEvents</code>.</p>
 
     <div class="endpoint">
         <span class="method">POST</span> /JSON/
@@ -327,7 +327,7 @@
     <h4>Request</h4>
     <pre>{
   "jsonrpc": "2.0",
-  "method": "config.camera.getAllCameras",
+  "method": "config.camera.getUserCameras",
   "params": ["session_id"],
   "id": 2
 }</pre>

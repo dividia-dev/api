@@ -625,8 +625,8 @@
 
                 <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
                 <div class="api-ref">
-                    <h4>Method: config.camera.getAllCameras</h4>
-                    <p>Retrieves the list of all cameras configured on the NVR, including their names, IDs, and status.</p>
+                    <h4>Method: config.camera.getUserCameras</h4>
+                    <p>Retrieves the list of cameras the authenticated user has access to, including their names, IDs, and status.</p>
                     <strong>Parameters</strong>
                     <table>
                         <tr><th>Index</th><th>Name</th><th>Type</th><th>Description</th></tr>
@@ -1299,7 +1299,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         jsonrpc: '2.0',
-                        method: 'config.camera.getAllCameras',
+                        method: 'config.camera.getUserCameras',
                         params: cameraParams,
                         id: 2
                     })
@@ -1307,7 +1307,7 @@
                 const result = await response.json();
 
                 const success = result.result && result.result[0] === true;
-                showApiOutput('cameras-api', 'config.camera.getAllCameras', apiUrl,
+                showApiOutput('cameras-api', 'config.camera.getUserCameras', apiUrl,
                     { session: session.substring(0, 8) + '...' },
                     result.result, success);
 
