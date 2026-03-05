@@ -718,7 +718,82 @@ wss://nvr.example.com:443/ws/cam1-pro1?user=admin&amp;pass=secret123</pre>
 <span class="keyword">const</span> canvas = document.getElementById(<span class="string">'video-canvas'</span>);
 <span class="keyword">const</span> ctx = canvas.getContext(<span class="string">'2d'</span>);</pre>
 
-    <h4>Implementation</h4>
+    <h4>Using WSPlayer.js (Recommended)</h4>
+    <p>The easiest way to integrate WebSocket H.264 streaming is using the <code>WSPlayer.js</code> library, which handles connection management, codec detection, decoding, and rendering automatically.</p>
+    <pre><span class="comment">// Include the WSPlayer.js library</span>
+&lt;script src="WSPlayer.js"&gt;&lt;/script&gt;
+&lt;canvas id="video-canvas"&gt;&lt;/canvas&gt;
+
+&lt;script&gt;
+<span class="keyword">const</span> canvas = document.getElementById(<span class="string">'video-canvas'</span>);
+
+<span class="comment">// Create player with configuration options</span>
+<span class="keyword">const</span> player = <span class="keyword">new</span> WSPlayer(canvas, {
+    host: <span class="string">'256.dvr.dividia.net'</span>,
+    port: <span class="number">443</span>,
+    cameraId: <span class="number">1</span>,
+    profile: <span class="number">1</span>,
+    session: <span class="string">'your-session-token'</span>,
+    secure: <span class="keyword">true</span>,
+
+    <span class="comment">// Optional: overlay configuration</span>
+    overlay: {
+        enabled: <span class="keyword">true</span>,
+        cameraName: <span class="string">'Front Door'</span>
+    },
+
+    <span class="comment">// Optional: event callbacks</span>
+    onConnect: () => console.log(<span class="string">'Connected'</span>),
+    onFirstFrame: () => console.log(<span class="string">'Video started'</span>),
+    onError: (err) => console.error(<span class="string">'Error:'</span>, err),
+    onDisconnect: () => console.log(<span class="string">'Disconnected'</span>),
+    onMetadata: (data) => console.log(<span class="string">'Metadata:'</span>, data)
+});
+
+<span class="comment">// Start streaming</span>
+player.start();
+
+<span class="comment">// Stop streaming when done</span>
+<span class="comment">// player.stop();</span>
+&lt;/script&gt;</pre>
+
+    <p><strong>WSPlayer.js Features:</strong></p>
+    <ul style="margin: 5px 0 10px 20px;">
+        <li>Automatic H.264/H.265 codec detection</li>
+        <li>Hardware-accelerated decoding via WebCodecs</li>
+        <li>Auto-reconnect on disconnect</li>
+        <li>Stall detection</li>
+        <li>Optional camera name overlay</li>
+        <li>Object detection bounding box rendering (from server metadata)</li>
+    </ul>
+
+    <p><strong>WSPlayer Options:</strong></p>
+    <table>
+        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>url</code></td><td>string</td><td>Full WebSocket URL (alternative to host/port/cameraId/profile/session)</td></tr>
+        <tr><td><code>host</code></td><td>string</td><td>NVR hostname</td></tr>
+        <tr><td><code>port</code></td><td>number</td><td>NVR port (default: 443)</td></tr>
+        <tr><td><code>cameraId</code></td><td>number</td><td>Camera ID</td></tr>
+        <tr><td><code>profile</code></td><td>number</td><td>Stream profile: 1 (full) or 2 (lower res)</td></tr>
+        <tr><td><code>session</code></td><td>string</td><td>Session token from <code>auth.loginUser</code></td></tr>
+        <tr><td><code>secure</code></td><td>boolean</td><td>Use wss:// (default: true)</td></tr>
+        <tr><td><code>overlay.enabled</code></td><td>boolean</td><td>Show camera name overlay</td></tr>
+        <tr><td><code>overlay.cameraName</code></td><td>string</td><td>Camera name to display</td></tr>
+        <tr><td><code>autoReconnect</code></td><td>boolean</td><td>Auto-reconnect on disconnect (default: true)</td></tr>
+        <tr><td><code>reconnectDelay</code></td><td>number</td><td>Reconnect delay in ms (default: 5000)</td></tr>
+        <tr><td><code>debug</code></td><td>boolean</td><td>Enable debug logging</td></tr>
+    </table>
+
+    <p><strong>Static Methods:</strong></p>
+    <pre><span class="comment">// Check if WebCodecs is supported before creating player</span>
+<span class="keyword">const</span> support = WSPlayer.checkSupport();
+<span class="keyword">if</span> (!support.supported) {
+    console.error(support.reason);
+    <span class="comment">// Fall back to MJPEG</span>
+}</pre>
+
+    <h4>Manual Implementation (Advanced)</h4>
+    <p>For custom implementations or when you need more control, here's the full manual approach:</p>
     <pre><span class="comment">// 1. Check WebCodecs support (requires secure context)</span>
 <span class="keyword">if</span> (!window.isSecureContext || <span class="keyword">typeof</span> VideoDecoder === <span class="string">'undefined'</span>) {
     console.error(<span class="string">'WebCodecs not supported - use MJPEG fallback'</span>);
@@ -825,7 +900,7 @@ ws.onmessage = (ev) => {
     </div>
 
     <div class="note">
-        <strong>Dynamic Codec Detection:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High). The SPS NAL unit contains the profile/level information. Extract the codec string dynamically from the SPS (e.g., <code>avc1.640028</code> for High profile) rather than hardcoding <code>avc1.42C01E</code> (Baseline). Configure the decoder only after receiving the first SPS.
+        <strong>Dynamic Codec Detection:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High) or H.265/HEVC. <strong>WSPlayer.js detects the codec automatically.</strong> For manual implementations: the SPS NAL unit contains the profile/level information. Extract the codec string dynamically from the SPS (e.g., <code>avc1.640028</code> for High profile) rather than hardcoding <code>avc1.42C01E</code> (Baseline). Configure the decoder only after receiving the first SPS.
     </div>
 
     <div class="note">
@@ -838,7 +913,7 @@ ws.onmessage = (ev) => {
     </div>
 
     <div class="note">
-        <strong>Decoder Error Recovery:</strong> The VideoDecoder enters a <code>closed</code> state after decode errors, requiring recreation. Best practices:
+        <strong>Decoder Error Recovery:</strong> The VideoDecoder enters a <code>closed</code> state after decode errors, requiring recreation. <strong>WSPlayer.js handles this automatically.</strong> For manual implementations:
         <ul style="margin: 5px 0 0 20px; padding: 0;">
             <li><strong>Check decoder state</strong> before decoding: <code>if (decoder.state === 'closed') { /* recreate decoder */ }</code></li>
             <li><strong>Fallback to software decoding</strong> if hardware decode fails: use <code>hardwareAcceleration: 'prefer-software'</code></li>
@@ -849,7 +924,7 @@ ws.onmessage = (ev) => {
     </div>
 
     <div class="info">
-        <strong>Advantages:</strong> WebSocket H.264 offers approximately 10x lower bandwidth than MJPEG, lowest latency, hardware-accelerated decoding, and supports metadata overlays (object detection bounding boxes).
+        <strong>Advantages:</strong> WebSocket H.264 offers approximately 10x lower bandwidth than MJPEG, lowest latency, hardware-accelerated decoding, and supports metadata overlays (object detection bounding boxes). Use <code>WSPlayer.js</code> for the simplest integration.
     </div>
 
     <h3>Choosing a Streaming Method</h3>

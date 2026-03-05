@@ -16,6 +16,7 @@ These demo pages help developers learn how to:
 ```
 api/
 ├── nvr-demo.html           # Combined demo (live + playback)
+├── WSPlayer.js             # Reusable WebSocket H.264/H.265 video player
 ├── live-test.html          # Live video streaming demo
 ├── playback-test.html      # Recorded video playback demo
 ├── api-reference.html      # Complete API documentation
@@ -183,10 +184,69 @@ WS(S) /ws/cam{N}-pro{PROFILE}?sess={SESSION}
 GET /camstream/?cmd=fetch&session={SESSION}&file={PATH}
 ```
 
+## WSPlayer.js - Reusable WebSocket Video Player
+
+For integrating WebSocket H.264/H.265 video into your own applications, use the `WSPlayer.js` library.
+
+### Basic Usage
+
+```html
+<script src="WSPlayer.js"></script>
+<canvas id="video-canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('video-canvas');
+const player = new WSPlayer(canvas, {
+    host: '256.dvr.dividia.net',
+    port: 443,
+    cameraId: 1,
+    profile: 1,
+    session: 'your-session-token',
+    secure: true,
+
+    onConnect: () => console.log('Connected'),
+    onFirstFrame: () => console.log('Video started'),
+    onError: (err) => console.error('Error:', err)
+});
+
+player.start();
+
+// Later: player.stop();
+</script>
+```
+
+### Features
+
+- **H.264 and H.265 support** - Auto-detects codec from stream
+- **Hardware acceleration** - Uses WebCodecs for efficient decoding
+- **Auto-reconnect** - Automatically reconnects on disconnect
+- **Overlay support** - Camera name and metadata overlay on canvas
+- **Callbacks** - Events for connect, disconnect, first frame, errors, metadata
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `url` | string | - | Full WebSocket URL (alternative to host/port/etc) |
+| `host` | string | - | NVR hostname |
+| `port` | number | 443 | NVR port |
+| `cameraId` | number | - | Camera ID |
+| `profile` | number | 1 | Stream profile (1=full, 2=lower) |
+| `session` | string | - | Session token |
+| `secure` | boolean | true | Use wss:// (true) or ws:// (false) |
+| `overlay.enabled` | boolean | false | Show camera name overlay |
+| `overlay.cameraName` | string | - | Camera name to display |
+| `autoReconnect` | boolean | true | Auto-reconnect on disconnect |
+| `reconnectDelay` | number | 5000 | Reconnect delay in ms |
+| `debug` | boolean | false | Enable debug logging |
+
+See `WSPlayer.js` for full documentation.
+
 ## Integration Patterns
 
 **Web Browser Applications:**
 - Use WebSocket H.264 for best performance (HTTPS required)
+- Use `WSPlayer.js` for easy integration
 - Fallback to MJPEG for broader compatibility
 
 **Native Mobile/Desktop Apps:**
