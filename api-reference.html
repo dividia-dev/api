@@ -711,7 +711,10 @@ wss://nvr.example.com:443/ws/cam1-pro1?user=admin&amp;pass=secret123</pre>
 
     <h4>Rendering</h4>
     <p>VideoDecoder renders to a <strong>&lt;canvas&gt;</strong> element, not a &lt;video&gt; tag. The decoder outputs <code>VideoFrame</code> objects which are drawn to the canvas using <code>drawImage()</code>.</p>
-    <pre><span class="comment">// HTML setup - use canvas, not video</span>
+    <div class="info">
+        <strong>Note:</strong> <code>WSPlayer.js</code> (below) handles all canvas creation and rendering automatically. The following is for reference only.
+    </div>
+    <pre><span class="comment">// Manual HTML setup - use canvas, not video</span>
 &lt;canvas id="video-canvas" width="640" height="480"&gt;&lt;/canvas&gt;
 
 <span class="comment">// Get canvas context for drawing</span>
@@ -719,69 +722,128 @@ wss://nvr.example.com:443/ws/cam1-pro1?user=admin&amp;pass=secret123</pre>
 <span class="keyword">const</span> ctx = canvas.getContext(<span class="string">'2d'</span>);</pre>
 
     <h4>Using WSPlayer.js (Recommended)</h4>
-    <p>The easiest way to integrate WebSocket H.264 streaming is using the <code>WSPlayer.js</code> library, which handles connection management, codec detection, decoding, and rendering automatically.</p>
+    <p>The easiest way to integrate WebSocket H.264 streaming is using the <code>WSPlayer.js</code> library. It's a fully self-contained component that generates all HTML (canvas, overlays, loading spinner, stats) inside a container element.</p>
+
     <pre><span class="comment">// Include the WSPlayer.js library</span>
 &lt;script src="WSPlayer.js"&gt;&lt;/script&gt;
-&lt;canvas id="video-canvas"&gt;&lt;/canvas&gt;
+
+<span class="comment">&lt;!-- Just provide an empty container - WSPlayer generates all HTML inside --&gt;</span>
+&lt;div id="camera-1" style="width: 640px; height: 480px;"&gt;&lt;/div&gt;
 
 &lt;script&gt;
-<span class="keyword">const</span> canvas = document.getElementById(<span class="string">'video-canvas'</span>);
-
-<span class="comment">// Create player with configuration options</span>
-<span class="keyword">const</span> player = <span class="keyword">new</span> WSPlayer(canvas, {
+<span class="comment">// Create and start player using the factory method</span>
+<span class="keyword">const</span> player = WSPlayer.create(<span class="string">'camera-1'</span>, {
+    camera: [<span class="number">1</span>, <span class="string">'Front Door'</span>],  <span class="comment">// [cameraId, cameraName]</span>
     host: <span class="string">'256.dvr.dividia.net'</span>,
     port: <span class="number">443</span>,
-    cameraId: <span class="number">1</span>,
     profile: <span class="number">1</span>,
     session: <span class="string">'your-session-token'</span>,
     secure: <span class="keyword">true</span>,
-
-    <span class="comment">// Optional: overlay configuration</span>
-    overlay: {
-        enabled: <span class="keyword">true</span>,
-        cameraName: <span class="string">'Front Door'</span>
-    },
 
     <span class="comment">// Optional: event callbacks</span>
     onConnect: () => console.log(<span class="string">'Connected'</span>),
     onFirstFrame: () => console.log(<span class="string">'Video started'</span>),
     onError: (err) => console.error(<span class="string">'Error:'</span>, err),
     onDisconnect: () => console.log(<span class="string">'Disconnected'</span>),
+    onReconnecting: () => console.log(<span class="string">'Reconnecting...'</span>),
+    onStall: () => console.log(<span class="string">'Stream stalled'</span>),
     onMetadata: (data) => console.log(<span class="string">'Metadata:'</span>, data)
 });
 
-<span class="comment">// Start streaming</span>
-player.start();
+<span class="comment">// Control methods</span>
+player.stop();      <span class="comment">// Stop streaming</span>
+player.start();     <span class="comment">// Start streaming</span>
+player.restart();   <span class="comment">// Restart streaming</span>
 
-<span class="comment">// Stop streaming when done</span>
-<span class="comment">// player.stop();</span>
+<span class="comment">// Status methods</span>
+player.connected();       <span class="comment">// Returns true/false</span>
+player.getFrameCount();   <span class="comment">// Returns number of frames decoded</span>
+player.getFPS();          <span class="comment">// Returns current FPS</span>
+player.getStatus();       <span class="comment">// Returns full status object</span>
+player.getDebugString();  <span class="comment">// Returns human-readable debug info</span>
 &lt;/script&gt;</pre>
+
+    <h5>Multiple Cameras Example</h5>
+    <pre><span class="comment">// Create players for multiple cameras</span>
+cameras.forEach(cam => {
+    WSPlayer.create(<span class="string">`cam-</span>${cam.bID}<span class="string">`</span>, {
+        camera: [cam.bID, cam.sName],
+        host: <span class="string">'nvr.example.com'</span>,
+        port: <span class="number">443</span>,
+        profile: <span class="number">2</span>,  <span class="comment">// Use lower resolution for grid view</span>
+        session: sessionToken,
+        secure: <span class="keyword">true</span>
+    });
+});</pre>
 
     <p><strong>WSPlayer.js Features:</strong></p>
     <ul style="margin: 5px 0 10px 20px;">
+        <li><strong>Self-contained HTML generation</strong> - canvas, overlays, loading spinner, stats all generated internally</li>
         <li>Automatic H.264/H.265 codec detection</li>
         <li>Hardware-accelerated decoding via WebCodecs</li>
-        <li>Auto-reconnect on disconnect</li>
-        <li>Stall detection</li>
-        <li>Optional camera name overlay</li>
+        <li>Auto-reconnect on disconnect with configurable delay</li>
+        <li>Stall detection with callback notification</li>
+        <li>Built-in loading spinner and connection status</li>
+        <li>Camera name, FPS/frame stats, and timestamp overlays</li>
         <li>Object detection bounding box rendering (from server metadata)</li>
+        <li>Debug mode with detailed logging</li>
     </ul>
 
     <p><strong>WSPlayer Options:</strong></p>
     <table>
-        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
-        <tr><td><code>url</code></td><td>string</td><td>Full WebSocket URL (alternative to host/port/cameraId/profile/session)</td></tr>
-        <tr><td><code>host</code></td><td>string</td><td>NVR hostname</td></tr>
-        <tr><td><code>port</code></td><td>number</td><td>NVR port (default: 443)</td></tr>
-        <tr><td><code>cameraId</code></td><td>number</td><td>Camera ID</td></tr>
-        <tr><td><code>profile</code></td><td>number</td><td>Stream profile: 1 (full) or 2 (lower res)</td></tr>
-        <tr><td><code>session</code></td><td>string</td><td>Session token from <code>auth.loginUser</code></td></tr>
-        <tr><td><code>secure</code></td><td>boolean</td><td>Use wss:// (default: true)</td></tr>
-        <tr><td><code>overlay.enabled</code></td><td>boolean</td><td>Show camera name overlay</td></tr>
-        <tr><td><code>overlay.cameraName</code></td><td>string</td><td>Camera name to display</td></tr>
-        <tr><td><code>autoReconnect</code></td><td>boolean</td><td>Auto-reconnect on disconnect (default: true)</td></tr>
-        <tr><td><code>reconnectDelay</code></td><td>number</td><td>Reconnect delay in ms (default: 5000)</td></tr>
-        <tr><td><code>debug</code></td><td>boolean</td><td>Enable debug logging</td></tr>
+        <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>camera</code></td><td>array</td><td>-</td><td>Camera info as <code>[id, name]</code> array</td></tr>
+        <tr><td><code>host</code></td><td>string</td><td>-</td><td>NVR hostname (required)</td></tr>
+        <tr><td><code>port</code></td><td>number</td><td>443/80</td><td>NVR port (443 for secure, 80 for insecure)</td></tr>
+        <tr><td><code>profile</code></td><td>number</td><td>1</td><td>Stream profile: 1 (full) or 2 (lower res)</td></tr>
+        <tr><td><code>session</code></td><td>string</td><td>-</td><td>Session token from <code>auth.loginUser</code> (required)</td></tr>
+        <tr><td><code>secure</code></td><td>boolean</td><td>auto</td><td>Use wss:// (auto-detected from page protocol)</td></tr>
+        <tr><td><code>url</code></td><td>string</td><td>-</td><td>Full WebSocket URL (alternative to host/port/camera/session)</td></tr>
+        <tr><td><code>noOverlay</code></td><td>boolean | array</td><td>-</td><td>Hide overlays: <code>true</code> = hide all, or array like <code>['cam_name', 'fps', 'ts']</code></td></tr>
+        <tr><td><code>autoReconnect</code></td><td>boolean</td><td>true</td><td>Auto-reconnect on disconnect</td></tr>
+        <tr><td><code>reconnectDelay</code></td><td>number</td><td>5000</td><td>Reconnect delay in milliseconds</td></tr>
+        <tr><td><code>stallTimeout</code></td><td>number</td><td>5000</td><td>Stall detection timeout in milliseconds</td></tr>
+        <tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging to console</td></tr>
+    </table>
+
+    <p><strong>Overlay Control:</strong></p>
+    <p>WSPlayer displays three overlay elements by default. Use <code>noOverlay</code> to hide specific elements:</p>
+    <table>
+        <tr><th>Value</th><th>Position</th><th>Content</th></tr>
+        <tr><td><code>'cam_name'</code></td><td>Top-left</td><td>Camera name</td></tr>
+        <tr><td><code>'fps'</code></td><td>Bottom-left</td><td>Frame count and FPS stats</td></tr>
+        <tr><td><code>'ts'</code></td><td>Bottom-right</td><td>Current timestamp</td></tr>
+    </table>
+    <pre><span class="comment">// Hide all overlays</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: <span class="keyword">true</span> });
+
+<span class="comment">// Hide specific overlays (show only camera name)</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: [<span class="string">'fps'</span>, <span class="string">'ts'</span>] });</pre>
+
+    <p><strong>Event Callbacks:</strong></p>
+    <table>
+        <tr><th>Callback</th><th>Description</th></tr>
+        <tr><td><code>onConnect</code></td><td>Called when WebSocket connection is established</td></tr>
+        <tr><td><code>onFirstFrame</code></td><td>Called when first video frame is decoded and displayed</td></tr>
+        <tr><td><code>onError</code></td><td>Called on connection or decode errors (receives error object)</td></tr>
+        <tr><td><code>onDisconnect</code></td><td>Called when connection is closed (not during auto-reconnect)</td></tr>
+        <tr><td><code>onReconnecting</code></td><td>Called when auto-reconnect begins</td></tr>
+        <tr><td><code>onStall</code></td><td>Called when no data received for <code>stallTimeout</code> ms</td></tr>
+        <tr><td><code>onMetadata</code></td><td>Called when server sends metadata (camera info, object detection, etc.)</td></tr>
+    </table>
+
+    <p><strong>Instance Methods:</strong></p>
+    <table>
+        <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+        <tr><td><code>start()</code></td><td>void</td><td>Start streaming</td></tr>
+        <tr><td><code>stop()</code></td><td>void</td><td>Stop streaming and cleanup</td></tr>
+        <tr><td><code>restart()</code></td><td>void</td><td>Stop and restart streaming</td></tr>
+        <tr><td><code>connected()</code></td><td>boolean</td><td>Returns true if WebSocket is connected</td></tr>
+        <tr><td><code>getFrameCount()</code></td><td>number</td><td>Returns total frames decoded</td></tr>
+        <tr><td><code>getFPS()</code></td><td>number</td><td>Returns current frames per second</td></tr>
+        <tr><td><code>getCamera()</code></td><td>object</td><td>Returns <code>{ id, name }</code></td></tr>
+        <tr><td><code>getStatus()</code></td><td>object</td><td>Returns full status object for debugging</td></tr>
+        <tr><td><code>getDebugString()</code></td><td>string</td><td>Returns human-readable debug info</td></tr>
     </table>
 
     <p><strong>Static Methods:</strong></p>
@@ -790,104 +852,14 @@ player.start();
 <span class="keyword">if</span> (!support.supported) {
     console.error(support.reason);
     <span class="comment">// Fall back to MJPEG</span>
-}</pre>
-
-    <h4>Manual Implementation (Advanced)</h4>
-    <p>For custom implementations or when you need more control, here's the full manual approach:</p>
-    <pre><span class="comment">// 1. Check WebCodecs support (requires secure context)</span>
-<span class="keyword">if</span> (!window.isSecureContext || <span class="keyword">typeof</span> VideoDecoder === <span class="string">'undefined'</span>) {
-    console.error(<span class="string">'WebCodecs not supported - use MJPEG fallback'</span>);
-    <span class="keyword">return</span>;
 }
 
-<span class="comment">// 2. Create WebSocket connection (use session from auth.loginUser)</span>
-<span class="keyword">const</span> ws = <span class="keyword">new</span> WebSocket(<span class="string">'wss://nvr.example.com/ws/cam1-pro1?sess='</span> + session);
-ws.binaryType = <span class="string">'arraybuffer'</span>;
+<span class="comment">// Factory method (auto-starts the player)</span>
+<span class="keyword">const</span> player = WSPlayer.create(<span class="string">'container-id'</span>, options);</pre>
 
-<span class="comment">// 3. Initialize VideoDecoder - outputs to canvas via callback</span>
-<span class="keyword">const</span> decoder = <span class="keyword">new</span> VideoDecoder({
-    output: frame => {
-        <span class="comment">// Draw frame to canvas (not to &lt;video&gt; element)</span>
-        ctx.drawImage(frame, <span class="number">0</span>, <span class="number">0</span>, canvas.width, canvas.height);
-        frame.close();  <span class="comment">// Important: release the frame</span>
-    },
-    error: e => console.error(<span class="string">'Decoder error:'</span>, e)
-});
-
-<span class="comment">// Don't configure yet - will configure dynamically from SPS</span>
-<span class="comment">// Different cameras may use different H.264 profiles (Baseline, Main, High)</span>
-
-<span class="comment">// 4. Parse NAL units from Access Unit (packets may contain multiple NALs)</span>
-<span class="keyword">function</span> parseNALUnits(bytes) {
-    <span class="keyword">const</span> nalUnits = [];
-    <span class="keyword">let</span> i = <span class="number">0</span>;
-    <span class="keyword">while</span> (i < bytes.length - <span class="number">4</span>) {
-        <span class="keyword">let</span> startCodeLen = <span class="number">0</span>;
-        <span class="keyword">if</span> (bytes[i]===<span class="number">0</span> && bytes[i+<span class="number">1</span>]===<span class="number">0</span> && bytes[i+<span class="number">2</span>]===<span class="number">0</span> && bytes[i+<span class="number">3</span>]===<span class="number">1</span>) startCodeLen = <span class="number">4</span>;
-        <span class="keyword">else if</span> (bytes[i]===<span class="number">0</span> && bytes[i+<span class="number">1</span>]===<span class="number">0</span> && bytes[i+<span class="number">2</span>]===<span class="number">1</span>) startCodeLen = <span class="number">3</span>;
-        <span class="keyword">if</span> (startCodeLen > <span class="number">0</span>) {
-            <span class="keyword">const</span> nalType = bytes[i + startCodeLen] & <span class="number">0x1F</span>;
-            <span class="keyword">let</span> nextStart = i + startCodeLen + <span class="number">1</span>;
-            <span class="keyword">while</span> (nextStart < bytes.length - <span class="number">3</span>) {
-                <span class="keyword">if</span> ((bytes[nextStart]===<span class="number">0</span> && bytes[nextStart+<span class="number">1</span>]===<span class="number">0</span> && bytes[nextStart+<span class="number">2</span>]===<span class="number">1</span>) ||
-                    (bytes[nextStart]===<span class="number">0</span> && bytes[nextStart+<span class="number">1</span>]===<span class="number">0</span> && bytes[nextStart+<span class="number">2</span>]===<span class="number">0</span> && bytes[nextStart+<span class="number">3</span>]===<span class="number">1</span>)) <span class="keyword">break</span>;
-                nextStart++;
-            }
-            <span class="keyword">if</span> (nextStart >= bytes.length - <span class="number">3</span>) nextStart = bytes.length;
-            nalUnits.push({ type: nalType, data: bytes.slice(i, nextStart) });
-            i = nextStart;
-        } <span class="keyword">else</span> { i++; }
-    }
-    <span class="keyword">return</span> nalUnits;
-}
-
-<span class="comment">// 5. Extract codec from SPS (cameras may use different H.264 profiles)</span>
-<span class="keyword">function</span> getCodecFromSPS(spsData) {
-    <span class="keyword">let</span> offset = (spsData[<span class="number">2</span>] === <span class="number">1</span>) ? <span class="number">4</span> : <span class="number">5</span>;  <span class="comment">// Skip start code + NAL header</span>
-    <span class="keyword">const</span> profile = spsData[offset].toString(<span class="number">16</span>).padStart(<span class="number">2</span>, <span class="string">'0'</span>);
-    <span class="keyword">const</span> constraints = spsData[offset+<span class="number">1</span>].toString(<span class="number">16</span>).padStart(<span class="number">2</span>, <span class="string">'0'</span>);
-    <span class="keyword">const</span> level = spsData[offset+<span class="number">2</span>].toString(<span class="number">16</span>).padStart(<span class="number">2</span>, <span class="string">'0'</span>);
-    <span class="keyword">return</span> <span class="string">'avc1.'</span> + profile + constraints + level;
-}
-
-<span class="comment">// 6. Cache SPS/PPS, configure decoder dynamically, decode frames</span>
-<span class="keyword">let</span> sps = <span class="keyword">null</span>, pps = <span class="keyword">null</span>, ts = <span class="number">0</span>, currentCodec = <span class="keyword">null</span>;
-
-ws.onmessage = (ev) => {
-    <span class="keyword">if</span> (<span class="keyword">typeof</span> ev.data === <span class="string">'string'</span>) {
-        <span class="keyword">const</span> metadata = JSON.parse(ev.data);  <span class="comment">// JSON metadata</span>
-    } <span class="keyword">else</span> {
-        <span class="keyword">const</span> nalUnits = parseNALUnits(<span class="keyword">new</span> Uint8Array(ev.data));
-
-        <span class="comment">// First pass: cache SPS/PPS, configure decoder from SPS</span>
-        <span class="keyword">for</span> (<span class="keyword">const</span> nal <span class="keyword">of</span> nalUnits) {
-            <span class="keyword">if</span> (nal.type === <span class="number">7</span>) {
-                sps = nal.data;
-                <span class="keyword">const</span> codec = getCodecFromSPS(nal.data);
-                <span class="keyword">if</span> (codec !== currentCodec) {
-                    <span class="keyword">if</span> (decoder.state === <span class="string">'configured'</span>) decoder.reset();
-                    decoder.configure({ codec, avc: { format: <span class="string">'annexb'</span> }, hardwareAcceleration: <span class="string">'prefer-hardware'</span> });
-                    currentCodec = codec;
-                }
-            }
-            <span class="keyword">else if</span> (nal.type === <span class="number">8</span>) pps = nal.data;
-        }
-
-        <span class="keyword">if</span> (decoder.state !== <span class="string">'configured'</span>) <span class="keyword">return</span>;  <span class="comment">// Wait for SPS</span>
-
-        <span class="comment">// Second pass: decode video frames</span>
-        <span class="keyword">for</span> (<span class="keyword">const</span> nal <span class="keyword">of</span> nalUnits) {
-            <span class="keyword">if</span> (nal.type === <span class="number">5</span> && sps && pps) {  <span class="comment">// IDR (keyframe)</span>
-                decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'key'</span>, timestamp: ts++, data: concat(sps, pps, nal.data) }));
-                <span class="keyword">return</span>;
-            }
-            <span class="keyword">if</span> (nal.type === <span class="number">1</span>) {  <span class="comment">// P-frame</span>
-                decoder.decode(<span class="keyword">new</span> EncodedVideoChunk({ type: <span class="string">'delta'</span>, timestamp: ts++, data: nal.data }));
-                <span class="keyword">return</span>;
-            }
-        }
-    }
-};</pre>
+    <div class="info">
+        <strong>Custom Implementation:</strong> If you need to implement WebSocket H.264 streaming without using WSPlayer.js, refer to the <code>WSPlayer.js</code> source code for a complete working implementation including NAL parsing, codec detection, and decoder management.
+    </div>
 
     <div class="warning">
         <strong>Secure Context Required:</strong> WebCodecs API only works in <strong>secure contexts</strong>:
@@ -900,7 +872,7 @@ ws.onmessage = (ev) => {
     </div>
 
     <div class="note">
-        <strong>Dynamic Codec Detection:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High) or H.265/HEVC. <strong>WSPlayer.js detects the codec automatically.</strong> For manual implementations: the SPS NAL unit contains the profile/level information. Extract the codec string dynamically from the SPS (e.g., <code>avc1.640028</code> for High profile) rather than hardcoding <code>avc1.42C01E</code> (Baseline). Configure the decoder only after receiving the first SPS.
+        <strong>Codec Support:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High) or H.265/HEVC. <strong>WSPlayer.js detects and handles all supported codecs automatically.</strong>
     </div>
 
     <div class="note">
@@ -913,14 +885,7 @@ ws.onmessage = (ev) => {
     </div>
 
     <div class="note">
-        <strong>Decoder Error Recovery:</strong> The VideoDecoder enters a <code>closed</code> state after decode errors, requiring recreation. <strong>WSPlayer.js handles this automatically.</strong> For manual implementations:
-        <ul style="margin: 5px 0 0 20px; padding: 0;">
-            <li><strong>Check decoder state</strong> before decoding: <code>if (decoder.state === 'closed') { /* recreate decoder */ }</code></li>
-            <li><strong>Fallback to software decoding</strong> if hardware decode fails: use <code>hardwareAcceleration: 'prefer-software'</code></li>
-            <li><strong>Wait for keyframe</strong> after errors: skip P-frames until next IDR (type 5) arrives</li>
-            <li><strong>Store canvas references</strong> globally so decoder can be recreated without losing the rendering target</li>
-        </ul>
-        <p style="margin-top: 8px;">Different cameras may use different H.264 profiles (Baseline vs Main). Some hardware decoders may have issues with certain stream configurations. The software decoder provides a reliable fallback.</p>
+        <strong>Error Recovery:</strong> WSPlayer.js automatically handles decoder errors, hardware/software fallback, and stream recovery. It will attempt hardware decoding first and fall back to software decoding if needed.
     </div>
 
     <div class="info">

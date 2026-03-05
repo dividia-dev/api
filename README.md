@@ -186,20 +186,22 @@ GET /camstream/?cmd=fetch&session={SESSION}&file={PATH}
 
 ## WSPlayer.js - Reusable WebSocket Video Player
 
-For integrating WebSocket H.264/H.265 video into your own applications, use the `WSPlayer.js` library.
+For integrating WebSocket H.264/H.265 video into your own applications, use the `WSPlayer.js` library. It's a fully self-contained component that generates all HTML (canvas, overlays, loading spinner, stats) inside a container element.
 
 ### Basic Usage
 
 ```html
 <script src="WSPlayer.js"></script>
-<canvas id="video-canvas"></canvas>
+
+<!-- Just provide an empty container - WSPlayer generates all HTML inside -->
+<div id="camera-1" style="width: 640px; height: 480px;"></div>
 
 <script>
-const canvas = document.getElementById('video-canvas');
-const player = new WSPlayer(canvas, {
+// Create and start player using the factory method
+const player = WSPlayer.create('camera-1', {
+    camera: [1, 'Front Door'],  // [cameraId, cameraName]
     host: '256.dvr.dividia.net',
     port: 443,
-    cameraId: 1,
     profile: 1,
     session: 'your-session-token',
     secure: true,
@@ -209,38 +211,59 @@ const player = new WSPlayer(canvas, {
     onError: (err) => console.error('Error:', err)
 });
 
-player.start();
+// Control methods
+player.stop();      // Stop streaming
+player.start();     // Start streaming
+player.restart();   // Restart streaming
 
-// Later: player.stop();
+// Status methods
+player.connected();       // Returns true/false
+player.getStatus();       // Returns full status object
+player.getDebugString();  // Returns human-readable debug info
 </script>
 ```
 
 ### Features
 
+- **Self-contained** - Generates all HTML (canvas, overlays, spinner, stats) inside container
 - **H.264 and H.265 support** - Auto-detects codec from stream
 - **Hardware acceleration** - Uses WebCodecs for efficient decoding
 - **Auto-reconnect** - Automatically reconnects on disconnect
-- **Overlay support** - Camera name and metadata overlay on canvas
-- **Callbacks** - Events for connect, disconnect, first frame, errors, metadata
+- **Stall detection** - Detects and reports when stream stops
+- **Built-in overlays** - Camera name, FPS stats, and timestamp (configurable)
+- **Loading states** - Built-in loading spinner and error display
+- **Callbacks** - Events for connect, disconnect, first frame, errors, stall, reconnecting, metadata
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `url` | string | - | Full WebSocket URL (alternative to host/port/etc) |
+| `camera` | array | - | Camera info as `[id, name]` |
 | `host` | string | - | NVR hostname |
-| `port` | number | 443 | NVR port |
-| `cameraId` | number | - | Camera ID |
+| `port` | number | 443/80 | NVR port |
 | `profile` | number | 1 | Stream profile (1=full, 2=lower) |
 | `session` | string | - | Session token |
-| `secure` | boolean | true | Use wss:// (true) or ws:// (false) |
-| `overlay.enabled` | boolean | false | Show camera name overlay |
-| `overlay.cameraName` | string | - | Camera name to display |
+| `secure` | boolean | auto | Use wss:// (auto-detected from page) |
+| `url` | string | - | Full WebSocket URL (alternative to above) |
+| `noOverlay` | bool/array | - | Hide overlays: `true` or `['cam_name', 'fps', 'ts']` |
 | `autoReconnect` | boolean | true | Auto-reconnect on disconnect |
 | `reconnectDelay` | number | 5000 | Reconnect delay in ms |
+| `stallTimeout` | number | 5000 | Stall detection timeout in ms |
 | `debug` | boolean | false | Enable debug logging |
 
-See `WSPlayer.js` for full documentation.
+### Callbacks
+
+| Callback | Description |
+|----------|-------------|
+| `onConnect` | WebSocket connected |
+| `onFirstFrame` | First video frame displayed |
+| `onError` | Connection or decode error |
+| `onDisconnect` | Connection closed |
+| `onReconnecting` | Auto-reconnect started |
+| `onStall` | No data received (stalled) |
+| `onMetadata` | Server metadata received |
+
+See `WSPlayer.js` and `api-reference.html` for full documentation.
 
 ## Integration Patterns
 
