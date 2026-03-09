@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividia Cloud NVR API Reference</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #0d47a1; border-bottom: 3px solid #0d47a1; padding-bottom: 10px; }
+        h2 { color: #0d47a1; margin-top: 40px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+        h3 { color: #1565c0; margin-top: 30px; }
+        h4 { color: #555; margin-top: 20px; margin-bottom: 10px; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 14px;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        pre .comment { color: #6a9955; }
+        pre .string { color: #ce9178; }
+        pre .keyword { color: #569cd6; }
+        pre .number { color: #b5cea8; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+        .note {
+            background: #e3f2fd;
+            border-left: 4px solid #1565c0;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .note strong { color: #0d47a1; }
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning strong { color: #e65100; }
+        .info {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .info strong { color: #2e7d32; }
+        .toc {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .toc ul { margin: 0; padding-left: 20px; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: #1565c0; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .endpoint {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .method {
+            display: inline-block;
+            background: #0d47a1;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .method.get { background: #2e7d32; }
+        .method.post { background: #0d47a1; }
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+        .cloud-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                font-size: 10px;
+                line-height: 1.4;
+                padding: 0;
+                max-width: none;
+            }
+            h1 { font-size: 18px; padding-bottom: 5px; margin-bottom: 10px; }
+            h2 { font-size: 14px; margin-top: 20px; padding-bottom: 4px; }
+            h3 { font-size: 12px; margin-top: 15px; }
+            h4 { font-size: 11px; margin-top: 10px; margin-bottom: 5px; }
+            p { margin: 8px 0; }
+            pre {
+                font-size: 9px;
+                padding: 8px;
+                line-height: 1.3;
+            }
+            code { font-size: 9px; }
+            table { margin: 8px 0; }
+            th, td { padding: 4px 6px; font-size: 9px; }
+            .toc { padding: 10px 15px; margin: 10px 0; }
+            .toc li { margin: 4px 0; }
+            .note, .warning, .info { padding: 6px 10px; margin: 8px 0; font-size: 9px; }
+            .endpoint { padding: 5px 10px; margin: 5px 0; font-size: 10px; }
+            .method { font-size: 9px; padding: 1px 5px; }
+            footer { margin-top: 20px; padding-top: 10px; font-size: 9px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Dividia Cloud NVR API Reference <span class="cloud-badge">CLOUD</span></h1>
+    <p><strong>Version:</strong> 1.0 &nbsp;|&nbsp; <strong>Last Updated:</strong> March 2026</p>
+
+    <div class="toc">
+        <strong>Table of Contents</strong>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#authentication">1. Authentication</a></li>
+            <li><a href="#data-model">2. Data Model</a></li>
+            <li><a href="#live-streaming">3. Live Video Streaming</a></li>
+            <li><a href="#playback">4. Video Playback (Recorded)</a></li>
+            <li><a href="#status">5. Device & Camera Status</a></li>
+            <li><a href="#errors">6. Error Handling</a></li>
+        </ul>
+    </div>
+
+    <h2 id="overview">Overview</h2>
+    <p>The Dividia Cloud NVR API provides REST endpoints for integrating with cloud-connected video surveillance systems. This API enables third-party applications to authenticate users, retrieve device and camera information, and stream live video.</p>
+
+    <h3>Base URL</h3>
+    <div class="endpoint">
+        <strong>Production:</strong> https://api.cloud.dividia.net<br>
+        <strong>Staging:</strong> https://api-staging.cloud.dividia.net
+    </div>
+
+    <h3>Authentication Method</h3>
+    <p>The Cloud API uses <strong>JWT (JSON Web Tokens)</strong> for authentication. After login, include the token in all authenticated requests:</p>
+    <pre>Authorization: Bearer &lt;your-jwt-token&gt;</pre>
+
+    <h2 id="authentication">1. Authentication</h2>
+
+    <h3>POST /ve/login</h3>
+    <p>Authenticates a user and returns a JWT token along with all authorized devices and cameras.</p>
+
+    <div class="endpoint">
+        <span class="method post">POST</span> /ve/login
+    </div>
+
+    <h4>Request Body</h4>
+    <pre>{
+  <span class="string">"username"</span>: <span class="string">"user@example.com"</span>,
+  <span class="string">"password"</span>: <span class="string">"your-password"</span>
+}</pre>
+
+    <h4>Request Parameters</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>username</td><td>string</td><td>Yes</td><td>User email address</td></tr>
+        <tr><td>password</td><td>string</td><td>Yes</td><td>User password</td></tr>
+    </table>
+
+    <h4>Success Response</h4>
+    <pre>{
+  <span class="string">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="string">"user"</span>: {
+    <span class="string">"bID"</span>: <span class="number">1</span>,
+    <span class="string">"sName"</span>: <span class="string">"user@example.com"</span>,
+    <span class="string">"bRole"</span>: <span class="number">2</span>,
+    <span class="string">"bCustomerID"</span>: <span class="number">1</span>
+  },
+  <span class="string">"customers"</span>: [...],
+  <span class="string">"projects"</span>: [...],
+  <span class="string">"devices"</span>: [...],
+  <span class="string">"cameras"</span>: [...],
+  <span class="string">"userViews"</span>: [...],
+  <span class="string">"deviceIdList"</span>: [<span class="string">"0A58A9FEAC02"</span>, <span class="string">"48B02D076C44"</span>],
+  <span class="string">"backendVersion"</span>: <span class="string">"2026.1.1"</span>
+}</pre>
+
+    <h4>Response Fields</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>token</td><td>string</td><td>JWT token for authenticated requests (valid 30 days)</td></tr>
+        <tr><td>user</td><td>object</td><td>User details including ID, name, and role</td></tr>
+        <tr><td>customers</td><td>array</td><td>Organizations the user belongs to</td></tr>
+        <tr><td>projects</td><td>array</td><td>Sites/locations within customers</td></tr>
+        <tr><td>devices</td><td>array</td><td>Recording devices user has access to</td></tr>
+        <tr><td>cameras</td><td>array</td><td>Cameras with stream source paths</td></tr>
+        <tr><td>userViews</td><td>array</td><td>Saved camera view layouts</td></tr>
+        <tr><td>deviceIdList</td><td>array</td><td>List of device serial IDs (for token validation)</td></tr>
+    </table>
+
+    <h4>Error Response</h4>
+    <pre><span class="comment">// Invalid credentials</span>
+{<span class="string">"error"</span>: <span class="string">"Could not find user."</span>}
+
+<span class="comment">// Password change required</span>
+{<span class="string">"changePassword"</span>: <span class="keyword">true</span>, <span class="string">"user"</span>: {...}}</pre>
+
+    <div class="note">
+        <strong>Important:</strong> The login response includes all devices and cameras the user has access to. No separate API call is needed to fetch cameras.
+    </div>
+
+    <h3>Token Usage</h3>
+    <p>Include the JWT token in the <code>Authorization</code> header for all authenticated endpoints:</p>
+    <pre>GET /ve/streamstart?device=0A58A9FEAC02&amp;cam=1&amp;pro=1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
+
+    <div class="info">
+        <strong>Token Expiry:</strong> JWT tokens are valid for 30 days. When the token expires, re-authenticate with <code>/ve/login</code>.
+    </div>
+
+    <h2 id="data-model">2. Data Model</h2>
+
+    <h3>Hierarchy</h3>
+    <pre>Customer (Organization)
+  └── Project (Site/Location)
+        └── Device (Recording Unit)
+              └── Camera (Video Stream)</pre>
+
+    <h3>Device Object</h3>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>bID</td><td>int</td><td>Internal database ID</td></tr>
+        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "0A58A9FEAC02")</td></tr>
+        <tr><td>sName</td><td>string</td><td>Device display name</td></tr>
+        <tr><td>fOnline</td><td>int</td><td>Online status: 1 = online, 0 = offline</td></tr>
+        <tr><td>bCameras</td><td>int</td><td>Number of cameras on this device</td></tr>
+        <tr><td>sBackendID</td><td>string</td><td>Backend server handling this device</td></tr>
+        <tr><td>bCustomerProjectID</td><td>int</td><td>Parent site/project ID</td></tr>
+        <tr><td>sLastEventTS</td><td>string</td><td>Timestamp of last recorded event</td></tr>
+    </table>
+
+    <h3>Camera Object</h3>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>bID</td><td>int</td><td>Internal database ID</td></tr>
+        <tr><td>sDeviceID</td><td>string</td><td>Parent device serial</td></tr>
+        <tr><td>bCamera</td><td>int</td><td>Camera number on device (1-16)</td></tr>
+        <tr><td>bProfile</td><td>int</td><td>Stream profile (1 = full res, 2 = lower res)</td></tr>
+        <tr><td>sName</td><td>string</td><td>Camera display name</td></tr>
+        <tr><td>fEnabled</td><td>int</td><td>Enabled status: 1 = enabled, 0 = disabled</td></tr>
+        <tr><td>fOnline</td><td>int</td><td>Online status: 1 = online, 0 = offline</td></tr>
+        <tr><td>source</td><td>string</td><td>HLS source path prefix (e.g., "/hls/DEVICE-cam1-")</td></tr>
+        <tr><td>sTimezone</td><td>string</td><td>Timezone for timestamps</td></tr>
+        <tr><td>label</td><td>string</td><td>Full label: "Customer - Site - Device - Camera"</td></tr>
+    </table>
+
+    <h2 id="live-streaming">3. Live Video Streaming</h2>
+
+    <h3>Streaming Methods</h3>
+    <table>
+        <tr><th>Method</th><th>Latency</th><th>Bandwidth</th><th>Compatibility</th><th>Use Case</th></tr>
+        <tr>
+            <td><strong>HLS</strong></td>
+            <td>5-15 seconds</td>
+            <td>Medium</td>
+            <td>Excellent (all browsers)</td>
+            <td>Standard viewing, mobile</td>
+        </tr>
+        <tr>
+            <td><strong>WebSocket H.264</strong></td>
+            <td>&lt;1 second</td>
+            <td>Low</td>
+            <td>Modern browsers (HTTPS)</td>
+            <td>Real-time monitoring</td>
+        </tr>
+    </table>
+
+    <h3>HLS Streaming</h3>
+    <p>HLS (HTTP Live Streaming) provides broad compatibility and stable playback.</p>
+
+    <h4>Step 1: Initialize Stream</h4>
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/streamstart
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>device</td><td>string</td><td>Yes</td><td>Device serial ID</td></tr>
+        <tr><td>cam</td><td>int</td><td>Yes</td><td>Camera number (1-16)</td></tr>
+        <tr><td>pro</td><td>int</td><td>Yes</td><td>Profile: 1 (full) or 2 (lower)</td></tr>
+    </table>
+
+    <h4>Example Request</h4>
+    <pre>GET /ve/streamstart?device=0A58A9FEAC02&amp;cam=1&amp;pro=1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
+
+    <h4>Response</h4>
+    <pre>{<span class="string">"result"</span>: <span class="string">"OK"</span>}</pre>
+
+    <h4>Step 2: Play HLS Stream</h4>
+    <p>After initialization, access the HLS playlist:</p>
+    <div class="endpoint">
+        <span class="method get">GET</span> /uploads/base/hls/{deviceID}-cam{N}-pro{P}_.m3u8
+    </div>
+
+    <h4>HLS URL Format</h4>
+    <pre><span class="comment">// Full URL pattern</span>
+https://api.cloud.dividia.net/uploads/base/hls/{deviceID}-cam{cameraNum}-pro{profile}_.m3u8
+
+<span class="comment">// Example</span>
+https://api.cloud.dividia.net/uploads/base/hls/0A58A9FEAC02-cam1-pro1_.m3u8</pre>
+
+    <h4>JavaScript Example (using hls.js)</h4>
+    <pre><span class="comment">// Initialize stream first</span>
+<span class="keyword">await</span> fetch(<span class="string">`${apiUrl}/ve/streamstart?device=${deviceId}&amp;cam=${camNum}&amp;pro=1`</span>, {
+    headers: { <span class="string">'Authorization'</span>: <span class="string">`Bearer ${token}`</span> }
+});
+
+<span class="comment">// Then play HLS</span>
+<span class="keyword">const</span> hlsUrl = <span class="string">`${apiUrl}/uploads/base/hls/${deviceId}-cam${camNum}-pro1_.m3u8`</span>;
+
+<span class="keyword">if</span> (Hls.isSupported()) {
+    <span class="keyword">const</span> hls = <span class="keyword">new</span> Hls();
+    hls.loadSource(hlsUrl);
+    hls.attachMedia(videoElement);
+} <span class="keyword">else if</span> (videoElement.canPlayType(<span class="string">'application/vnd.apple.mpegurl'</span>)) {
+    <span class="comment">// Safari native HLS</span>
+    videoElement.src = hlsUrl;
+}</pre>
+
+    <div class="note">
+        <strong>HLS Library:</strong> For non-Safari browsers, use <a href="https://github.com/video-dev/hls.js">hls.js</a> for HLS playback.
+    </div>
+
+    <h3>WebSocket H.264 Streaming</h3>
+    <p>WebSocket streaming provides lower latency but requires HTTPS and MediaSource Extensions (MSE).</p>
+
+    <h4>WebSocket URL Format</h4>
+    <div class="endpoint">
+        wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}
+    </div>
+
+    <pre><span class="comment">// Example</span>
+wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1</pre>
+
+    <h4>WebSocket Protocol</h4>
+    <table>
+        <tr><th>Message Type</th><th>Content</th><th>Description</th></tr>
+        <tr><td>Binary</td><td>ArrayBuffer</td><td>H.264 NAL units (video data)</td></tr>
+        <tr><td>String</td><td>JSON</td><td>Metadata: timestamp, motion flag</td></tr>
+    </table>
+
+    <h4>Metadata Message Format</h4>
+    <pre>{
+  <span class="string">"ts"</span>: <span class="number">1234567890000</span>,    <span class="comment">// Timestamp in 90kHz units</span>
+  <span class="string">"motion"</span>: <span class="keyword">true</span>           <span class="comment">// Motion detection status</span>
+}</pre>
+
+    <h4>Implementation Notes</h4>
+    <pre><span class="comment">// Convert timestamp to readable format</span>
+<span class="keyword">const</span> date = <span class="keyword">new</span> Date((timestamp / <span class="number">90000</span>) * <span class="number">1000</span>);
+<span class="keyword">const</span> timeString = date.toLocaleTimeString();</pre>
+
+    <div class="warning">
+        <strong>Requirements:</strong> WebSocket H.264 streaming requires:
+        <ul style="margin: 5px 0 0 20px;">
+            <li>HTTPS connection (secure context)</li>
+            <li>Browser with MediaSource Extensions support</li>
+            <li>WebCodecs API (Chrome 94+, Edge 94+, Safari 16.4+)</li>
+        </ul>
+    </div>
+
+    <h2 id="playback">4. Video Playback (Recorded)</h2>
+
+    <h3>GET /ve/playbackevents</h3>
+    <p>Retrieves recorded events for a camera within a date/time range.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/playbackevents
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>device</td><td>string</td><td>Yes</td><td>Device serial ID</td></tr>
+        <tr><td>cam</td><td>int</td><td>Yes</td><td>Camera number</td></tr>
+        <tr><td>date</td><td>string</td><td>Yes</td><td>Date (MM/DD/YYYY format)</td></tr>
+        <tr><td>startTime</td><td>string</td><td>No</td><td>Start time (HH:MM:SS)</td></tr>
+        <tr><td>endTime</td><td>string</td><td>No</td><td>End time (HH:MM:SS)</td></tr>
+    </table>
+
+    <h4>Example Request</h4>
+    <pre>GET /ve/playbackevents?device=0A58A9FEAC02&amp;cam=1&amp;date=03/09/2026&amp;startTime=00:00:00&amp;endTime=23:59:59</pre>
+
+    <h4>Response</h4>
+    <pre>[
+  {
+    <span class="string">"bID"</span>: <span class="number">12345</span>,
+    <span class="string">"sDeviceID"</span>: <span class="string">"0A58A9FEAC02"</span>,
+    <span class="string">"sTimeStamp"</span>: <span class="string">"20260309120000"</span>,
+    <span class="string">"sType"</span>: <span class="string">"VIDEO"</span>,
+    <span class="string">"bDuration"</span>: <span class="number">30</span>,
+    <span class="string">"bCamera"</span>: <span class="number">1</span>,
+    <span class="string">"fCached"</span>: <span class="keyword">true</span>
+  }
+]</pre>
+
+    <h3>GET /ve/videoevent</h3>
+    <p>Requests a specific video event for playback. This triggers the backend to cache the video.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/videoevent
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>device</td><td>string</td><td>Device serial ID</td></tr>
+        <tr><td>cam</td><td>int</td><td>Camera number</td></tr>
+        <tr><td>ts</td><td>string</td><td>Event timestamp (YYYYMMDDHHMMSS)</td></tr>
+    </table>
+
+    <h3>GET /ve/videoeventdownloadstatus</h3>
+    <p>Checks the download/cache progress of a video event.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/videoeventdownloadstatus
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>id</td><td>int</td><td>Event ID from playbackevents response</td></tr>
+    </table>
+
+    <h4>Response</h4>
+    <pre>{
+  <span class="string">"result"</span>: {
+    <span class="string">"dCacheProgress"</span>: <span class="number">75</span>  <span class="comment">// 0-100 percentage</span>
+  }
+}</pre>
+
+    <h2 id="status">5. Device & Camera Status</h2>
+
+    <h3>GET /ve/onlinestatus</h3>
+    <p>Retrieves the current online status of devices and their cameras.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/onlinestatus
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>ids</td><td>string</td><td>Colon-separated device IDs (e.g., "DEV1:DEV2:DEV3")</td></tr>
+    </table>
+
+    <h4>Example Request</h4>
+    <pre>GET /ve/onlinestatus?ids=0A58A9FEAC02:48B02D076C44
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
+
+    <h4>Response</h4>
+    <pre>[
+  {
+    <span class="string">"sDeviceID"</span>: <span class="string">"0A58A9FEAC02"</span>,
+    <span class="string">"fOnline"</span>: <span class="number">1</span>,
+    <span class="string">"sBackendID"</span>: <span class="string">"backend-01"</span>,
+    <span class="string">"cams"</span>: [
+      {<span class="string">"bID"</span>: <span class="number">1</span>, <span class="string">"fEnabled"</span>: <span class="number">1</span>, <span class="string">"fOnline"</span>: <span class="number">1</span>},
+      {<span class="string">"bID"</span>: <span class="number">2</span>, <span class="string">"fEnabled"</span>: <span class="number">1</span>, <span class="string">"fOnline"</span>: <span class="number">0</span>}
+    ]
+  }
+]</pre>
+
+    <div class="info">
+        <strong>Polling:</strong> Call this endpoint periodically (every 30-60 seconds) to keep status updated in your application.
+    </div>
+
+    <h2 id="errors">6. Error Handling</h2>
+
+    <h3>HTTP Status Codes</h3>
+    <table>
+        <tr><th>Code</th><th>Description</th></tr>
+        <tr><td>200</td><td>Success</td></tr>
+        <tr><td>400</td><td>Bad request (invalid parameters)</td></tr>
+        <tr><td>401</td><td>Unauthorized (invalid or expired token)</td></tr>
+        <tr><td>403</td><td>Forbidden (no access to requested resource)</td></tr>
+        <tr><td>500</td><td>Server error</td></tr>
+    </table>
+
+    <h3>Error Response Format</h3>
+    <pre>{
+  <span class="string">"error"</span>: <span class="string">"Error message description"</span>
+}</pre>
+
+    <h3>Common Errors</h3>
+    <table>
+        <tr><th>Error</th><th>Cause</th><th>Solution</th></tr>
+        <tr><td>"Could not find user."</td><td>Invalid credentials</td><td>Verify username/password</td></tr>
+        <tr><td>"No body provided"</td><td>Missing request body</td><td>Send JSON body with request</td></tr>
+        <tr><td>401 Unauthorized</td><td>Invalid/expired token</td><td>Re-authenticate with /ve/login</td></tr>
+        <tr><td>403 Forbidden</td><td>No access to device</td><td>Check user permissions</td></tr>
+    </table>
+
+    <footer>
+        <p><strong>Dividia Cloud NVR API Reference</strong> | Version 1.0 | March 2026</p>
+        <p>For the interactive demo, see <a href="cloud-api-demo.html">cloud-api-demo.html</a></p>
+    </footer>
+</body>
+</html>
