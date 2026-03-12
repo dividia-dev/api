@@ -1,125 +1,82 @@
-# Dividia NVR API Documentation & Demo
+# Dividia API Documentation & Demo
 
-Interactive demo pages and API reference documentation for third-party developers integrating with Dividia NVR systems.
+Interactive demo pages and API reference documentation for third-party developers integrating with Dividia video systems.
 
-## What's This For?
+## Overview
 
-These demo pages help developers learn how to:
-- Authenticate with Dividia NVRs
-- Retrieve camera lists
-- Stream live video (JPEG, MJPEG, WebSocket H.264)
-- Search and playback recorded video
-- Handle events and timestamps
+This repository contains demo pages and documentation for two Dividia platforms:
+
+| Platform | Description | Authentication | Demo Page |
+|----------|-------------|----------------|-----------|
+| **NVR** | Direct connection to on-premise NVR devices | JSON-RPC session token | `nvr-demo.html` |
+| **Cloud** | Cloud-connected cameras via Dividia Cloud API | JWT Bearer token | `cloud-api-demo.html` |
+
+Both platforms support live video streaming via WebSocket H.264 using the shared `WSPlayer.js` library.
 
 ## Contents
 
 ```
 api/
-├── nvr-demo.html           # Combined demo (live + playback)
-├── WSPlayer.js             # Reusable WebSocket H.264/H.265 video player
-├── live-test.html          # Live video streaming demo
-├── playback-test.html      # Recorded video playback demo
-├── api-reference.html      # Complete API documentation
-├── DEPLOYMENT.md           # Deployment guide
-└── README.md               # This file
+├── NVR Demo Files
+│   ├── nvr-demo.html           # Combined live + playback demo
+│   └── api-reference.html      # NVR API documentation
+│
+├── Cloud Demo Files
+│   ├── cloud-api-demo.html     # Cloud live streaming demo
+│   ├── cloud-api-reference.html # Cloud API documentation
+│   └── dev-server.js           # Development server with CORS proxy
+│
+├── Shared
+│   └── WSPlayer.js             # WebSocket H.264 video player component
+│
+├── DEPLOYMENT.md               # Deployment guide
+└── README.md                   # This file
 ```
 
-## Quick Start
+---
 
-### Option 1: Use the Hosted Demo (HTTPS)
+## NVR Integration
 
-Access the demo pages directly:
+Direct connection to Dividia NVR devices on local network or via remote access (serial.dvr.dividia.net).
+
+### Quick Start (NVR)
+
+**Option 1: Hosted Demo (HTTPS)**
 ```
 https://dividia-dev.github.io/api/nvr-demo.html
 ```
+Best for remote NVR access and WebSocket H.264 streaming.
 
-**Best for:**
-- Remote NVR access (serial.dvr.dividia.net URLs)
-- WebSocket H.264 streaming
-- No local setup required
-
-### Option 2: Run Locally (HTTP)
-
-For testing with local IP addresses:
-
+**Option 2: Run Locally (HTTP)**
 ```bash
-# Clone the repo
-git clone https://github.com/dividia-dev/api.git
-cd api
-
-# Start local HTTP server (Python)
+# Start local server
 python3 -m http.server 8080
+# or: npx serve -p 8080
 
-# Or use Node.js (no install needed)
-npx serve -p 8080
-# or: npx http-server -p 8080
-
-# Open in browser
-# http://localhost:8080/nvr-demo.html
+# Open http://localhost:8080/nvr-demo.html
 ```
+Best for local network testing with IP addresses (192.168.x.x).
 
-**Best for:**
-- Testing with local IP addresses (192.168.x.x)
-- JPEG and MJPEG streaming
-- Development and debugging
+### NVR Demo Pages
 
-### Why Both HTTP and HTTPS?
+| Page | Description |
+|------|-------------|
+| `nvr-demo.html` | Combined live + playback demo with tabbed interface |
+| `api-reference.html` | Complete NVR API documentation |
 
-| Protocol | Use Case | Supported Features |
-|----------|----------|-------------------|
-| **HTTPS** | Remote access via internet | JPEG, MJPEG, WebSocket H.264 |
-| **HTTP** | Local network testing | JPEG, MJPEG |
+### NVR Streaming Methods
 
-The pages auto-detect their protocol and configure accordingly.
+| Method | Bandwidth | Latency | HTTPS Required |
+|--------|-----------|---------|----------------|
+| JPEG Polling | High | Medium | No |
+| MJPEG Stream | Medium | Low | No |
+| WebSocket H.264 | Low | Lowest | Yes* |
 
-## Demo Pages
+*WebSocket H.264 works on `http://localhost` for development.
 
-### Combined Demo (`nvr-demo.html`)
+### NVR Authentication
 
-All-in-one demo with tabbed interface for live streaming and playback.
-
-**Features:**
-- Single authentication for both live and playback
-- Tab switching between Live Video and Playback
-- Three live streaming methods
-- Event search and video playback
-
-### Live Video (`live-test.html`)
-
-Standalone demo for live video streaming.
-
-**Streaming Methods:**
-- **JPEG Snapshot**: Polls for images at configurable rate (0.5-4 fps)
-- **MJPEG Stream**: Continuous motion JPEG stream
-- **WebSocket H.264**: Low-latency H.264 with WebCodecs (HTTPS only)
-
-### Playback (`playback-test.html`)
-
-Standalone demo for recorded video.
-
-**Features:**
-- Event search by camera and date range
-- Thumbnail previews
-- HTML5 video playback with controls
-- Timestamp overlays
-
-### API Reference (`api-reference.html`)
-
-Complete API documentation covering:
-- Authentication (JSON-RPC)
-- Session management
-- Camera configuration
-- Event retrieval
-- Video playback
-- Live video streaming
-- Timezone handling
-- Error handling
-
-## Key Concepts
-
-### Authentication
-
-All API calls require a session token from `auth.loginUser`:
+NVR uses JSON-RPC with session tokens:
 
 ```javascript
 // POST to /JSON/
@@ -137,121 +94,168 @@ All API calls require a session token from `auth.loginUser`:
 }
 ```
 
-### Session Management
+### NVR API Endpoints
 
-- Sessions expire after 2 hours of inactivity
-- Use `auth.checkExists` to keep sessions alive
-- Video streaming does NOT extend session timeout
+```
+POST /JSON/                                    # JSON-RPC API
+GET  /mpe/cam{N}.jpg?sess={SESSION}           # JPEG snapshot
+GET  /mpe/cam{N}.mjpg?sess={SESSION}          # MJPEG stream
+WS   /ws/cam{N}-pro{PROFILE}?sess={SESSION}   # WebSocket H.264
+GET  /camstream/?cmd=fetch&session=...        # Recorded video
+```
 
-### Live Video Streaming
-
-| Method | Bandwidth | Latency | HTTPS Required |
-|--------|-----------|---------|----------------|
-| JPEG Polling | High | Medium | No |
-| MJPEG | Medium | Low | No |
-| WebSocket H.264 | Low | Lowest | Yes |
-
-### CORS Requirements
+### NVR CORS Requirements
 
 NVRs must have CORS headers configured for cross-origin access:
-
 ```
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: POST, GET, OPTIONS
 Access-Control-Allow-Headers: Content-Type
 ```
 
-## API Endpoints Summary
+---
 
-**JSON-RPC API:**
+## Cloud Integration
+
+Connection to cloud-connected cameras via Dividia Cloud API.
+
+### Quick Start (Cloud)
+
+**Option 1: Development Server (Recommended)**
+```bash
+# Start dev server with CORS proxy
+node dev-server.js
+
+# Open http://localhost:3000/cloud-api-demo.html
 ```
-POST http(s)://nvr-address/JSON/
+The dev server proxies API requests to bypass CORS restrictions during development.
+
+**Option 2: Direct Access**
+
+For production deployments, access the Cloud API directly at:
+```
+https://api.cloud.dividia.net
 ```
 
-**Live Video (JPEG/MJPEG):**
-```
-GET /mpe/cam{N}.jpg?sess={SESSION}&ts={TIMESTAMP}
-GET /mpe/cam{N}.mjpg?sess={SESSION}
+### Cloud Demo Pages
+
+| Page | Description |
+|------|-------------|
+| `cloud-api-demo.html` | Cloud live streaming demo |
+| `cloud-api-reference.html` | Complete Cloud API documentation |
+| `dev-server.js` | Development server with CORS proxy |
+
+### Cloud Streaming
+
+Cloud currently supports WebSocket H.264 streaming only:
+
+| Method | Bandwidth | Latency | Notes |
+|--------|-----------|---------|-------|
+| WebSocket H.264 | Low | Lowest | HTTPS required, uses WSPlayer.js |
+
+### Cloud Authentication
+
+Cloud uses REST API with JWT Bearer tokens:
+
+```javascript
+// POST to /ve/login
+{
+  "username": "user@example.com",
+  "password": "password"
+}
+
+// Response
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "devices": [...]
+}
+
+// Use token in subsequent requests
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-**Live Video (WebSocket H.264):**
+### Cloud API Endpoints
+
 ```
-WS(S) /ws/cam{N}-pro{PROFILE}?sess={SESSION}
+Base URL: https://api.cloud.dividia.net
+
+POST /ve/login                    # Authenticate, get JWT token
+GET  /ve/devices                  # List devices
+GET  /ve/cameras?device={ID}      # List cameras for device
+WS   /{deviceID}-cam{N}-pro{P}    # WebSocket H.264 stream
 ```
 
-**Recorded Video:**
+### Cloud WebSocket URL Format
+
 ```
-GET /camstream/?cmd=fetch&session={SESSION}&file={PATH}
+wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}
+
+Example:
+wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1
 ```
 
-## WSPlayer.js - Reusable WebSocket Video Player
+| Component | Description |
+|-----------|-------------|
+| `deviceID` | Device serial ID from `/ve/devices` |
+| `cam{N}` | Camera number (1-16) |
+| `pro{P}` | Profile: 1 (full res) or 2 (lower res) |
 
-For integrating WebSocket H.264/H.265 video into your own applications, use the `WSPlayer.js` library. It's a fully self-contained component that generates all HTML (canvas, overlays, loading spinner, stats) inside a container element.
+---
+
+## WSPlayer.js - Shared Video Player
+
+Both NVR and Cloud demos use `WSPlayer.js` for WebSocket H.264 streaming. It's a self-contained component that generates all HTML (canvas, overlays, loading spinner) inside a container element.
 
 ### Basic Usage
 
 ```html
 <script src="WSPlayer.js"></script>
-
-<!-- Just provide an empty container - WSPlayer generates all HTML inside -->
 <div id="camera-1" style="width: 640px; height: 480px;"></div>
 
 <script>
-// Create and start player using the factory method
 const player = WSPlayer.create('camera-1', {
-    camera: [1, 'Front Door'],  // [cameraId, cameraName]
+    // For NVR: use host/port/session
+    camera: [1, 'Front Door'],
     host: '256.dvr.dividia.net',
     port: 443,
     profile: 1,
     session: 'your-session-token',
     secure: true,
 
+    // OR for Cloud: use direct URL
+    // url: 'wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1',
+
+    // Callbacks
     onConnect: () => console.log('Connected'),
     onFirstFrame: () => console.log('Video started'),
-    onError: (err) => console.error('Error:', err)
+    onError: (err) => console.error('Error:', err),
+    onDisconnect: () => console.log('Disconnected')
 });
 
 // Control methods
 player.stop();      // Stop streaming
 player.start();     // Start streaming
 player.restart();   // Restart streaming
-
-// Status methods
-player.connected();       // Returns true/false
-player.getStatus();       // Returns full status object
-player.getDebugString();  // Returns human-readable debug info
-</script>
 ```
 
-### Features
-
-- **Self-contained** - Generates all HTML (canvas, overlays, spinner, stats) inside container
-- **H.264 and H.265 support** - Auto-detects codec from stream
-- **Hardware acceleration** - Uses WebCodecs for efficient decoding
-- **Auto-reconnect** - Automatically reconnects on disconnect
-- **Stall detection** - Detects and reports when stream stops
-- **Built-in overlays** - Camera name, FPS stats, and timestamp (configurable)
-- **Loading states** - Built-in loading spinner and error display
-- **Callbacks** - Events for connect, disconnect, first frame, errors, stall, reconnecting, metadata
-
-### Options
+### WSPlayer Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `url` | string | - | Full WebSocket URL (Cloud) |
+| `host` | string | - | NVR hostname (NVR) |
+| `port` | number | 443/80 | NVR port (NVR) |
+| `session` | string | - | Session token (NVR) |
 | `camera` | array | - | Camera info as `[id, name]` |
-| `host` | string | - | NVR hostname |
-| `port` | number | 443/80 | NVR port |
 | `profile` | number | 1 | Stream profile (1=full, 2=lower) |
-| `session` | string | - | Session token |
-| `secure` | boolean | auto | Use wss:// (auto-detected from page) |
-| `url` | string | - | Full WebSocket URL (alternative to above) |
+| `secure` | boolean | auto | Use wss:// |
 | `noOverlay` | bool/array | - | Hide overlays: `true` or `['cam_name', 'fps', 'ts']` |
 | `autoReconnect` | boolean | true | Auto-reconnect on disconnect |
 | `reconnectDelay` | number | 5000 | Reconnect delay in ms |
 | `stallTimeout` | number | 5000 | Stall detection timeout in ms |
 | `debug` | boolean | false | Enable debug logging |
 
-### Callbacks
+### WSPlayer Callbacks
 
 | Callback | Description |
 |----------|-------------|
@@ -263,59 +267,90 @@ player.getDebugString();  // Returns human-readable debug info
 | `onStall` | No data received (stalled) |
 | `onMetadata` | Server metadata received |
 
-See `WSPlayer.js` and `api-reference.html` for full documentation.
+### Browser Support Check
 
-## Integration Patterns
+```javascript
+const support = WSPlayer.checkSupport();
+if (!support.supported) {
+    console.error(support.reason);
+    // Fall back to MJPEG (NVR only)
+}
+```
 
-**Web Browser Applications:**
-- Use WebSocket H.264 for best performance (HTTPS required)
-- Use `WSPlayer.js` for easy integration
-- Fallback to MJPEG for broader compatibility
-
-**Native Mobile/Desktop Apps:**
-- Use RTSP streams for native H.264 decoding
-- Or MJPEG for simple HTTP-based streaming
-
-**Server-Side Applications:**
-- Use MJPEG or RTSP
-- WebCodecs is browser-only
-
-**Embedded/IoT:**
-- Use JPEG polling (simplest, most compatible)
+---
 
 ## Browser Compatibility
 
 | Feature | Chrome | Edge | Safari | Firefox |
 |---------|--------|------|--------|---------|
-| JPEG/MJPEG | Yes | Yes | Yes | Yes |
+| JPEG/MJPEG (NVR) | Yes | Yes | Yes | Yes |
 | WebSocket H.264 | 94+ | 94+ | 16.4+ | No |
 
+**WebSocket H.264 Requirements:**
+- Secure context (HTTPS or `http://localhost`)
+- WebCodecs API support
+- Modern browser (see table above)
+
+---
+
+## Platform Comparison
+
+| Feature | NVR | Cloud |
+|---------|-----|-------|
+| Authentication | JSON-RPC session | JWT Bearer token |
+| Live Streaming | JPEG, MJPEG, WebSocket | WebSocket only |
+| Recorded Playback | Yes | Coming soon |
+| CORS Proxy Needed | No (configure NVR) | Yes (dev) / No (prod) |
+| API Style | JSON-RPC | REST |
+
+---
+
 ## Troubleshooting
+
+### Common Issues (Both Platforms)
+
+**WebSocket H.264 not working:**
+- Requires HTTPS (or `http://localhost`)
+- Check browser supports WebCodecs (Chrome 94+, Safari 16.4+)
+- Verify `window.isSecureContext` returns true
+
+**Video not playing:**
+- Check session/token hasn't expired
+- Verify camera is enabled and online
+- Check browser console for errors
+
+### NVR-Specific Issues
 
 **"Failed to fetch" errors:**
 - Check NVR CORS headers are configured
 - Verify NVR is accessible from browser
-- Check browser console for detailed error
 
-**WebSocket H.264 not available:**
-- Requires HTTPS (or http://localhost)
-- Check browser compatibility (Chrome 94+, Safari 16.4+)
-- Verify `window.isSecureContext` returns true
+**Mixed content errors:**
+- HTTPS pages cannot access HTTP NVRs directly
+- Use HTTP version for local network access
 
-**Video not playing:**
-- Check session hasn't expired (2 hour timeout)
-- Verify camera is enabled and not in failed state
-- Check browser console for errors
+### Cloud-Specific Issues
+
+**CORS errors during development:**
+- Use `dev-server.js` to proxy requests
+- Run: `node dev-server.js`
+
+**401 Unauthorized:**
+- JWT token expired, re-authenticate via `/ve/login`
+
+---
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for instructions on hosting these pages.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for hosting instructions.
+
+---
 
 ## Support
 
-For questions about the Dividia NVR API or to report issues with these demo pages, please contact Dividia support or file an issue on GitHub.
-
-https://github.com/dividia-dev/api
+For questions or issues:
+- GitHub: https://github.com/dividia-dev/api
+- Contact Dividia support
 
 ---
 
