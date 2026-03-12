@@ -185,11 +185,11 @@
 
     <h2 id="authentication">1. Authentication</h2>
 
-    <h3>POST /ve/login</h3>
+    <h3>POST /ve/auth</h3>
     <p>Authenticates a user and returns a JWT token along with all authorized devices and cameras.</p>
 
     <div class="endpoint">
-        <span class="method post">POST</span> /ve/login
+        <span class="method post">POST</span> /ve/auth
     </div>
 
     <h4>Request Body</h4>
@@ -252,7 +252,7 @@
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
 
     <div class="info">
-        <strong>Token Expiry:</strong> JWT tokens are valid for 30 days. When the token expires, re-authenticate with <code>/ve/login</code>.
+        <strong>Token Expiry:</strong> JWT tokens are valid for 30 days. When the token expires, re-authenticate with <code>/ve/auth</code>.
     </div>
 
     <h2 id="data-model">2. Data Model</h2>
@@ -600,7 +600,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
         <tr><th>Error</th><th>Cause</th><th>Solution</th></tr>
         <tr><td>"Could not find user."</td><td>Invalid credentials</td><td>Verify username/password</td></tr>
         <tr><td>"No body provided"</td><td>Missing request body</td><td>Send JSON body with request</td></tr>
-        <tr><td>401 Unauthorized</td><td>Invalid/expired token</td><td>Re-authenticate with /ve/login</td></tr>
+        <tr><td>401 Unauthorized</td><td>Invalid/expired token</td><td>Re-authenticate with /ve/auth</td></tr>
         <tr><td>403 Forbidden</td><td>No access to device</td><td>Check user permissions</td></tr>
     </table>
 

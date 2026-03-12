@@ -505,7 +505,7 @@
 
                 <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
                 <div class="api-ref">
-                    <h4>Endpoint: POST /ve/login</h4>
+                    <h4>Endpoint: POST /ve/auth</h4>
                     <p>Authenticates a user and returns access token plus authorized devices and cameras for streaming.</p>
                     <strong>Request Body (JSON)</strong>
                     <table>
@@ -853,7 +853,7 @@
             }
 
             try {
-                const response = await fetch(apiUrl + '/ve/login', {
+                const response = await fetch(apiUrl + '/ve/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -874,25 +874,10 @@
                     return;
                 }
 
-                // Store auth data (parse to minimal structure matching future /ve/auth response)
+                // Store auth data (ve/auth returns minimal structure for streaming)
                 token = data.token;
-
-                // Filter devices to minimal fields needed for streaming
-                devices = (data.devices || []).map(d => ({
-                    sDeviceID: d.sDeviceID,
-                    sName: d.sName,
-                    fOnline: d.fOnline
-                }));
-
-                // Filter cameras to minimal fields needed for streaming
-                cameras = (data.cameras || []).map(c => ({
-                    sDeviceID: c.sDeviceID,
-                    bCamera: c.bCamera,
-                    bProfile: c.bProfile,
-                    sName: c.sName,
-                    fEnabled: c.fEnabled,
-                    fOnline: c.fOnline
-                }));
+                devices = data.devices || [];
+                cameras = data.cameras || [];
 
                 log('Authenticated successfully', 'success');
                 log('Found ' + devices.length + ' device(s), ' + cameras.length + ' camera(s)');
@@ -918,28 +903,17 @@
             const statusClass = success && !data.error ? 'success' : 'error';
             const statusText = success && !data.error ? 'OK' : 'FAILED';
 
-            // Show only the minimal fields used for streaming (matching /ve/auth response)
+            // Display response (ve/auth already returns minimal structure)
             const displayData = {
                 token: data.token ? data.token.substring(0, 20) + '...' : null,
-                devices: (data.devices || []).slice(0, 3).map(d => ({
-                    sDeviceID: d.sDeviceID,
-                    sName: d.sName,
-                    fOnline: d.fOnline
-                })),
-                cameras: (data.cameras || []).slice(0, 5).map(c => ({
-                    sDeviceID: c.sDeviceID,
-                    bCamera: c.bCamera,
-                    bProfile: c.bProfile,
-                    sName: c.sName,
-                    fEnabled: c.fEnabled,
-                    fOnline: c.fOnline
-                }))
+                devices: (data.devices || []).slice(0, 3),
+                cameras: (data.cameras || []).slice(0, 5)
             };
 
             const truncateNote = (data.devices?.length > 3 || data.cameras?.length > 5) ? '\n...(showing first entries)' : '';
 
             el.innerHTML =
-                '<span class="label">POST</span> ' + apiUrl + '/ve/login\n' +
+                '<span class="label">POST</span> ' + apiUrl + '/ve/auth\n' +
                 '<span class="label">Body:</span> ' + JSON.stringify({ username, password: '***' }, null, 2) + '\n' +
                 '<span class="label">Response:</span> <span class="' + statusClass + '">[' + statusText + ']</span>\n' +
                 JSON.stringify(displayData, null, 2) + truncateNote;
