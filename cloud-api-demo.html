@@ -506,7 +506,7 @@
                 <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
                 <div class="api-ref">
                     <h4>Endpoint: POST /ve/login</h4>
-                    <p>Authenticates a user and returns access token plus all authorized devices and cameras.</p>
+                    <p>Authenticates a user and returns access token plus authorized devices and cameras for streaming.</p>
                     <strong>Request Body (JSON)</strong>
                     <table>
                         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
@@ -517,11 +517,8 @@
                     <table>
                         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
                         <tr><td>token</td><td>string</td><td>JWT token for authenticated requests (30-day expiry)</td></tr>
-                        <tr><td>user</td><td>object</td><td>User details (bID, sName, bRole)</td></tr>
-                        <tr><td>devices</td><td>array</td><td>List of devices user has access to</td></tr>
-                        <tr><td>cameras</td><td>array</td><td>List of cameras with stream source paths</td></tr>
-                        <tr><td>customers</td><td>array</td><td>Customer/organization list</td></tr>
-                        <tr><td>projects</td><td>array</td><td>Sites/projects list</td></tr>
+                        <tr><td>devices</td><td>array</td><td>List of devices (sDeviceID, sName, fOnline)</td></tr>
+                        <tr><td>cameras</td><td>array</td><td>List of cameras (sDeviceID, bCamera, bProfile, sName, fEnabled, fOnline)</td></tr>
                     </table>
                 </div>
             </div>
@@ -559,22 +556,19 @@
                     <strong>Device Object</strong>
                     <table>
                         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-                        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "0A58A9FEAC02")</td></tr>
+                        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "0A58A9FEAC02") - used in WebSocket URL</td></tr>
                         <tr><td>sName</td><td>string</td><td>Device display name</td></tr>
                         <tr><td>fOnline</td><td>int</td><td>1 = online, 0 = offline</td></tr>
-                        <tr><td>bCameras</td><td>int</td><td>Number of cameras on device</td></tr>
-                        <tr><td>sBackendID</td><td>string</td><td>Backend server handling this device</td></tr>
                     </table>
                     <strong style="display: block; margin-top: 10px;">Camera Object</strong>
                     <table>
                         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
                         <tr><td>sDeviceID</td><td>string</td><td>Parent device serial</td></tr>
-                        <tr><td>bCamera</td><td>int</td><td>Camera number (1-16)</td></tr>
-                        <tr><td>bProfile</td><td>int</td><td>Stream profile (1=full, 2=lower)</td></tr>
+                        <tr><td>bCamera</td><td>int</td><td>Camera number (1-16) - used in WebSocket URL as cam{N}</td></tr>
+                        <tr><td>bProfile</td><td>int</td><td>Stream profile (1=full, 2=lower) - used in WebSocket URL as pro{P}</td></tr>
                         <tr><td>sName</td><td>string</td><td>Camera display name</td></tr>
                         <tr><td>fEnabled</td><td>int</td><td>1 = enabled, 0 = disabled</td></tr>
                         <tr><td>fOnline</td><td>int</td><td>1 = online, 0 = offline</td></tr>
-                        <tr><td>source</td><td>string</td><td>Stream source path prefix</td></tr>
                     </table>
                 </div>
             </div>
@@ -880,10 +874,25 @@
                     return;
                 }
 
-                // Store auth data
+                // Store auth data (parse to minimal structure matching future /ve/auth response)
                 token = data.token;
-                devices = data.devices || [];
-                cameras = data.cameras || [];
+
+                // Filter devices to minimal fields needed for streaming
+                devices = (data.devices || []).map(d => ({
+                    sDeviceID: d.sDeviceID,
+                    sName: d.sName,
+                    fOnline: d.fOnline
+                }));
+
+                // Filter cameras to minimal fields needed for streaming
+                cameras = (data.cameras || []).map(c => ({
+                    sDeviceID: c.sDeviceID,
+                    bCamera: c.bCamera,
+                    bProfile: c.bProfile,
+                    sName: c.sName,
+                    fEnabled: c.fEnabled,
+                    fOnline: c.fOnline
+                }));
 
                 log('Authenticated successfully', 'success');
                 log('Found ' + devices.length + ' device(s), ' + cameras.length + ' camera(s)');
@@ -909,16 +918,31 @@
             const statusClass = success && !data.error ? 'success' : 'error';
             const statusText = success && !data.error ? 'OK' : 'FAILED';
 
-            // Sanitize response for display
-            const displayData = { ...data };
-            if (displayData.token) displayData.token = displayData.token.substring(0, 20) + '...';
-            if (displayData.user && displayData.user.sPassword) displayData.user.sPassword = '***';
+            // Show only the minimal fields used for streaming (matching /ve/auth response)
+            const displayData = {
+                token: data.token ? data.token.substring(0, 20) + '...' : null,
+                devices: (data.devices || []).slice(0, 3).map(d => ({
+                    sDeviceID: d.sDeviceID,
+                    sName: d.sName,
+                    fOnline: d.fOnline
+                })),
+                cameras: (data.cameras || []).slice(0, 5).map(c => ({
+                    sDeviceID: c.sDeviceID,
+                    bCamera: c.bCamera,
+                    bProfile: c.bProfile,
+                    sName: c.sName,
+                    fEnabled: c.fEnabled,
+                    fOnline: c.fOnline
+                }))
+            };
+
+            const truncateNote = (data.devices?.length > 3 || data.cameras?.length > 5) ? '\n...(showing first entries)' : '';
 
             el.innerHTML =
                 '<span class="label">POST</span> ' + apiUrl + '/ve/login\n' +
                 '<span class="label">Body:</span> ' + JSON.stringify({ username, password: '***' }, null, 2) + '\n' +
                 '<span class="label">Response:</span> <span class="' + statusClass + '">[' + statusText + ']</span>\n' +
-                JSON.stringify(displayData, null, 2).substring(0, 2000) + (JSON.stringify(displayData).length > 2000 ? '\n...(truncated)' : '');
+                JSON.stringify(displayData, null, 2) + truncateNote;
         }
 
         // ==================== DEVICE & CAMERA SELECTION ====================

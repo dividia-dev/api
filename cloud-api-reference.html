@@ -208,32 +208,31 @@
     <h4>Success Response</h4>
     <pre>{
   <span class="string">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
-  <span class="string">"user"</span>: {
-    <span class="string">"bID"</span>: <span class="number">1</span>,
-    <span class="string">"sName"</span>: <span class="string">"user@example.com"</span>,
-    <span class="string">"bRole"</span>: <span class="number">2</span>,
-    <span class="string">"bCustomerID"</span>: <span class="number">1</span>
-  },
-  <span class="string">"customers"</span>: [...],
-  <span class="string">"projects"</span>: [...],
-  <span class="string">"devices"</span>: [...],
-  <span class="string">"cameras"</span>: [...],
-  <span class="string">"userViews"</span>: [...],
-  <span class="string">"deviceIdList"</span>: [<span class="string">"0A58A9FEAC02"</span>, <span class="string">"48B02D076C44"</span>],
-  <span class="string">"backendVersion"</span>: <span class="string">"2026.1.1"</span>
+  <span class="string">"devices"</span>: [
+    {
+      <span class="string">"sDeviceID"</span>: <span class="string">"0A58A9FEAC02"</span>,
+      <span class="string">"sName"</span>: <span class="string">"Front Lobby NVR"</span>,
+      <span class="string">"fOnline"</span>: <span class="number">1</span>
+    }
+  ],
+  <span class="string">"cameras"</span>: [
+    {
+      <span class="string">"sDeviceID"</span>: <span class="string">"0A58A9FEAC02"</span>,
+      <span class="string">"bCamera"</span>: <span class="number">1</span>,
+      <span class="string">"bProfile"</span>: <span class="number">2</span>,
+      <span class="string">"sName"</span>: <span class="string">"Front Door"</span>,
+      <span class="string">"fEnabled"</span>: <span class="number">1</span>,
+      <span class="string">"fOnline"</span>: <span class="number">1</span>
+    }
+  ]
 }</pre>
 
     <h4>Response Fields</h4>
     <table>
         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
         <tr><td>token</td><td>string</td><td>JWT token for authenticated requests (valid 30 days)</td></tr>
-        <tr><td>user</td><td>object</td><td>User details including ID, name, and role</td></tr>
-        <tr><td>customers</td><td>array</td><td>Organizations the user belongs to</td></tr>
-        <tr><td>projects</td><td>array</td><td>Sites/locations within customers</td></tr>
-        <tr><td>devices</td><td>array</td><td>Recording devices user has access to</td></tr>
-        <tr><td>cameras</td><td>array</td><td>Cameras with stream source paths</td></tr>
-        <tr><td>userViews</td><td>array</td><td>Saved camera view layouts</td></tr>
-        <tr><td>deviceIdList</td><td>array</td><td>List of device serial IDs (for token validation)</td></tr>
+        <tr><td>devices</td><td>array</td><td>Recording devices user has access to (see Device Object below)</td></tr>
+        <tr><td>cameras</td><td>array</td><td>Cameras available for streaming (see Camera Object below)</td></tr>
     </table>
 
     <h4>Error Response</h4>
@@ -244,7 +243,7 @@
 {<span class="string">"changePassword"</span>: <span class="keyword">true</span>, <span class="string">"user"</span>: {...}}</pre>
 
     <div class="note">
-        <strong>Important:</strong> The login response includes all devices and cameras the user has access to. No separate API call is needed to fetch cameras.
+        <strong>Important:</strong> The login response includes all devices and cameras the user has access to for streaming. No separate API call is needed to fetch cameras or build WebSocket URLs.
     </div>
 
     <h3>Token Usage</h3>
@@ -258,39 +257,34 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
 
     <h2 id="data-model">2. Data Model</h2>
 
-    <h3>Hierarchy</h3>
-    <pre>Customer (Organization)
-  └── Project (Site/Location)
-        └── Device (Recording Unit)
-              └── Camera (Video Stream)</pre>
+    <h3>Streaming Hierarchy</h3>
+    <pre>Device (Recording Unit)
+  └── Camera (Video Stream)</pre>
+    <p>The login response returns devices and cameras authorized for the user. Each camera belongs to a device, and the WebSocket URL is constructed from device and camera IDs.</p>
 
     <h3>Device Object</h3>
     <table>
         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-        <tr><td>bID</td><td>int</td><td>Internal database ID</td></tr>
-        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "0A58A9FEAC02")</td></tr>
+        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "0A58A9FEAC02") - used in WebSocket URL</td></tr>
         <tr><td>sName</td><td>string</td><td>Device display name</td></tr>
         <tr><td>fOnline</td><td>int</td><td>Online status: 1 = online, 0 = offline</td></tr>
-        <tr><td>bCameras</td><td>int</td><td>Number of cameras on this device</td></tr>
-        <tr><td>sBackendID</td><td>string</td><td>Backend server handling this device</td></tr>
-        <tr><td>bCustomerProjectID</td><td>int</td><td>Parent site/project ID</td></tr>
-        <tr><td>sLastEventTS</td><td>string</td><td>Timestamp of last recorded event</td></tr>
     </table>
 
     <h3>Camera Object</h3>
     <table>
         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-        <tr><td>bID</td><td>int</td><td>Internal database ID</td></tr>
-        <tr><td>sDeviceID</td><td>string</td><td>Parent device serial</td></tr>
-        <tr><td>bCamera</td><td>int</td><td>Camera number on device (1-16)</td></tr>
-        <tr><td>bProfile</td><td>int</td><td>Stream profile (1 = full res, 2 = lower res)</td></tr>
+        <tr><td>sDeviceID</td><td>string</td><td>Parent device serial - links camera to device</td></tr>
+        <tr><td>bCamera</td><td>int</td><td>Camera number on device (1-16) - used in WebSocket URL as cam{N}</td></tr>
+        <tr><td>bProfile</td><td>int</td><td>Stream profile (1 = full res, 2 = lower res) - used in WebSocket URL as pro{P}</td></tr>
         <tr><td>sName</td><td>string</td><td>Camera display name</td></tr>
         <tr><td>fEnabled</td><td>int</td><td>Enabled status: 1 = enabled, 0 = disabled</td></tr>
         <tr><td>fOnline</td><td>int</td><td>Online status: 1 = online, 0 = offline</td></tr>
-        <tr><td>source</td><td>string</td><td>HLS source path prefix (e.g., "/hls/DEVICE-cam1-")</td></tr>
-        <tr><td>sTimezone</td><td>string</td><td>Timezone for timestamps</td></tr>
-        <tr><td>label</td><td>string</td><td>Full label: "Customer - Site - Device - Camera"</td></tr>
     </table>
+
+    <div class="note">
+        <strong>WebSocket URL Construction:</strong> Use the device and camera fields to build the streaming URL:<br>
+        <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}</code>
+    </div>
 
     <h2 id="live-streaming">3. Live Video Streaming</h2>
 
