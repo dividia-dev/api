@@ -652,6 +652,10 @@ img.src = '';</pre>
         <strong>Cons:</strong> Higher bandwidth than H.264 (no inter-frame compression), single long-lived HTTP connection per camera, may have issues with some proxy servers.
     </div>
 
+    <div class="warning">
+        <strong>Browser Connection Limit:</strong> Modern browsers limit concurrent HTTP connections to 6 per domain (HTTP/1.1). Each MJPEG stream consumes one persistent connection for its duration. This means <strong>only 6 cameras can be viewed simultaneously</strong> via MJPEG. Additional streams will queue and never connect. For viewing more than 6 cameras, use WebSocket H.264 streaming instead.
+    </div>
+
     <h3>Method 3: WebSocket H.264</h3>
     <p>For lowest latency and bandwidth, the NVR supports WebSocket-based H.264 streaming using the browser's WebCodecs API for hardware-accelerated decoding.</p>
 
@@ -677,49 +681,15 @@ img.src = '';</pre>
     </table>
 
     <h4>Example URLs</h4>
-    <pre><span class="comment">// Session-based auth (recommended) - consistent with other API calls</span>
+    <pre><span class="comment">// Session-based auth - consistent with other API calls</span>
 wss://8888.dvr.dividia.net:443/ws/cam1-pro1?sess=a1b2c3d4e5f6...
 
 <span class="comment">// Profile 2 (Lower resolution) for multi-camera grids</span>
-wss://8888.dvr.dividia.net:443/ws/cam1-pro2?sess=a1b2c3d4e5f6...
-
-<span class="comment">// Alternative: Direct credentials (if session not available)</span>
-wss://nvr.example.com:443/ws/cam1-pro1?user=admin&amp;pass=secret123</pre>
+wss://8888.dvr.dividia.net:443/ws/cam1-pro2?sess=a1b2c3d4e5f6...</pre>
 
     <div class="note">
         <strong>Protocol Selection:</strong> Use <code>wss://</code> for HTTPS connections (required for WebCodecs). The <code>ws://</code> protocol only works with <code>http://localhost</code> during development.
     </div>
-
-    <h4>Data Format</h4>
-    <p>The WebSocket connection receives two types of messages:</p>
-    <table>
-        <tr><th>Message Type</th><th>Content</th><th>Description</th></tr>
-        <tr><td>Text frames</td><td>JSON</td><td>Metadata (camera info, detected objects)</td></tr>
-        <tr><td>Binary frames</td><td>H.264 Access Units</td><td>Complete video frames in Annex B format</td></tr>
-    </table>
-
-    <h4>NAL Unit Types</h4>
-    <p><strong>Important:</strong> Each binary message contains a complete <strong>Access Unit</strong> which may include multiple NAL units concatenated together. For example, a keyframe message contains: <code>[SPS][PPS][IDR]</code> all in one packet. You must parse the packet to extract individual NAL units by scanning for start codes (<code>00 00 00 01</code> or <code>00 00 01</code>).</p>
-    <p>H.264 NAL unit types:</p>
-    <table>
-        <tr><th>NAL Type</th><th>Name</th><th>Description</th></tr>
-        <tr><td>7</td><td>SPS</td><td>Sequence Parameter Set - codec configuration</td></tr>
-        <tr><td>8</td><td>PPS</td><td>Picture Parameter Set - codec configuration</td></tr>
-        <tr><td>5</td><td>IDR</td><td>Keyframe (I-frame) - complete picture</td></tr>
-        <tr><td>1</td><td>Non-IDR</td><td>Delta frame (P-frame) - references previous frames</td></tr>
-    </table>
-
-    <h4>Rendering</h4>
-    <p>VideoDecoder renders to a <strong>&lt;canvas&gt;</strong> element, not a &lt;video&gt; tag. The decoder outputs <code>VideoFrame</code> objects which are drawn to the canvas using <code>drawImage()</code>.</p>
-    <div class="info">
-        <strong>Note:</strong> <code>WSPlayer.js</code> (below) handles all canvas creation and rendering automatically. The following is for reference only.
-    </div>
-    <pre><span class="comment">// Manual HTML setup - use canvas, not video</span>
-&lt;canvas id="video-canvas" width="640" height="480"&gt;&lt;/canvas&gt;
-
-<span class="comment">// Get canvas context for drawing</span>
-<span class="keyword">const</span> canvas = document.getElementById(<span class="string">'video-canvas'</span>);
-<span class="keyword">const</span> ctx = canvas.getContext(<span class="string">'2d'</span>);</pre>
 
     <h4>Using WSPlayer.js (Recommended)</h4>
     <p>The easiest way to integrate WebSocket H.264 streaming is using the <code>WSPlayer.js</code> library. It's a fully self-contained component that generates all HTML (canvas, overlays, loading spinner, stats) inside a container element.</p>
@@ -779,7 +749,7 @@ cameras.forEach(cam => {
     <p><strong>WSPlayer.js Features:</strong></p>
     <ul style="margin: 5px 0 10px 20px;">
         <li><strong>Self-contained HTML generation</strong> - canvas, overlays, loading spinner, stats all generated internally</li>
-        <li>Automatic H.264/H.265 codec detection</li>
+        <li>Automatic H.264 codec detection</li>
         <li>Hardware-accelerated decoding via WebCodecs</li>
         <li>Auto-reconnect on disconnect with configurable delay</li>
         <li>Stall detection with callback notification</li>
@@ -872,7 +842,7 @@ WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: [<span cla
     </div>
 
     <div class="note">
-        <strong>Codec Support:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High) or H.265/HEVC. <strong>WSPlayer.js detects and handles all supported codecs automatically.</strong>
+        <strong>Codec Support:</strong> Different cameras may use different H.264 profiles (Baseline, Main, High). <strong>WSPlayer.js detects and handles all supported profiles automatically.</strong>
     </div>
 
     <div class="note">

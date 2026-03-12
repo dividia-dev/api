@@ -164,10 +164,10 @@
             <li><a href="#overview">Overview</a></li>
             <li><a href="#authentication">1. Authentication</a></li>
             <li><a href="#data-model">2. Data Model</a></li>
-            <li><a href="#live-streaming">3. Live Video Streaming</a></li>
-            <li><a href="#playback">4. Video Playback (Recorded)</a></li>
-            <li><a href="#status">5. Device & Camera Status</a></li>
-            <li><a href="#errors">6. Error Handling</a></li>
+            <li><a href="#live-streaming">3. Live Video Streaming (WebSocket)</a></li>
+            <!-- <li><a href="#playback">4. Video Playback (Coming Soon)</a></li> -->
+            <li><a href="#status">4. Device & Camera Status</a></li>
+            <li><a href="#errors">5. Error Handling</a></li>
         </ul>
     </div>
 
@@ -176,8 +176,7 @@
 
     <h3>Base URL</h3>
     <div class="endpoint">
-        <strong>Production:</strong> https://api.cloud.dividia.net<br>
-        <strong>Staging:</strong> https://api-staging.cloud.dividia.net
+        https://api.cloud.dividia.net
     </div>
 
     <h3>Authentication Method</h3>
@@ -295,121 +294,189 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
 
     <h2 id="live-streaming">3. Live Video Streaming</h2>
 
-    <h3>Streaming Methods</h3>
-    <table>
-        <tr><th>Method</th><th>Latency</th><th>Bandwidth</th><th>Compatibility</th><th>Use Case</th></tr>
-        <tr>
-            <td><strong>HLS</strong></td>
-            <td>5-15 seconds</td>
-            <td>Medium</td>
-            <td>Excellent (all browsers)</td>
-            <td>Standard viewing, mobile</td>
-        </tr>
-        <tr>
-            <td><strong>WebSocket H.264</strong></td>
-            <td>&lt;1 second</td>
-            <td>Low</td>
-            <td>Modern browsers (HTTPS)</td>
-            <td>Real-time monitoring</td>
-        </tr>
-    </table>
+    <p>For low-latency live streaming, the Cloud API supports WebSocket-based H.264 streaming using the browser's WebCodecs API for hardware-accelerated decoding.</p>
 
-    <h3>HLS Streaming</h3>
-    <p>HLS (HTTP Live Streaming) provides broad compatibility and stable playback.</p>
-
-    <h4>Step 1: Initialize Stream</h4>
     <div class="endpoint">
-        <span class="method get">GET</span> /ve/streamstart
+        <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}
     </div>
 
-    <h4>Query Parameters</h4>
+    <h4>URL Parameters</h4>
     <table>
-        <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
-        <tr><td>device</td><td>string</td><td>Yes</td><td>Device serial ID</td></tr>
-        <tr><td>cam</td><td>int</td><td>Yes</td><td>Camera number (1-16)</td></tr>
-        <tr><td>pro</td><td>int</td><td>Yes</td><td>Profile: 1 (full) or 2 (lower)</td></tr>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>deviceID</td><td>string</td><td>Device serial ID from <code>/ve/devices</code></td></tr>
+        <tr><td>N</td><td>int</td><td>Camera number (1, 2, 3...)</td></tr>
+        <tr><td>P</td><td>int</td><td>Video profile: <code>1</code> (full resolution) or <code>2</code> (lower resolution)</td></tr>
     </table>
 
-    <h4>Example Request</h4>
-    <pre>GET /ve/streamstart?device=0A58A9FEAC02&amp;cam=1&amp;pro=1
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
+    <h4>Example URLs</h4>
+    <pre><span class="comment">// Full resolution stream</span>
+wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1
 
-    <h4>Response</h4>
-    <pre>{<span class="string">"result"</span>: <span class="string">"OK"</span>}</pre>
-
-    <h4>Step 2: Play HLS Stream</h4>
-    <p>After initialization, access the HLS playlist:</p>
-    <div class="endpoint">
-        <span class="method get">GET</span> /uploads/base/hls/{deviceID}-cam{N}-pro{P}_.m3u8
-    </div>
-
-    <h4>HLS URL Format</h4>
-    <pre><span class="comment">// Full URL pattern</span>
-https://api.cloud.dividia.net/uploads/base/hls/{deviceID}-cam{cameraNum}-pro{profile}_.m3u8
-
-<span class="comment">// Example</span>
-https://api.cloud.dividia.net/uploads/base/hls/0A58A9FEAC02-cam1-pro1_.m3u8</pre>
-
-    <h4>JavaScript Example (using hls.js)</h4>
-    <pre><span class="comment">// Initialize stream first</span>
-<span class="keyword">await</span> fetch(<span class="string">`${apiUrl}/ve/streamstart?device=${deviceId}&amp;cam=${camNum}&amp;pro=1`</span>, {
-    headers: { <span class="string">'Authorization'</span>: <span class="string">`Bearer ${token}`</span> }
-});
-
-<span class="comment">// Then play HLS</span>
-<span class="keyword">const</span> hlsUrl = <span class="string">`${apiUrl}/uploads/base/hls/${deviceId}-cam${camNum}-pro1_.m3u8`</span>;
-
-<span class="keyword">if</span> (Hls.isSupported()) {
-    <span class="keyword">const</span> hls = <span class="keyword">new</span> Hls();
-    hls.loadSource(hlsUrl);
-    hls.attachMedia(videoElement);
-} <span class="keyword">else if</span> (videoElement.canPlayType(<span class="string">'application/vnd.apple.mpegurl'</span>)) {
-    <span class="comment">// Safari native HLS</span>
-    videoElement.src = hlsUrl;
-}</pre>
+<span class="comment">// Lower resolution for multi-camera grids</span>
+wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro2</pre>
 
     <div class="note">
-        <strong>HLS Library:</strong> For non-Safari browsers, use <a href="https://github.com/video-dev/hls.js">hls.js</a> for HLS playback.
+        <strong>Protocol:</strong> Always use <code>wss://</code> (secure WebSocket) as the Cloud API requires HTTPS.
     </div>
 
-    <h3>WebSocket H.264 Streaming</h3>
-    <p>WebSocket streaming provides lower latency but requires HTTPS and MediaSource Extensions (MSE).</p>
+    <h4>Using WSPlayer.js (Recommended)</h4>
+    <p>The easiest way to integrate WebSocket H.264 streaming is using the <code>WSPlayer.js</code> library. It's a fully self-contained component that generates all HTML (canvas, overlays, loading spinner, stats) inside a container element.</p>
 
-    <h4>WebSocket URL Format</h4>
-    <div class="endpoint">
-        wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}
-    </div>
+    <pre><span class="comment">// Include the WSPlayer.js library</span>
+&lt;script src="WSPlayer.js"&gt;&lt;/script&gt;
 
-    <pre><span class="comment">// Example</span>
-wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1</pre>
+<span class="comment">&lt;!-- Just provide an empty container - WSPlayer generates all HTML inside --&gt;</span>
+&lt;div id="camera-1" style="width: 640px; height: 480px;"&gt;&lt;/div&gt;
 
-    <h4>WebSocket Protocol</h4>
+&lt;script&gt;
+<span class="comment">// Build WebSocket URL from device/camera info</span>
+<span class="keyword">const</span> deviceId = <span class="string">'0A58A9FEAC02'</span>;  <span class="comment">// From /ve/devices response</span>
+<span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1`</span>;
+
+<span class="comment">// Create and start player using the factory method</span>
+<span class="keyword">const</span> player = WSPlayer.create(<span class="string">'camera-1'</span>, {
+    url: wsUrl,
+    camera: [<span class="number">1</span>, <span class="string">'Front Door'</span>],  <span class="comment">// [cameraId, cameraName]</span>
+
+    <span class="comment">// Optional: event callbacks</span>
+    onConnect: () =&gt; console.log(<span class="string">'Connected'</span>),
+    onFirstFrame: () =&gt; console.log(<span class="string">'Video started'</span>),
+    onError: (err) =&gt; console.error(<span class="string">'Error:'</span>, err),
+    onDisconnect: () =&gt; console.log(<span class="string">'Disconnected'</span>),
+    onReconnecting: () =&gt; console.log(<span class="string">'Reconnecting...'</span>),
+    onStall: () =&gt; console.log(<span class="string">'Stream stalled'</span>),
+    onMetadata: (data) =&gt; console.log(<span class="string">'Metadata:'</span>, data)
+});
+
+<span class="comment">// Control methods</span>
+player.stop();      <span class="comment">// Stop streaming</span>
+player.start();     <span class="comment">// Start streaming</span>
+player.restart();   <span class="comment">// Restart streaming</span>
+
+<span class="comment">// Status methods</span>
+player.connected();       <span class="comment">// Returns true/false</span>
+player.getFrameCount();   <span class="comment">// Returns number of frames decoded</span>
+player.getFPS();          <span class="comment">// Returns current FPS</span>
+player.getStatus();       <span class="comment">// Returns full status object</span>
+&lt;/script&gt;</pre>
+
+    <h5>Multiple Cameras Example</h5>
+    <pre><span class="comment">// Create players for multiple cameras from a device</span>
+cameras.forEach(cam =&gt; {
+    <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam${cam.bCamera}-pro2`</span>;
+    WSPlayer.create(<span class="string">`cam-${cam.bCamera}`</span>, {
+        url: wsUrl,
+        camera: [cam.bCamera, cam.sName],
+    });
+});</pre>
+
+    <p><strong>WSPlayer.js Features:</strong></p>
+    <ul style="margin: 5px 0 10px 20px;">
+        <li><strong>Self-contained HTML generation</strong> - canvas, overlays, loading spinner, stats all generated internally</li>
+        <li>Automatic H.264 codec detection</li>
+        <li>Hardware-accelerated decoding via WebCodecs</li>
+        <li>Auto-reconnect on disconnect with configurable delay</li>
+        <li>Stall detection with callback notification</li>
+        <li>Built-in loading spinner and connection status</li>
+        <li>Camera name, FPS/frame stats, and timestamp overlays</li>
+        <li>Debug mode with detailed logging</li>
+    </ul>
+
+    <p><strong>WSPlayer Options:</strong></p>
     <table>
-        <tr><th>Message Type</th><th>Content</th><th>Description</th></tr>
-        <tr><td>Binary</td><td>ArrayBuffer</td><td>H.264 NAL units (video data)</td></tr>
-        <tr><td>String</td><td>JSON</td><td>Metadata: timestamp, motion flag</td></tr>
+        <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>url</code></td><td>string</td><td>-</td><td>Full WebSocket URL (required)</td></tr>
+        <tr><td><code>camera</code></td><td>array</td><td>-</td><td>Camera info as <code>[id, name]</code> array</td></tr>
+        <tr><td><code>noOverlay</code></td><td>boolean | array</td><td>-</td><td>Hide overlays: <code>true</code> = hide all, or array like <code>['cam_name', 'fps', 'ts']</code></td></tr>
+        <tr><td><code>autoReconnect</code></td><td>boolean</td><td>true</td><td>Auto-reconnect on disconnect</td></tr>
+        <tr><td><code>reconnectDelay</code></td><td>number</td><td>5000</td><td>Reconnect delay in milliseconds</td></tr>
+        <tr><td><code>stallTimeout</code></td><td>number</td><td>5000</td><td>Stall detection timeout in milliseconds</td></tr>
+        <tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging to console</td></tr>
     </table>
 
-    <h4>Metadata Message Format</h4>
-    <pre>{
-  <span class="string">"ts"</span>: <span class="number">1234567890000</span>,    <span class="comment">// Timestamp in 90kHz units</span>
-  <span class="string">"motion"</span>: <span class="keyword">true</span>           <span class="comment">// Motion detection status</span>
-}</pre>
+    <p><strong>Overlay Control:</strong></p>
+    <p>WSPlayer displays three overlay elements by default. Use <code>noOverlay</code> to hide specific elements:</p>
+    <table>
+        <tr><th>Value</th><th>Position</th><th>Content</th></tr>
+        <tr><td><code>'cam_name'</code></td><td>Top-left</td><td>Camera name</td></tr>
+        <tr><td><code>'fps'</code></td><td>Bottom-left</td><td>Frame count and FPS stats</td></tr>
+        <tr><td><code>'ts'</code></td><td>Bottom-right</td><td>Current timestamp</td></tr>
+    </table>
+    <pre><span class="comment">// Hide all overlays</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: <span class="keyword">true</span> });
 
-    <h4>Implementation Notes</h4>
-    <pre><span class="comment">// Convert timestamp to readable format</span>
-<span class="keyword">const</span> date = <span class="keyword">new</span> Date((timestamp / <span class="number">90000</span>) * <span class="number">1000</span>);
-<span class="keyword">const</span> timeString = date.toLocaleTimeString();</pre>
+<span class="comment">// Hide specific overlays (show only camera name)</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: [<span class="string">'fps'</span>, <span class="string">'ts'</span>] });</pre>
+
+    <p><strong>Event Callbacks:</strong></p>
+    <table>
+        <tr><th>Callback</th><th>Description</th></tr>
+        <tr><td><code>onConnect</code></td><td>Called when WebSocket connection is established</td></tr>
+        <tr><td><code>onFirstFrame</code></td><td>Called when first video frame is decoded and displayed</td></tr>
+        <tr><td><code>onError</code></td><td>Called on connection or decode errors (receives error object)</td></tr>
+        <tr><td><code>onDisconnect</code></td><td>Called when connection is closed (not during auto-reconnect)</td></tr>
+        <tr><td><code>onReconnecting</code></td><td>Called when auto-reconnect begins</td></tr>
+        <tr><td><code>onStall</code></td><td>Called when no data received for <code>stallTimeout</code> ms</td></tr>
+        <tr><td><code>onMetadata</code></td><td>Called when server sends metadata (camera info, etc.)</td></tr>
+    </table>
+
+    <p><strong>Instance Methods:</strong></p>
+    <table>
+        <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+        <tr><td><code>start()</code></td><td>void</td><td>Start streaming</td></tr>
+        <tr><td><code>stop()</code></td><td>void</td><td>Stop streaming and cleanup</td></tr>
+        <tr><td><code>restart()</code></td><td>void</td><td>Stop and restart streaming</td></tr>
+        <tr><td><code>connected()</code></td><td>boolean</td><td>Returns true if WebSocket is connected</td></tr>
+        <tr><td><code>getFrameCount()</code></td><td>number</td><td>Returns total frames decoded</td></tr>
+        <tr><td><code>getFPS()</code></td><td>number</td><td>Returns current frames per second</td></tr>
+        <tr><td><code>getCamera()</code></td><td>object</td><td>Returns <code>{ id, name }</code></td></tr>
+        <tr><td><code>getStatus()</code></td><td>object</td><td>Returns full status object for debugging</td></tr>
+    </table>
+
+    <p><strong>Static Methods:</strong></p>
+    <pre><span class="comment">// Check if WebCodecs is supported before creating player</span>
+<span class="keyword">const</span> support = WSPlayer.checkSupport();
+<span class="keyword">if</span> (!support.supported) {
+    console.error(support.reason);
+}
+
+<span class="comment">// Factory method (auto-starts the player)</span>
+<span class="keyword">const</span> player = WSPlayer.create(<span class="string">'container-id'</span>, options);</pre>
+
+    <div class="info">
+        <strong>Custom Implementation:</strong> If you need to implement WebSocket H.264 streaming without using WSPlayer.js, refer to the <code>WSPlayer.js</code> source code for a complete working implementation including codec detection and decoder management.
+    </div>
 
     <div class="warning">
-        <strong>Requirements:</strong> WebSocket H.264 streaming requires:
-        <ul style="margin: 5px 0 0 20px;">
-            <li>HTTPS connection (secure context)</li>
-            <li>Browser with MediaSource Extensions support</li>
-            <li>WebCodecs API (Chrome 94+, Edge 94+, Safari 16.4+)</li>
+        <strong>Secure Context Required:</strong> WebCodecs API only works in <strong>secure contexts</strong>:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li><strong>HTTPS</strong> - <code>https://yourapp.com</code></li>
+            <li><strong>localhost</strong> - <code>http://localhost</code> (development exception)</li>
         </ul>
     </div>
 
+    <div class="note">
+        <strong>Codec Support:</strong> Cameras may use different H.264 profiles (Baseline, Main, High). <strong>WSPlayer.js detects and handles all supported profiles automatically.</strong>
+    </div>
+
+    <div class="note">
+        <strong>Browser Requirements:</strong> WebSocket H.264 requires modern browser support for the WebCodecs API:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li>Chrome 94+ / Edge 94+</li>
+            <li>Safari 16.4+</li>
+            <li>Firefox: Not supported (no WebCodecs)</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <strong>Error Recovery:</strong> WSPlayer.js automatically handles decoder errors, hardware/software fallback, and stream recovery. It will attempt hardware decoding first and fall back to software decoding if needed.
+    </div>
+
+    <div class="info">
+        <strong>Advantages:</strong> WebSocket H.264 offers low bandwidth usage, lowest latency, and hardware-accelerated decoding. Use <code>WSPlayer.js</code> for the simplest integration.
+    </div>
+
+    <!-- COMMENTED OUT: Playback not yet implemented for Cloud API
     <h2 id="playback">4. Video Playback (Recorded)</h2>
 
     <h3>GET /ve/playbackevents</h3>
@@ -479,8 +546,9 @@ wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1</pre>
     <span class="string">"dCacheProgress"</span>: <span class="number">75</span>  <span class="comment">// 0-100 percentage</span>
   }
 }</pre>
+    -->
 
-    <h2 id="status">5. Device & Camera Status</h2>
+    <h2 id="status">4. Device & Camera Status</h2>
 
     <h3>GET /ve/onlinestatus</h3>
     <p>Retrieves the current online status of devices and their cameras.</p>
@@ -516,7 +584,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
         <strong>Polling:</strong> Call this endpoint periodically (every 30-60 seconds) to keep status updated in your application.
     </div>
 
-    <h2 id="errors">6. Error Handling</h2>
+    <h2 id="errors">5. Error Handling</h2>
 
     <h3>HTTP Status Codes</h3>
     <table>
@@ -546,5 +614,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
         <p><strong>Dividia Cloud NVR API Reference</strong> | Version 1.0 | March 2026</p>
         <p>For the interactive demo, see <a href="cloud-api-demo.html">cloud-api-demo.html</a></p>
     </footer>
+    <script>
+        // Auto-trigger print dialog if opened with ?print=1
+        if (window.location.search.includes('print=1')) {
+            window.onload = function() {
+                window.print();
+            };
+        }
+    </script>
 </body>
 </html>

@@ -124,6 +124,7 @@ class WSPlayer {
         this.timestampCounter = 0;
         this.frameCount = 0;
         this.firstFrameReceived = false;
+        this.gotKeyframe = false;  // Track if we've received a keyframe (required before decoding)
         this.startTime = null;
 
         // Stats update interval
@@ -758,6 +759,7 @@ class WSPlayer {
         this.decoder = null;
         this.codec = null;
         this.timestampCounter = 0;
+        this.gotKeyframe = false;  // Reset so we wait for keyframe on reconnect
     }
 
     /**
@@ -783,18 +785,37 @@ class WSPlayer {
     }
 
     /**
-     * Detect if frame is a keyframe
+     * Detect if frame is a keyframe by scanning all NAL units in the buffer
      * @private
      */
     _detectKey(bytes, codec) {
-        const hdr = this._nalHeaderIndex(bytes);
-        if (codec === 'h264') {
-            const h264nal = bytes[hdr] & 0x1F;
-            return (h264nal === 5 || h264nal === 7 || h264nal === 8);
-        } else if (codec === 'h265') {
-            const h265nal = (bytes[hdr] >> 1) & 0x3F;
-            return (h265nal === 19 || h265nal === 20 || h265nal === 21 ||
-                    h265nal === 32 || h265nal === 33 || h265nal === 34);
+        // Scan through buffer looking for NAL start codes and check each NAL type
+        for (let i = 0; i < bytes.length - 4; i++) {
+            // Look for start code: 00 00 01 or 00 00 00 01
+            if (bytes[i] === 0 && bytes[i + 1] === 0) {
+                let nalStart = -1;
+                if (bytes[i + 2] === 1) {
+                    nalStart = i + 3;
+                } else if (bytes[i + 2] === 0 && bytes[i + 3] === 1) {
+                    nalStart = i + 4;
+                }
+
+                if (nalStart > 0 && nalStart < bytes.length) {
+                    if (codec === 'h264') {
+                        const nalType = bytes[nalStart] & 0x1F;
+                        // IDR (5), SPS (7), PPS (8) indicate keyframe
+                        if (nalType === 5 || nalType === 7 || nalType === 8) {
+                            return true;
+                        }
+                    } else if (codec === 'h265') {
+                        const nalType = (bytes[nalStart] >> 1) & 0x3F;
+                        // IDR (19-21), VPS (32), SPS (33), PPS (34)
+                        if (nalType >= 19 && nalType <= 21 || nalType >= 32 && nalType <= 34) {
+                            return true;
+                        }
+                    }
+                }
+            }
         }
         return false;
     }
@@ -809,6 +830,23 @@ class WSPlayer {
         }
 
         const isKey = this._detectKey(bytes, this.codec);
+
+        // Debug: log NAL info for first few frames
+        if (this.debug && this.timestampCounter < 10) {
+            const hdr = this._nalHeaderIndex(bytes);
+            const nalType = this.codec === 'h264' ? (bytes[hdr] & 0x1F) : ((bytes[hdr] >> 1) & 0x3F);
+            this._log(`Frame ${this.timestampCounter}: ${bytes.length} bytes, NAL type ${nalType}, isKey=${isKey}`);
+        }
+
+        // Must wait for keyframe before decoding (required after configure/flush)
+        if (!this.gotKeyframe) {
+            if (!isKey) {
+                // Skip delta frames until we get a keyframe
+                return;
+            }
+            this.gotKeyframe = true;
+            this._log('Got first keyframe, starting decode');
+        }
 
         if (!this.decoder || this.decoder.state === 'closed') {
             this._initDecoder(this.codec);

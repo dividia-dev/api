@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dividia Cloud NVR API Demo</title>
+    <title>Dividia Cloud Camera API Demo</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -451,18 +451,19 @@
 </head>
 <body>
     <div class="page-title">
-        <h1>Dividia Cloud NVR API Demo <span class="cloud-badge">CLOUD</span></h1>
+        <h1>Dividia Cloud Camera API Demo <span class="cloud-badge">CLOUD</span></h1>
         <div class="header-buttons">
             <a href="cloud-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
+            <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
         </div>
     </div>
-    <p class="page-description">Demo page for Cloud NVR API integration - live video streaming from cloud-connected devices.</p>
+    <p class="page-description">Demo page for Cloud Camera API integration - live video streaming from cloud-connected devices.</p>
 
     <div class="page-content">
         <div class="left-column">
             <!-- Section 1: Connect to Cloud -->
             <div class="section">
-                <h2>1. Connect to Cloud NVR</h2>
+                <h2>1. Connect to Cloud Backend</h2>
                 <div class="row">
                     <div style="flex: 2;">
                         <label>Cloud API URL</label>
@@ -568,7 +569,9 @@
             <div class="section" style="padding: 0; box-shadow: none; background: transparent;">
                 <div class="content-tabs">
                     <button class="content-tab active" id="tab-btn-live" onclick="switchTab('live'); this.blur();">Live Video Streaming</button>
+                    <!-- COMMENTED OUT: Playback not implemented yet
                     <button class="content-tab disabled" id="tab-btn-playback" onclick="switchTab('playback'); this.blur();" disabled title="Coming soon">Playback (Coming Soon)</button>
+                    -->
                 </div>
             </div>
 
@@ -580,15 +583,17 @@
 
                     <!-- Viewer Selection Tabs -->
                     <div class="viewer-tabs">
+                        <!-- COMMENTED OUT: JPEG and MJPEG not implemented for cloud yet
                         <button class="viewer-tab active tab-jpeg" onclick="selectViewer('jpeg'); this.blur();" id="tab-jpeg">JPEG Snapshot</button>
                         <button class="viewer-tab tab-mjpeg" onclick="selectViewer('mjpeg'); this.blur();" id="tab-mjpeg">MJPEG Stream</button>
-                        <button class="viewer-tab tab-websocket" onclick="selectViewer('websocket'); this.blur();" id="tab-websocket">WebSocket H.264</button>
+                        -->
+                        <button class="viewer-tab active tab-websocket" onclick="selectViewer('websocket'); this.blur();" id="tab-websocket">WebSocket H.264</button>
                     </div>
 
                     <!-- Viewer Description -->
                     <div id="viewer-description" class="viewer-description">
-                        <strong style="color: #e65100;">JPEG Snapshot Polling</strong> - Simple image refresh at configurable rate.<br>
-                        <span style="color: #666;">Best for: Low bandwidth, compatibility, debugging.</span>
+                        <strong style="color: #2e7d32;">WebSocket H.264 Stream</strong> - Low-latency streaming via WebSocket with WebCodecs decoding.<br>
+                        <span style="color: #666;">Best for: Real-time monitoring, low latency requirements.</span>
                     </div>
 
                     <div class="row" style="margin-top: 15px;">
@@ -600,7 +605,7 @@
                             </select>
                             <div class="help-text">Lower resolution uses less bandwidth</div>
                         </div>
-                        <div style="flex: 1;" id="refresh-rate-container">
+                        <div style="flex: 1; visibility: hidden;" id="refresh-rate-container">
                             <label>Refresh Rate</label>
                             <select id="refresh-rate">
                                 <option value="2000">0.5 fps (2 sec)</option>
@@ -631,6 +636,7 @@
                     <div class="api-ref">
                         <h4>Live Streaming Methods</h4>
 
+                        <!-- COMMENTED OUT: JPEG and MJPEG not implemented for cloud yet
                         <strong style="color: #e65100;">JPEG Snapshot</strong>
                         <p>Fetch individual JPEG frames at a configurable refresh rate.</p>
                         <table>
@@ -638,7 +644,7 @@
                             <tr><td><code>GET /ve/snapshot</code></td><td>Get single JPEG frame</td></tr>
                         </table>
                         <div class="note">
-                            <strong>Parameters:</strong> ?device={deviceID}&cam={cameraNum}&pro={profile}<br>
+                            <strong>Parameters:</strong> ?device={deviceID}&amp;cam={cameraNum}&amp;pro={profile}<br>
                             <strong>Auth:</strong> Bearer token in Authorization header
                         </div>
 
@@ -649,18 +655,19 @@
                             <tr><td><code>GET /ve/mjpeg</code></td><td>Continuous MJPEG stream</td></tr>
                         </table>
                         <div class="note">
-                            <strong>Parameters:</strong> ?device={deviceID}&cam={cameraNum}&pro={profile}<br>
+                            <strong>Parameters:</strong> ?device={deviceID}&amp;cam={cameraNum}&amp;pro={profile}<br>
                             <strong>Content-Type:</strong> multipart/x-mixed-replace; boundary=frame
                         </div>
+                        -->
 
-                        <strong style="color: #2e7d32; display: block; margin-top: 15px;">WebSocket H.264</strong>
+                        <strong style="color: #2e7d32;">WebSocket H.264</strong>
                         <p>Direct WebSocket connection for low-latency H.264 streaming.</p>
                         <table>
                             <tr><th>Protocol</th><th>URL Format</th></tr>
                             <tr><td>WebSocket</td><td><code>wss://api.../{deviceID}-cam{N}-pro{P}</code></td></tr>
                         </table>
                         <div class="note">
-                            <strong>Note:</strong> WebSocket streaming uses MediaSource Extensions (MSE) for H.264 decoding. Requires HTTPS.
+                            <strong>Note:</strong> WebSocket streaming uses WebCodecs API for H.264/H.265 decoding. Requires HTTPS (secure context). See <a href="cloud-api-reference.html#live-streaming">API Reference</a> for WSPlayer.js integration details.
                         </div>
                     </div>
                 </div>
@@ -688,7 +695,7 @@
                 <div id="log"></div>
                 <button onclick="document.getElementById('log').innerHTML=''">Clear Log</button>
 
-                <!-- Streaming Methods Comparison -->
+                <!-- COMMENTED OUT: Streaming Methods Comparison - only WebSocket supported currently
                 <div class="comparison-section">
                     <div class="comparison-header" onclick="toggleComparison(this)">
                         <span>Live Streaming Methods Comparison</span>
@@ -729,10 +736,14 @@
                         </div>
                     </div>
                 </div>
+                -->
 
             </div>
         </div><!-- end right-column -->
     </div><!-- end page-content -->
+
+    <!-- WebSocket H.264 Player -->
+    <script src="WSPlayer.js"></script>
 
     <script>
         // ==================== CONFIG ====================
@@ -750,7 +761,7 @@
         let cameras = [];
         let selectedDevice = null;
         let selectedCamera = null;
-        let currentViewer = 'jpeg';
+        let currentViewer = 'websocket';  // Default to WebSocket (JPEG/MJPEG commented out)
         let streamActive = false;
 
         // JPEG streaming state
@@ -765,7 +776,7 @@
         let mjpegLoaded = false;
 
         // WebSocket streaming state
-        let wsConnection = null;
+        let wsPlayer = null;
 
         // ==================== UTILITIES ====================
         function log(message, type = 'info') {
@@ -775,6 +786,10 @@
             logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
             logEl.scrollTop = logEl.scrollHeight;
             if (DEBUG) console.log(`[${type}] ${message}`);
+        }
+
+        function printApiReference() {
+            window.open('cloud-api-reference.html?print=1', '_blank');
         }
 
         // ==================== FORM VALIDATION ====================
@@ -1218,6 +1233,14 @@
         function startWebsocketStream(profile) {
             log('Starting WebSocket stream...');
 
+            // Check WebCodecs support first
+            const support = WSPlayer.checkSupport();
+            if (!support.supported) {
+                log('WebCodecs not supported: ' + support.reason, 'error');
+                alert('WebSocket streaming requires WebCodecs API.\n\n' + support.reason);
+                return;
+            }
+
             // Build WebSocket URL (always use direct API URL, not proxy)
             const wsApiUrl = directApiUrl || apiUrl;
             const wsProtocol = wsApiUrl.startsWith('https') ? 'wss' : 'ws';
@@ -1231,38 +1254,59 @@
                 profile: profile
             });
 
-            // Create video container
-            const container = document.getElementById('live-video-container');
-            container.innerHTML = `
-                <video id="ws-video" autoplay muted style="width: 100%; height: 100%;"></video>
-                <div class="video-overlay">
-                    <span class="device-name">${selectedDevice.sName}</span>
-                    <span class="cam-name">Camera ${selectedCamera.bCamera}: ${selectedCamera.sName || 'Unnamed'}</span>
-                    <span class="live-indicator" style="color: #2e7d32;">WebSocket</span>
-                </div>
-                <div class="stream-stats" id="stream-stats">Connecting...</div>
-                <div class="loading-overlay" id="loading-overlay">
-                    <div class="loading-spinner"></div>
-                    <div class="loading-text">Connecting WebSocket...</div>
-                    <div class="loading-subtext">${wsUrl}</div>
-                </div>
-            `;
+            // Stop existing player if any
+            if (wsPlayer) {
+                wsPlayer.stop();
+                wsPlayer = null;
+            }
 
-            // TODO: Implement full WebSocket streaming with MSE
-            // For now, show connection info and stub
+            // Prepare container for WSPlayer
+            const container = document.getElementById('live-video-container');
+            container.innerHTML = '<div id="ws-player-container" style="width: 100%; height: 400px;"></div>';
+
             log('WebSocket URL: ' + wsUrl);
-            log('Note: Full WebSocket streaming requires MSE implementation', 'info');
+
+            // Create player using WSPlayer.js
+            const camName = `${selectedDevice.sName} - Camera ${selectedCamera.bCamera}`;
+            wsPlayer = WSPlayer.create('ws-player-container', {
+                url: wsUrl,
+                camera: [selectedCamera.bCamera, camName],
+                debug: DEBUG,
+                onConnect: () => {
+                    log('WebSocket connected, waiting for video data...');
+                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
+                },
+                onFirstFrame: () => {
+                    log('WebSocket stream active - receiving video', 'success');
+                    document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
+                },
+                onDisconnect: () => {
+                    log('WebSocket disconnected', 'error');
+                    document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
+                },
+                onError: (err) => {
+                    log('WebSocket error: ' + (err.message || err), 'error');
+                },
+                onReconnecting: () => {
+                    log('WebSocket reconnecting...');
+                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
+                },
+                onStall: () => {
+                    log('WebSocket stream stalled - no data received', 'warn');
+                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Stream stalled</span>';
+                }
+            });
 
             streamActive = true;
             document.getElementById('btn-start-live').disabled = true;
             document.getElementById('btn-stop-live').disabled = false;
-            document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">WebSocket mode (stub)</span>';
+            document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connecting...</span>';
         }
 
         function stopWebsocketStream() {
-            if (wsConnection) {
-                wsConnection.close();
-                wsConnection = null;
+            if (wsPlayer) {
+                wsPlayer.stop();
+                wsPlayer = null;
                 log('WebSocket stream stopped');
             }
         }
@@ -1345,7 +1389,7 @@
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function() {
-            log('Cloud NVR API Demo loaded');
+            log('Cloud Camera API Demo loaded');
             if (isDevProxy) {
                 log('Running via dev proxy (localhost:3000) - CORS bypass enabled', 'success');
                 log('API requests will be proxied to: ' + document.getElementById('api-url').value);
