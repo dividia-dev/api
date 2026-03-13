@@ -1286,40 +1286,40 @@
                 url: wsUrl,
                 camera: [selectedCamera.bCamera, camName],
                 debug: DEBUG,
-                onConnect: () => {
-                    log('WebSocket connected, waiting for video data...');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
-                },
-                onFirstFrame: () => {
-                    log('WebSocket stream active - receiving video', 'success');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
-                },
-                onDisconnect: () => {
-                    if (this.isConnected) {
-                        this._hideLoading();
-                        this._hideOverlay();
-                    } else {
-                        log('WebSocket disconnected', 'error');
-                        document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
-                    }
-                },
-                onError: (err) => {
-                    if (this.isConnected) {
-                        this._hideLoading();
-                        this._hideOverlay();
-                    } else {
-                        log('WebSocket error: ' + (err.message || err), 'error');
-                    }
-                },
-                onReconnecting: () => {
-                    log('WebSocket reconnecting...');
-                    if (this.isConnected) {
-                        this._hideLoading();
-                        this._hideOverlay();
-                    } else {
-                        document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
-                    }
-                },
+                // onConnect: () => {
+                //     log('WebSocket connected, waiting for video data...');
+                //     document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
+                // },
+                // onFirstFrame: () => {
+                //     log('WebSocket stream active - receiving video', 'success');
+                //     document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
+                // },
+                // onDisconnect: () => {
+                //     if (this.isConnected) {
+                //         this._hideLoading();
+                //         this._hideOverlay();
+                //     } else {
+                //         log('WebSocket disconnected', 'error');
+                //         document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
+                //     }
+                // },
+                // onError: (err) => {
+                //     if (this.isConnected) {
+                //         this._hideLoading();
+                //         this._hideOverlay();
+                //     } else {
+                //         log('WebSocket error: ' + (err.message || err), 'error');
+                //     }
+                // },
+                // onReconnecting: () => {
+                //     log('WebSocket reconnecting...');
+                //     if (this.isConnected) {
+                //         this._hideLoading();
+                //         this._hideOverlay();
+                //     } else {
+                //         document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
+                //     }
+                // },
                 onStall: () => {
                     if (this.isConnected) {
                         this._hideLoading();
