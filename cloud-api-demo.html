@@ -1295,19 +1295,39 @@
                     document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
                 },
                 onDisconnect: () => {
-                    log('WebSocket disconnected', 'error');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
+                    if (this.isConnected) {
+                        this._hideLoading();
+                        this._hideOverlay();
+                    } else {
+                        log('WebSocket disconnected', 'error');
+                        document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
+                    }
                 },
                 onError: (err) => {
-                    log('WebSocket error: ' + (err.message || err), 'error');
+                    if (this.isConnected) {
+                        this._hideLoading();
+                        this._hideOverlay();
+                    } else {
+                        log('WebSocket error: ' + (err.message || err), 'error');
+                    }
                 },
                 onReconnecting: () => {
                     log('WebSocket reconnecting...');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
+                    if (this.isConnected) {
+                        this._hideLoading();
+                        this._hideOverlay();
+                    } else {
+                        document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
+                    }
                 },
                 onStall: () => {
-                    log('WebSocket stream stalled - no data received', 'warn');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Stream stalled</span>';
+                    if (this.isConnected) {
+                        this._hideLoading();
+                        this._hideOverlay();
+                    } else {
+                        log('WebSocket stream stalled - no data received', 'warn');
+                        document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Stream stalled</span>';
+                    }
                 }
             });
 
