@@ -451,7 +451,7 @@
 </head>
 <body>
     <div class="page-title">
-        <h1>Dividia Cloud Camera API Demo (v1.0)<span class="cloud-badge">CLOUD</span></h1>
+        <h1>Dividia Cloud Camera API Demo (v1.1)<span class="cloud-badge">CLOUD</span></h1>
         <div class="header-buttons">
             <a href="cloud-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
             <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
@@ -1286,6 +1286,7 @@
                 url: wsUrl,
                 camera: [selectedCamera.bCamera, camName],
                 debug: DEBUG,
+                autoReconnect: true,
                 // onConnect: () => {
                 //     log('WebSocket connected, waiting for video data...');
                 //     document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
