@@ -451,7 +451,7 @@
 </head>
 <body>
     <div class="page-title">
-        <h1>Dividia Cloud Camera API Demo (v1.4)<span class="cloud-badge">CLOUD</span></h1>
+        <h1>Dividia Cloud Camera API Demo (v1.5)<span class="cloud-badge">CLOUD</span></h1>
         <div class="header-buttons">
             <a href="cloud-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
             <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
@@ -483,6 +483,11 @@
                         <label>Cloud API URL</label>
                         <input type="text" id="api-url" value="https://api.cloud.dividia.net" placeholder="https://api.cloud.dividia.net">
                         <div class="help-text">Production: api.cloud.dividia.net | Staging: api-staging.cloud.dividia.net</div>
+                    </div>
+                    <div style="flex: 2;">
+                        <label>WebSocket Override <span style="color:#888">(optional)</span></label>
+                        <input type="text" id="ws-url-override" placeholder="ws://localhost:8081">
+                        <div class="help-text">Leave empty to use API URL. For local testing: ws://localhost:8081</div>
                     </div>
                 </div>
                 <div class="row">
@@ -880,8 +885,11 @@
                 devices = data.devices || [];
                 cameras = data.cameras || [];
 
+                // Count unique cameras (by device+bCamera, not counting each profile separately)
+                const uniqueCameras = new Set(cameras.map(c => `${c.sDeviceID}-${c.bCamera}`)).size;
+
                 log('Authenticated successfully', 'success');
-                log('Found ' + devices.length + ' device(s), ' + cameras.length + ' camera(s)');
+                log('Found ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)');
 
                 document.getElementById('connection-status').textContent = 'Connected';
                 document.getElementById('connection-status').className = 'status status-connected';
@@ -1254,12 +1262,21 @@
                 return;
             }
 
-            // Build WebSocket URL 
-            const wsApiUrl = directApiUrl || apiUrl;
-            const wsProtocol = wsApiUrl.startsWith('https') ? 'wss' : 'ws';
-            const wsHost = wsApiUrl.replace(/^https?:\/\//, '');
-            // const wsUrl = `${wsProtocol}://${wsHost}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${token}`;
-            const wsUrl = `${wsProtocol}://${wsHost}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}`;
+            // Build WebSocket URL with JWT token for authentication
+            const wsOverride = document.getElementById('ws-url-override').value.trim();
+            let wsUrl;
+            if (wsOverride) {
+                // Use override URL (for local testing)
+                const wsBase = wsOverride.replace(/\/$/, '');
+                wsUrl = `${wsBase}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${encodeURIComponent(token)}`;
+                log('Using WebSocket override: ' + wsBase);
+            } else {
+                // Derive from API URL
+                const wsApiUrl = directApiUrl || apiUrl;
+                const wsProtocol = wsApiUrl.startsWith('https') ? 'wss' : 'ws';
+                const wsHost = wsApiUrl.replace(/^https?:\/\//, '');
+                wsUrl = `${wsProtocol}://${wsHost}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${encodeURIComponent(token)}`;
+            }
 
             showStreamApiOutput('websocket', {
                 wsUrl: wsUrl,

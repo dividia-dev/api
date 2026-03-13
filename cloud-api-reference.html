@@ -282,9 +282,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
     </table>
 
     <div class="note">
-        <strong>WebSocket URL Construction:</strong> Use the device, camera fields and token to build the streaming URL:<br>
-        <!-- <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}?token={token}</code> -->
-        <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}</code>
+        <strong>WebSocket URL Construction:</strong> Use the device, camera fields and JWT token to build the streaming URL:<br>
+        <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}?token={token}</code>
     </div>
 
     <h2 id="live-streaming">3. Live Video Streaming</h2>
@@ -292,8 +291,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
     <p>For low-latency live streaming, the Cloud API supports WebSocket-based H.264 streaming using the browser's WebCodecs API for hardware-accelerated decoding.</p>
 
     <div class="endpoint">
-        <!-- <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}?token{token} -->
-        <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}
+        <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}?token={token}
+    </div>
+
+    <div class="note" style="background: #fff3e0; border-left-color: #ff9800;">
+        <strong>Authentication Required:</strong> The <code>token</code> query parameter is required. The JWT token from <code>/ve/auth</code> must be included in the WebSocket URL. Connections without a valid token will be rejected with code 1008 (Policy Violation).
     </div>
 
     <h4>URL Parameters</h4>
@@ -327,9 +329,9 @@ wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro2?token=eyJhbGciOiJIUzI1Ni...</
 
 &lt;script&gt;
 <span class="comment">// Build WebSocket URL from device/camera/token info</span>
-<span class="keyword">const</span> deviceId = <span class="string">'0A58A9FEAC02'</span>;  <span class="comment">// From /ve/devices response</span>
-<!-- <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1?token={token}`</span>; -->
-<span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1`</span>;
+<span class="keyword">const</span> deviceId = <span class="string">'0A58A9FEAC02'</span>;  <span class="comment">// From /ve/auth response</span>
+<span class="keyword">const</span> token = <span class="string">'eyJhbGciOiJIUzI1Ni...'</span>;  <span class="comment">// JWT token from /ve/auth</span>
+<span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1?token=${encodeURIComponent(token)}`</span>;
 
 <span class="comment">// Create and start player using the factory method</span>
 <span class="keyword">const</span> player = WSPlayer.create(<span class="string">'camera-1'</span>, {
@@ -361,7 +363,7 @@ player.getStatus();       <span class="comment">// Returns full status object</s
     <h5>Multiple Cameras Example</h5>
     <pre><span class="comment">// Create players for multiple cameras from a device</span>
 cameras.forEach(cam =&gt; {
-    <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam${cam.bCamera}-pro2`</span>;
+    <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam${cam.bCamera}-pro2?token=${encodeURIComponent(token)}`</span>;
     WSPlayer.create(<span class="string">`cam-${cam.bCamera}`</span>, {
         url: wsUrl,
         camera: [cam.bCamera, cam.sName],
@@ -606,6 +608,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
         <tr><td>"No body provided"</td><td>Missing request body</td><td>Send JSON body with request</td></tr>
         <tr><td>401 Unauthorized</td><td>Invalid/expired token</td><td>Re-authenticate with /ve/auth</td></tr>
         <tr><td>403 Forbidden</td><td>No access to device</td><td>Check user permissions</td></tr>
+    </table>
+
+    <h3>WebSocket Close Codes</h3>
+    <table>
+        <tr><th>Code</th><th>Description</th><th>Cause</th></tr>
+        <tr><td>1008</td><td>Policy Violation</td><td>Missing or invalid token, or device not authorized for this token</td></tr>
+        <tr><td>1011</td><td>Internal Error</td><td>Backend connection failed</td></tr>
+        <tr><td>1006</td><td>Abnormal Closure</td><td>Connection dropped unexpectedly</td></tr>
     </table>
 
     <footer>
