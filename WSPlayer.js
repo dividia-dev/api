@@ -588,16 +588,17 @@ class WSPlayer {
      * @private
      */
     _updateStats() {
-        if (this.statsEl && this.showStats && this.firstFrameReceived) {
-            const fps = this.getFPS().toFixed(1);
-            this.statsEl.textContent = `Frames: ${this.frameCount} | FPS: ${fps}`;
-            this.statsEl.style.display = 'block';
-        }
+        // if (this.statsEl && this.showStats && this.firstFrameReceived) {
+        //     const fps = this.getFPS().toFixed(1);
+        //     this.statsEl.textContent = `Frames: ${this.frameCount} | FPS: ${fps}`;
+        //     this.statsEl.style.display = 'block';
+        // }
 
-        if (this.timestampEl && this.showTimestamp && this.firstFrameReceived) {
-            this.timestampEl.textContent = new Date().toLocaleTimeString();
-            this.timestampEl.style.display = 'block';
-        }
+        // if (this.timestampEl && this.showTimestamp && this.firstFrameReceived) {
+        //     this.timestampEl.textContent = new Date().toLocaleTimeString();
+        //     this.timestampEl.style.display = 'block';
+        // }
+        return;
     }
 
     /**
@@ -639,9 +640,9 @@ class WSPlayer {
 
                 // this._showLoading('Connected', 'Waiting for video data...');
 
-                if (this.onConnect) {
-                    this.onConnect();
-                }
+                // if (this.onConnect) {
+                //     this.onConnect();
+                // }
                 // clear the overlays
                 this._hideLoading();
                 this._hideOverlay();
@@ -663,39 +664,50 @@ class WSPlayer {
                 this._stopStatsInterval();
                 clearInterval(this.stallInterval);
 
-                if (this.shouldReconnect) {
-                    this._log(`Reconnecting in ${this.reconnectDelay / 1000}s...`);
-                    // for somereason cloud stuff triggers this and it never goes away - will addres later when there is more time
+                // if (this.shouldReconnect) {
+                //     this._log(`Reconnecting in ${this.reconnectDelay / 1000}s...`);
+                //     // for somereason cloud stuff triggers this and it never goes away - will addres later when there is more time
                     
-                    // this._showLoading('Reconnecting...', `Connection lost`);
-                    // this._fadeCanvas();
-                    clearTimeout(this.reconnectTimer);
-                    this.reconnectTimer = setTimeout(() => this._connect(), this.reconnectDelay);
+                //     // this._showLoading('Reconnecting...', `Connection lost`);
+                //     // this._fadeCanvas();
+                //     clearTimeout(this.reconnectTimer);
+                //     this.reconnectTimer = setTimeout(() => this._connect(), this.reconnectDelay);
 
-                    if (this.onReconnecting) {
-                        this.onReconnecting();
-                    }
-                } else if (this.onDisconnect) {
-                    this.onDisconnect();
-                }
+                //     if (this.onReconnecting) {
+                //         this.onReconnecting();
+                //     }
+                // } else if (this.onDisconnect) {
+                //     this.onDisconnect();
+                // }
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = setTimeout(() => this._connect(), this.reconnectDelay);
             };
 
             this.ws.onmessage = (ev) => {
                 this.lastMessage = performance.now();
-
                 try {
-                    if (typeof ev.data === 'string') {
-                        this.metadata = JSON.parse(ev.data);
-                        if (this.onMetadata) {
-                            this.onMetadata(this.metadata);
-                        }
-                    } else {
-                        this._decodeAU(new Uint8Array(ev.data));
-                    }
+                    this._decodeAU(new Uint8Array(ev.data));
                 } catch (e) {
                     this._log('Message error:', e);
                     this._error(e);
                 }
+
+                this._hideLoading();
+                this._hideOverlay();
+
+                // try {
+                //     if (typeof ev.data === 'string') {
+                //         this.metadata = JSON.parse(ev.data);
+                //         if (this.onMetadata) {
+                //             this.onMetadata(this.metadata);
+                //         }
+                //     } else {
+                //         this._decodeAU(new Uint8Array(ev.data));
+                //     }
+                // } catch (e) {
+                //     this._log('Message error:', e);
+                //     this._error(e);
+                // }
             };
         } catch (e) {
             this._log('Connection error:', e);
@@ -767,7 +779,7 @@ class WSPlayer {
         this.decoder = null;
         this.codec = null;
         this.timestampCounter = 0;
-        this.gotKeyframe = false;  // Reset so we wait for keyframe on reconnect
+        // this.gotKeyframe = false;  // Reset so we wait for keyframe on reconnect
     }
 
     /**
@@ -863,8 +875,8 @@ class WSPlayer {
         try {
             this.decoder.decode(new EncodedVideoChunk({
                 type: isKey ? 'key' : 'delta',
-                timestamp: this.timestampCounter++,
-                data: bytes
+                // timestamp: this.timestampCounter++,
+                // data: bytes
             }));
         } catch (e) {
             this._log('Decode error:', e);

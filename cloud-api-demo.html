@@ -451,7 +451,7 @@
 </head>
 <body>
     <div class="page-title">
-        <h1>Dividia Cloud Camera API Demo (v1.2)<span class="cloud-badge">CLOUD</span></h1>
+        <h1>Dividia Cloud Camera API Demo (v1.3)<span class="cloud-badge">CLOUD</span></h1>
         <div class="header-buttons">
             <a href="cloud-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
             <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
@@ -1286,35 +1286,35 @@
                 url: wsUrl,
                 camera: [selectedCamera.bCamera, camName],
                 debug: DEBUG,
-                autoReconnect: true,
-                onConnect: () => {
-                    log('WebSocket connected, waiting for video data...');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
-                },
-                onFirstFrame: () => {
-                    log('WebSocket stream active - receiving video', 'success');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
-                },
-                onDisconnect: () => {
-                    log('WebSocket disconnected', 'error');
-                    document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
-                },
-                onError: (err) => {
-                    log('WebSocket error: ' + (err.message || err), 'error');
+                // autoReconnect: true,
+                // onConnect: () => {
+                //     log('WebSocket connected, waiting for video data...');
+                //     document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
+                // },
+                // onFirstFrame: () => {
+                //     log('WebSocket stream active - receiving video', 'success');
+                //     document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
+                // },
+                // onDisconnect: () => {
+                //     log('WebSocket disconnected', 'error');
+                //     document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
+                // },
+                // onError: (err) => {
+                //     log('WebSocket error: ' + (err.message || err), 'error');
            
-                },
-                onReconnecting: () => {
-                  document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
-                },
-                onStall: () => {
-                    if (this.isConnected) {
-                        this._hideLoading();
-                        this._hideOverlay();
-                    } else {
-                        log('WebSocket stream stalled - no data received', 'warn');
-                        document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Stream stalled</span>';
-                    }
-                }
+                // },
+                // onReconnecting: () => {
+                //   document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
+                // },
+                // onStall: () => {
+                //     if (this.isConnected) {
+                //         this._hideLoading();
+                //         this._hideOverlay();
+                //     } else {
+                //         log('WebSocket stream stalled - no data received', 'warn');
+                //         document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Stream stalled</span>';
+                //     }
+                // }
             });
 
             streamActive = true;
