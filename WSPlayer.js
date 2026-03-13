@@ -642,6 +642,9 @@ class WSPlayer {
                 if (this.onConnect) {
                     this.onConnect();
                 }
+                // clear the overlays
+                this._hideLoading();
+                this._hideOverlay();
             };
 
             this.ws.onerror = (err) => {
@@ -651,8 +654,10 @@ class WSPlayer {
                 this._error(err);
             };
 
-            this.ws.onclose = () => {
+            this.ws.onclose = (event) => {
                 this._log('WebSocket closed');
+                this._log('WebSocket closed', event.code, event.reason);
+
                 this.isConnected = false;
                 this._stopDecoder();
                 this._stopStatsInterval();
