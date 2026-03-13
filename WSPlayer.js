@@ -660,8 +660,10 @@ class WSPlayer {
 
                 if (this.shouldReconnect) {
                     this._log(`Reconnecting in ${this.reconnectDelay / 1000}s...`);
-                    this._showLoading('Reconnecting...', `Connection lost`);
-                    this._fadeCanvas();
+                    // for somereason cloud stuff triggers this and it never goes away - will addres later when there is more time
+                    
+                    // this._showLoading('Reconnecting...', `Connection lost`);
+                    // this._fadeCanvas();
                     clearTimeout(this.reconnectTimer);
                     this.reconnectTimer = setTimeout(() => this._connect(), this.reconnectDelay);
 
