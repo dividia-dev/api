@@ -282,7 +282,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
     </table>
 
     <div class="note">
-        <strong>WebSocket URL Construction:</strong> Use the device and camera fields to build the streaming URL:<br>
+        <strong>WebSocket URL Construction:</strong> Use the device, camera fields and token to build the streaming URL:<br>
+        <!-- <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}?token={token}</code> -->
         <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}</code>
     </div>
 
@@ -291,6 +292,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
     <p>For low-latency live streaming, the Cloud API supports WebSocket-based H.264 streaming using the browser's WebCodecs API for hardware-accelerated decoding.</p>
 
     <div class="endpoint">
+        <!-- <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}?token{token} -->
         <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}
     </div>
 
@@ -300,14 +302,15 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
         <tr><td>deviceID</td><td>string</td><td>Device serial ID from <code>/ve/devices</code></td></tr>
         <tr><td>N</td><td>int</td><td>Camera number (1, 2, 3...)</td></tr>
         <tr><td>P</td><td>int</td><td>Video profile: <code>1</code> (full resolution) or <code>2</code> (lower resolution)</td></tr>
+        <tr><td>token</td><td>string</td><td>JWT token from <code>/ve/auth</code></td></tr>
     </table>
 
     <h4>Example URLs</h4>
     <pre><span class="comment">// Full resolution stream</span>
-wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1
+wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1?token=eyJhbGciOiJIUzI1Ni...
 
 <span class="comment">// Lower resolution for multi-camera grids</span>
-wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro2</pre>
+wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro2?token=eyJhbGciOiJIUzI1Ni...</pre>
 
     <div class="note">
         <strong>Protocol:</strong> Always use <code>wss://</code> (secure WebSocket) as the Cloud API requires HTTPS.
@@ -323,8 +326,9 @@ wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro2</pre>
 &lt;div id="camera-1" style="width: 640px; height: 480px;"&gt;&lt;/div&gt;
 
 &lt;script&gt;
-<span class="comment">// Build WebSocket URL from device/camera info</span>
+<span class="comment">// Build WebSocket URL from device/camera/token info</span>
 <span class="keyword">const</span> deviceId = <span class="string">'0A58A9FEAC02'</span>;  <span class="comment">// From /ve/devices response</span>
+<!-- <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1?token={token}`</span>; -->
 <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1`</span>;
 
 <span class="comment">// Create and start player using the factory method</span>

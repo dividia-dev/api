@@ -158,7 +158,7 @@ Cloud currently supports WebSocket H.264 streaming only:
 Cloud uses REST API with JWT Bearer tokens:
 
 ```javascript
-// POST to /ve/login
+// POST to /ve/auth
 {
   "username": "user@example.com",
   "password": "password"
@@ -167,7 +167,12 @@ Cloud uses REST API with JWT Bearer tokens:
 // Response
 {
   "token": "eyJhbGciOiJIUzI1NiIs...",
-  "devices": [...]
+  "devices": [
+    { "sDeviceID": "0A58A9FEAC02", "sName": "Front Lobby", "fOnline": 1 }
+  ],
+  "cameras": [
+    { "sDeviceID": "0A58A9FEAC02", "bCamera": 1, "bProfile": 2, "sName": "Door", "fEnabled": 1, "fOnline": 1 }
+  ]
 }
 
 // Use token in subsequent requests
@@ -179,9 +184,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 Base URL: https://api.cloud.dividia.net
 
-POST /ve/login                    # Authenticate, get JWT token
-GET  /ve/devices                  # List devices
-GET  /ve/cameras?device={ID}      # List cameras for device
+POST /ve/auth                     # Authenticate, get JWT token + devices/cameras
 WS   /{deviceID}-cam{N}-pro{P}    # WebSocket H.264 stream
 ```
 
@@ -196,7 +199,7 @@ wss://api.cloud.dividia.net/0A58A9FEAC02-cam1-pro1
 
 | Component | Description |
 |-----------|-------------|
-| `deviceID` | Device serial ID from `/ve/devices` |
+| `deviceID` | Device serial ID from `/ve/auth` response |
 | `cam{N}` | Camera number (1-16) |
 | `pro{P}` | Profile: 1 (full res) or 2 (lower res) |
 
@@ -336,7 +339,7 @@ if (!support.supported) {
 - Run: `node dev-server.js`
 
 **401 Unauthorized:**
-- JWT token expired, re-authenticate via `/ve/login`
+- JWT token expired, re-authenticate via `/ve/auth`
 
 ---
 

@@ -672,6 +672,7 @@
                         <p>Direct WebSocket connection for low-latency H.264 streaming.</p>
                         <table>
                             <tr><th>Protocol</th><th>URL Format</th></tr>
+                            <!-- <tr><td>WebSocket</td><td><code>wss://api.../{deviceID}-cam{N}-pro{P}?token={token}</code></td></tr> -->
                             <tr><td>WebSocket</td><td><code>wss://api.../{deviceID}-cam{N}-pro{P}</code></td></tr>
                         </table>
                         <div class="note">
@@ -1253,10 +1254,11 @@
                 return;
             }
 
-            // Build WebSocket URL (always use direct API URL, not proxy)
+            // Build WebSocket URL 
             const wsApiUrl = directApiUrl || apiUrl;
             const wsProtocol = wsApiUrl.startsWith('https') ? 'wss' : 'ws';
             const wsHost = wsApiUrl.replace(/^https?:\/\//, '');
+            // const wsUrl = `${wsProtocol}://${wsHost}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${token}`;
             const wsUrl = `${wsProtocol}://${wsHost}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}`;
 
             showStreamApiOutput('websocket', {
@@ -1312,7 +1314,7 @@
             streamActive = true;
             document.getElementById('btn-start-live').disabled = true;
             document.getElementById('btn-stop-live').disabled = false;
-            document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connecting...</span>';
+            // document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connecting...</span>';
         }
 
         function stopWebsocketStream() {
@@ -1385,9 +1387,11 @@
                     '<span class="string">' + params.wsUrl + '</span>\n\n' +
                     '<span class="label">URL Format:</span>\n' +
                     'wss://{api-host}/{deviceID}-cam{N}-pro{profile}\n\n' +
+                    // 'wss://{api-host}/{deviceID}-cam{N}-pro{profile}?token={token}\n\n' +
                     '<span class="label">Device:</span> ' + params.deviceId + '\n' +
                     '<span class="label">Camera:</span> ' + params.camera + '\n' +
                     '<span class="label">Profile:</span> ' + params.profile + '\n\n' +
+                    // '<span class="label">Token:</span> ' + params.token + '\n\n' +
                     '<span class="label">Protocol:</span>\n' +
                     '- Binary messages: H.264 NAL units\n' +
                     '- String messages: JSON metadata (timestamp, motion)';

@@ -637,7 +637,7 @@ class WSPlayer {
                 this.lastMessage = performance.now();
                 this.stallInterval = setInterval(() => this._checkStall(), 1000);
 
-                this._showLoading('Connected', 'Waiting for video data...');
+                // this._showLoading('Connected', 'Waiting for video data...');
 
                 if (this.onConnect) {
                     this.onConnect();
@@ -647,6 +647,7 @@ class WSPlayer {
             this.ws.onerror = (err) => {
                 this._log('WebSocket error', err);
                 this._showError('Connection Failed', 'Unable to connect to stream');
+                this._showLoading('');
                 this._error(err);
             };
 
