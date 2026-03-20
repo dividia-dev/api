@@ -115,13 +115,31 @@
         .endpoint-body {
             padding: 20px;
         }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
         .back-link {
             display: inline-block;
-            margin-bottom: 20px;
             color: #00695c;
             text-decoration: none;
         }
         .back-link:hover { text-decoration: underline; }
+        .print-btn {
+            background: #00695c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .print-btn:hover { background: #00897b; }
         .badge {
             display: inline-block;
             background: linear-gradient(135deg, #00695c 0%, #00897b 100%);
@@ -135,13 +153,16 @@
         }
         @media print {
             body { max-width: none; padding: 20px; }
-            .back-link { display: none; }
+            .page-header { display: none; }
             pre { white-space: pre-wrap; word-wrap: break-word; }
         }
     </style>
 </head>
 <body>
-    <a href="sw-api-demo.html" class="back-link">&larr; Back to API Demo</a>
+    <div class="page-header">
+        <a href="sw-api-demo.html" class="back-link">&larr; Back to API Demo</a>
+        <button onclick="window.print()" class="print-btn">Print / Save</button>
+    </div>
 
     <h1>ScaleWatcher Cloud API Reference<span class="badge">SCALEWATCHER</span></h1>
     <p>Complete API documentation for integrating with the ScaleWatcher Cloud platform. Access transaction data, events, alerts, and more programmatically.</p>
