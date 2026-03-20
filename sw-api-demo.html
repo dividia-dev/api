@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScaleWatcher Cloud API Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px 30px;
+            background: #f5f5f5;
+            min-width: 1200px;
+        }
+        .page-title {
+            background: #f5f5f5;
+            padding: 12px 30px;
+            margin: -20px -30px 0 -30px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .page-title h1 { margin: 0; color: #00695c; }
+        .page-title .header-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .page-title .header-btn {
+            background: #00695c;
+            color: white;
+            padding: 0 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #00695c;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 38px;
+            line-height: 1;
+            box-sizing: border-box;
+            font-family: inherit;
+            margin: 0;
+        }
+        .page-title .header-btn:hover {
+            background: #00897b;
+            border-color: #00897b;
+        }
+        .page-title .header-btn.secondary {
+            background: white;
+            color: #00695c;
+            border: 1px solid #00695c;
+        }
+        .page-title .header-btn.secondary:hover {
+            background: #e0f2f1;
+            border-color: #00695c;
+        }
+        .page-description {
+            text-align: center;
+            margin: 15px auto 20px auto;
+        }
+        .page-content {
+            display: flex;
+            gap: 24px;
+            min-width: 1140px;
+        }
+        .left-column {
+            flex: 1.2;
+            min-width: 0;
+        }
+        .right-column {
+            flex: 1;
+            min-width: 0;
+        }
+        .right-column .section.sticky {
+            position: sticky;
+            top: 80px;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #00695c; margin-top: 0; }
+        h2 { margin-top: 0; color: #333; font-size: 18px; }
+        h3 { margin: 15px 0 10px 0; color: #444; font-size: 14px; }
+        label { display: block; margin: 10px 0 5px; font-weight: 500; font-size: 13px; }
+        input, select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #00897b;
+            box-shadow: 0 0 0 2px rgba(0,137,123,0.1);
+        }
+        button {
+            background: #00695c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        button:hover { background: #00897b; }
+        button:disabled { background: #9ca3af !important; cursor: not-allowed; }
+        .btn-secondary {
+            background: white;
+            color: #00695c;
+            border: 1px solid #00695c;
+        }
+        .btn-secondary:hover { background: #e0f2f1; }
+        .row { display: flex; gap: 15px; }
+        .row > div { flex: 1; }
+
+        /* Password toggle */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-wrapper input {
+            padding-right: 36px;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 8px;
+            background: none;
+            border: none;
+            padding: 4px;
+            margin: 0;
+            cursor: pointer;
+            color: #888;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .password-toggle:hover {
+            color: #00695c;
+            background: none;
+        }
+        .password-toggle svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Tabs */
+        .endpoint-tabs {
+            display: flex;
+            gap: 0;
+            margin: 0 0 0 0;
+            border-bottom: 2px solid #ddd;
+            flex-wrap: wrap;
+        }
+        .endpoint-tab {
+            padding: 10px 16px;
+            background: #f5f5f5;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            border-radius: 6px 6px 0 0;
+            margin: 0 2px 0 0;
+        }
+        .endpoint-tab:hover { background: #e8e8e8; }
+        .endpoint-tab.active {
+            background: white;
+            color: #00695c;
+            font-weight: 600;
+            border-bottom: 3px solid #00695c;
+            margin-bottom: -2px;
+        }
+        .tab-content { display: none; padding-top: 20px; }
+        .tab-content.active { display: block; }
+
+        /* Status badges */
+        .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-ready { background: #c8e6c9; color: #2e7d32; }
+        .status-not-ready { background: #ffcdd2; color: #c62828; }
+        .help-text { font-size: 11px; color: #666; margin-top: 4px; }
+
+        /* Parameter sections */
+        .param-section {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .param-section h4 {
+            margin: 0 0 12px 0;
+            color: #333;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .param-section h4 .badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        .param-section h4 .badge.required {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .param-section h4 .badge.optional {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .param-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .param-row.single {
+            grid-template-columns: 1fr;
+        }
+        .param-field label {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+        }
+        .param-field input, .param-field select {
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+        .param-field .help-text {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
+        /* Request/Response output panels */
+        .api-output-wrapper {
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .api-output-toggle {
+            background: #2d2d2d;
+            color: #9cdcfe;
+            padding: 10px 15px;
+            font-size: 13px;
+            font-family: 'SF Mono', Monaco, monospace;
+            cursor: pointer;
+        }
+        .api-output-toggle:hover { background: #3d3d3d; }
+        .api-output-toggle.collapsed { color: #888; }
+        .api-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 11px;
+            padding: 15px;
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+        .api-output.collapsed { display: none; }
+        .api-output .label { color: #9cdcfe; }
+        .api-output .success { color: #81c784; }
+        .api-output .error { color: #e57373; }
+
+        /* API Reference toggle (inline) */
+        .api-ref-toggle {
+            background: none;
+            border: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+            padding: 6px 12px;
+            margin-top: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .api-ref-toggle:hover { background: #f5f5f5; color: #333; }
+        .api-ref-toggle::before { content: '\25B6  '; font-size: 10px; }
+        .api-ref-toggle.open::before { content: '\25BC  '; }
+        .api-ref {
+            display: none;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .api-ref.open { display: block; }
+        .api-ref h4 { margin: 0 0 10px 0; color: #00695c; font-size: 14px; }
+        .api-ref table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .api-ref th, .api-ref td {
+            text-align: left;
+            padding: 6px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+        .api-ref th { background: #e8e8e8; font-weight: 600; }
+        .api-ref code {
+            background: #e8e8e8;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .api-ref .required { color: #c62828; font-weight: 600; }
+
+        /* JSON syntax highlighting */
+        .json-key { color: #9cdcfe; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+        .json-boolean { color: #569cd6; }
+        .json-null { color: #569cd6; }
+
+        /* Info boxes */
+        .info-box {
+            background: #e0f2f1;
+            border-left: 4px solid #00897b;
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 13px;
+            border-radius: 0 4px 4px 0;
+        }
+        .info-box.warning {
+            background: #fff3e0;
+            border-left-color: #fb8c00;
+        }
+        .info-box.note {
+            background: #e3f2fd;
+            border-left-color: #1976d2;
+        }
+        .info-box strong { color: #00695c; }
+        .info-box.warning strong { color: #e65100; }
+        .info-box.note strong { color: #1565c0; }
+
+        /* Badge */
+        .sw-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #00695c 0%, #00897b 100%);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        /* Sites table */
+        .sites-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .sites-table th, .sites-table td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .sites-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+        }
+        .sites-table tr:hover {
+            background: #f8f9fa;
+        }
+        .sites-table tr.selected {
+            background: #e0f2f1;
+        }
+        .sites-table .site-select-btn {
+            background: #00695c;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .sites-table .site-select-btn:hover {
+            background: #00897b;
+        }
+        .sites-table .site-select-btn.selected {
+            background: #2e7d32;
+        }
+        .sites-placeholder {
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 6px;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+        }
+        .sites-placeholder .icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .selected-site-badge {
+            display: inline-block;
+            background: #e0f2f1;
+            border: 1px solid #00897b;
+            color: #00695c;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .step-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #00695c;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .step-indicator.completed {
+            background: #2e7d32;
+        }
+        .step-indicator.pending {
+            background: #9e9e9e;
+        }
+
+        /* Copy button feedback */
+        .copy-feedback {
+            color: #81c784;
+            font-size: 11px;
+            margin-left: 10px;
+        }
+
+        /* Debug log */
+        #log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 11px;
+            padding: 15px;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-error { color: #e57373; }
+        .log-warn { color: #ffb74d; }
+
+        /* Endpoint title */
+        .endpoint-title {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .endpoint-title .method {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .endpoint-title .method.get { background: #e8f5e9; color: #2e7d32; }
+        .endpoint-title .method.post { background: #fff3e0; color: #e65100; }
+        .endpoint-desc {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-title">
+        <h1>ScaleWatcher Cloud API Demo<span class="sw-badge">SCALEWATCHER</span></h1>
+        <div class="header-buttons">
+            <a href="sw-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
+            <a href="sw-api-reference.html?print" target="_blank" class="header-btn secondary">Print / Save</a>
+        </div>
+    </div>
+
+    <p class="page-description">Interactive demo for the ScaleWatcher Cloud API - authenticate, select a site, and test API endpoints.</p>
+
+    <div class="page-content">
+        <div class="left-column">
+        <!-- Section 1: Authentication -->
+        <div class="section">
+            <h2><span class="step-indicator" id="step1-indicator">1</span>Authenticate</h2>
+            <div class="row">
+                <div style="flex: 2;">
+                    <label>API Base URL</label>
+                    <input type="text" id="api-url" value="https://api.cloud.dividia.net">
+                    <div class="help-text">Production: https://api.cloud.dividia.net</div>
+                </div>
+                <div>
+                    <label>Status</label>
+                    <div style="padding-top: 8px;">
+                        <span id="api-status" class="status status-not-ready">Not Connected</span>
+                    </div>
+                </div>
+            </div>
+            <div class="row" style="margin-top: 10px;">
+                <div>
+                    <label>Email <span style="color:#c62828">*</span></label>
+                    <input type="email" id="auth-email" placeholder="user@example.com" oninput="onAuthInputChange()">
+                </div>
+                <div>
+                    <label>Password <span style="color:#c62828">*</span></label>
+                    <div class="password-wrapper">
+                        <input type="password" id="auth-password" placeholder="Your password" oninput="onAuthInputChange()">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" title="Show/hide password">
+                            <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eye-off-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:none;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
+                <button id="login-btn" onclick="doLogin()" disabled>Login & Get Sites</button>
+                <button onclick="clearAll()" class="btn-secondary">Clear All</button>
+            </div>
+            <input type="hidden" id="api-token" value="">
+
+            <div id="auth-api-wrapper" class="api-output-wrapper" style="display: none;">
+                <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                <div id="auth-api-output" class="api-output"></div>
+            </div>
+
+            <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+            <div class="api-ref">
+                <h4>POST /sw/api/auth</h4>
+                <p>Authenticate with email and password to receive an API token.</p>
+                <strong>Request Body (JSON)</strong>
+                <table>
+                    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                    <tr><td><code>email</code> <span class="required">*</span></td><td>string</td><td>Your ScaleWatcher email</td></tr>
+                    <tr><td><code>password</code> <span class="required">*</span></td><td>string</td><td>Your password</td></tr>
+                </table>
+                <strong style="display: block; margin-top: 10px;">Response</strong>
+                <table>
+                    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                    <tr><td><code>token</code></td><td>string</td><td>JWT token valid for 30 days</td></tr>
+                    <tr><td><code>user</code></td><td>object</td><td>User info: id, email, name</td></tr>
+                    <tr><td><code>sites</code></td><td>object</td><td>Available sites with count and data</td></tr>
+                </table>
+            </div>
+
+            <div id="token-display" style="display: none; margin-top: 15px;">
+                <div class="info-box" style="margin: 0;">
+                    <strong>Authenticated as:</strong> <span id="auth-user-name"></span><br>
+                    <small style="color: #666;">Your API token has been stored for this session.</small>
+                    <div style="margin-top: 8px;">
+                        <button onclick="copyToken()" class="btn-secondary" style="margin: 0; padding: 5px 10px; font-size: 11px;">Copy API Token</button>
+                        <span id="token-copy-feedback" class="copy-feedback"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Available Sites -->
+        <div class="section" id="sites-section">
+            <h2><span class="step-indicator pending" id="step2-indicator">2</span>Select Site</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">After logging in, select a site from your available locations to query its data.</p>
+
+            <div id="sites-container">
+                <div class="sites-placeholder">
+                    <div class="icon">&#128274;</div>
+                    <div>Enter your credentials above and click "Login & Get Sites"</div>
+                </div>
+            </div>
+
+            <div id="selected-site-display" style="display: none; margin-top: 15px;">
+                <label style="margin: 0;">Selected Site:</label>
+                <span id="selected-site-badge" class="selected-site-badge"></span>
+                <input type="hidden" id="site-serial" value="">
+            </div>
+        </div>
+
+        <!-- Section 3: API Explorer -->
+        <div class="section" id="explorer-section">
+            <h2><span class="step-indicator pending" id="step3-indicator">3</span>API Explorer</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Select an endpoint, configure parameters, and execute requests.</p>
+
+            <div class="endpoint-tabs">
+                <button class="endpoint-tab active" data-tab="transactions">Transactions</button>
+                <button class="endpoint-tab" data-tab="transactions-stats">Statistics</button>
+                <button class="endpoint-tab" data-tab="events">Events</button>
+                <button class="endpoint-tab" data-tab="events-tickets">Tickets</button>
+                <button class="endpoint-tab" data-tab="alerts">Alerts</button>
+                <!-- <button class="endpoint-tab" data-tab="users">Users</button> -->
+            </div>
+
+            <!-- Transactions Tab -->
+            <div id="tab-transactions" class="tab-content active">
+                <div class="endpoint-title"><span class="method get">GET</span>/sw/api/transactions</div>
+                <p class="endpoint-desc">Retrieve transaction records with filtering and pagination.</p>
+
+                <div class="param-section">
+                    <h4>Required <span class="badge required">REQUIRED</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Site serial is automatically included from your selection above.</p>
+                </div>
+
+                <div class="param-section">
+                    <h4>Filters <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Start Date</label>
+                            <input type="date" id="tx-startDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                        <div class="param-field">
+                            <label>End Date</label>
+                            <input type="date" id="tx-endDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Scale</label>
+                            <input type="number" id="tx-scale" placeholder="Scale number">
+                        </div>
+                        <div class="param-field">
+                            <label>LPN (License Plate)</label>
+                            <input type="text" id="tx-lpn" placeholder="License plate">
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Ticket Number</label>
+                            <input type="number" id="tx-ticket" placeholder="Ticket #">
+                        </div>
+                        <div class="param-field">
+                            <label>Tag</label>
+                            <input type="text" id="tx-tag" placeholder="e.g., truck, car, other, pending">
+                            <div class="help-text">Vehicle type classification (object detection enabled only)</div>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Include Events</label>
+                            <select id="tx-includeEvents">
+                                <option value="">No</option>
+                                <option value="1">Yes - include related events</option>
+                            </select>
+                        </div>
+                        <div class="param-field">
+                            <label>Include Alerts</label>
+                            <select id="tx-includeAlerts">
+                                <option value="">No</option>
+                                <option value="1">Yes - include related alerts</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="param-section">
+                    <h4>Pagination <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Page</label>
+                            <input type="number" id="tx-page" value="1" min="1">
+                        </div>
+                        <div class="param-field">
+                            <label>Page Size</label>
+                            <input type="number" id="tx-pageSize" value="50" min="1" max="50000">
+                            <div class="help-text">Default: 50,000 if not specified</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executeRequest('transactions')">Execute Request</button>
+
+                <div id="transactions-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="transactions-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>GET /sw/api/transactions</h4>
+                    <p>Retrieve transaction records. Transactions represent complete scale weighing cycles.</p>
+                    <strong>Parameters</strong>
+                    <table>
+                        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>serial</code> <span class="required">*</span></td><td>integer</td><td>Site serial number</td></tr>
+                        <tr><td><code>startDate</code></td><td>date</td><td>Filter start (YYYY-MM-DD)</td></tr>
+                        <tr><td><code>endDate</code></td><td>date</td><td>Filter end (YYYY-MM-DD)</td></tr>
+                        <tr><td><code>scale</code></td><td>integer</td><td>Scale number</td></tr>
+                        <tr><td><code>lpn</code></td><td>string</td><td>License plate</td></tr>
+                        <tr><td><code>ticket</code></td><td>integer</td><td>Ticket number</td></tr>
+                        <tr><td><code>tag</code></td><td>string</td><td>Vehicle type: truck, car, other, pending</td></tr>
+                        <tr><td><code>includeEvents</code></td><td>0|1</td><td>Include events</td></tr>
+                        <tr><td><code>includeAlerts</code></td><td>0|1</td><td>Include alerts</td></tr>
+                        <tr><td><code>page</code></td><td>integer</td><td>Page number</td></tr>
+                        <tr><td><code>pageSize</code></td><td>integer</td><td>Results per page (default: 50,000 if not specified)</td></tr>
+                    </table>
+                    <strong style="display: block; margin-top: 10px;">Response includes:</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">id, bSerial, bScale, dTimestamp, dStart, dEnd, sLpn, sTruck, bTicket, bFacilityDuration, bLoadDuration, bWaitDuration, fHidden, sTag</p>
+                </div>
+            </div>
+
+            <!-- Transaction Stats Tab -->
+            <div id="tab-transactions-stats" class="tab-content">
+                <div class="endpoint-title"><span class="method get">GET</span>/sw/api/transactions/stats</div>
+                <p class="endpoint-desc">Get aggregated statistics: counts and duration averages.</p>
+
+                <div class="param-section">
+                    <h4>Required <span class="badge required">REQUIRED</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Site serial is automatically included from your selection above.</p>
+                </div>
+
+                <div class="param-section">
+                    <h4>Filters <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Start Date</label>
+                            <input type="date" id="stats-startDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                        <div class="param-field">
+                            <label>End Date</label>
+                            <input type="date" id="stats-endDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Scale</label>
+                            <input type="number" id="stats-scale" placeholder="Scale number">
+                        </div>
+                        <div class="param-field">
+                            <label>Interval</label>
+                            <select id="stats-interval">
+                                <option value="">None (single aggregate)</option>
+                                <option value="daily">Daily breakdown</option>
+                                <option value="hourly">Hourly breakdown</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>LPN</label>
+                            <input type="text" id="stats-lpn" placeholder="License plate">
+                        </div>
+                        <div class="param-field">
+                            <label>Tag</label>
+                            <input type="text" id="stats-tag" placeholder="e.g., truck, car, other, pending">
+                            <div class="help-text">Vehicle type classification (object detection enabled only)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executeRequest('transactions-stats')">Execute Request</button>
+
+                <div id="transactions-stats-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="transactions-stats-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>GET /sw/api/transactions/stats</h4>
+                    <p>Get aggregated statistics for transactions.</p>
+                    <strong>Response includes:</strong>
+                    <table>
+                        <tr><th>Field</th><th>Description</th></tr>
+                        <tr><td><code>bCount</code></td><td>Number of transactions</td></tr>
+                        <tr><td><code>bFacilityMin/Max/Avg</code></td><td>Facility duration stats (seconds)</td></tr>
+                        <tr><td><code>bLoadMin/Max/Avg</code></td><td>Load duration stats (seconds)</td></tr>
+                        <tr><td><code>bWaitMin/Max/Avg</code></td><td>Wait duration stats (seconds)</td></tr>
+                        <tr><td><code>dDate</code></td><td>Date (when interval=daily)</td></tr>
+                        <tr><td><code>dHour</code></td><td>Hour (when interval=hourly)</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Events Tab -->
+            <div id="tab-events" class="tab-content">
+                <div class="endpoint-title"><span class="method get">GET</span>/sw/api/events</div>
+                <p class="endpoint-desc">Retrieve event records associated with transactions.</p>
+
+                <div class="param-section">
+                    <h4>Required <span class="badge required">REQUIRED</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Site serial is automatically included from your selection above.</p>
+                </div>
+
+                <div class="param-section">
+                    <h4>Filters <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Start Date</label>
+                            <input type="date" id="events-startDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                        <div class="param-field">
+                            <label>End Date</label>
+                            <input type="date" id="events-endDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Transaction ID</label>
+                            <input type="number" id="events-transactionId" placeholder="Transaction ID">
+                        </div>
+                        <div class="param-field">
+                            <label>Event Name</label>
+                            <input type="text" id="events-name" placeholder="e.g., ScaleArrival, TicketReceived">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="param-section">
+                    <h4>Pagination <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Page</label>
+                            <input type="number" id="events-page" value="1" min="1">
+                        </div>
+                        <div class="param-field">
+                            <label>Page Size</label>
+                            <input type="number" id="events-pageSize" value="50" min="1" max="50000">
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executeRequest('events')">Execute Request</button>
+
+                <div id="events-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="events-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>GET /sw/api/events</h4>
+                    <p>Retrieve events. Common event names: FacilityIn, ScaleArrival, ScaleSettled, TicketReceived, LPRRead, ScaleDeparture, FacilityOut</p>
+                    <strong>Response includes:</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">id, sName, bTransaction, bTicket, dTimestamp, sData (JSON), sImages (array of URLs)</p>
+                </div>
+            </div>
+
+            <!-- Tickets Tab -->
+            <div id="tab-events-tickets" class="tab-content">
+                <div class="endpoint-title"><span class="method get">GET</span>/sw/api/events/tickets</div>
+                <p class="endpoint-desc">Query ticket events by ticket data fields (customer, product, etc.).</p>
+
+                <div class="param-section">
+                    <h4>Required <span class="badge required">REQUIRED</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Site serial is automatically included from your selection above.</p>
+                </div>
+
+                <div class="param-section">
+                    <h4>Ticket Field Filters <span class="badge optional">OPTIONAL</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0 0 10px 0;">Search within ticket data. Partial matching supported for text fields.</p>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Ticket Number</label>
+                            <input type="number" id="tickets-ticket" placeholder="Ticket #">
+                        </div>
+                        <div class="param-field">
+                            <label>Customer</label>
+                            <input type="text" id="tickets-customer" placeholder="Customer name">
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Product</label>
+                            <input type="text" id="tickets-product" placeholder="Product name">
+                        </div>
+                        <div class="param-field">
+                            <label>Carrier</label>
+                            <input type="text" id="tickets-carrier" placeholder="Carrier name">
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Truck</label>
+                            <input type="text" id="tickets-truck" placeholder="Truck ID">
+                        </div>
+                        <div class="param-field">
+                            <label>Date</label>
+                            <input type="date" id="tickets-date">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="param-section">
+                    <h4>Pagination <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Page</label>
+                            <input type="number" id="tickets-page" value="1" min="1">
+                        </div>
+                        <div class="param-field">
+                            <label>Page Size</label>
+                            <input type="number" id="tickets-pageSize" value="50" min="1" max="50000">
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executeRequest('events-tickets')">Execute Request</button>
+
+                <div id="events-tickets-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="events-tickets-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>GET /sw/api/events/tickets</h4>
+                    <p>Query ticket events by ticket data. Available fields: ticket, customer, product, carrier, truck, plant, scale, weight, date</p>
+                    <strong>Response includes:</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">id, bTransaction, bTicket, dTimestamp, sData (contains ticket fields), sImages</p>
+                </div>
+            </div>
+
+            <!-- Alerts Tab -->
+            <div id="tab-alerts" class="tab-content">
+                <div class="endpoint-title"><span class="method get">GET</span>/sw/api/alerts</div>
+                <p class="endpoint-desc">Retrieve alerts and their activity history.</p>
+
+                <div class="param-section">
+                    <h4>Required <span class="badge required">REQUIRED</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Site serial is automatically included from your selection above.</p>
+                </div>
+
+                <div class="param-section">
+                    <h4>Filters <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Start Date</label>
+                            <input type="date" id="alerts-startDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                        <div class="param-field">
+                            <label>End Date</label>
+                            <input type="date" id="alerts-endDate">
+                            <div class="help-text">YYYY-MM-DD (site's local timezone)</div>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Status</label>
+                            <input type="text" id="alerts-status" placeholder="e.g., open, closed">
+                        </div>
+                        <div class="param-field">
+                            <label>Priority</label>
+                            <select id="alerts-priority">
+                                <option value="">Any</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Flagged</label>
+                            <select id="alerts-flagged">
+                                <option value="">Any</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="param-field">
+                            <label>Scale</label>
+                            <input type="number" id="alerts-scale" placeholder="Scale number">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="param-section">
+                    <h4>Pagination <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Page</label>
+                            <input type="number" id="alerts-page" value="1" min="1">
+                        </div>
+                        <div class="param-field">
+                            <label>Page Size</label>
+                            <input type="number" id="alerts-pageSize" value="50" min="1" max="50000">
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executeRequest('alerts')">Execute Request</button>
+
+                <div id="alerts-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="alerts-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>GET /sw/api/alerts</h4>
+                    <p>Retrieve alerts with optional activity history.</p>
+                    <strong>Response includes:</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">id, sName, bTransaction, sStatus, sPriority, fFlagged, bAssignedId, sAssignedUser, dTimestamp, sData, sImages, activities</p>
+                </div>
+            </div>
+
+            <!-- Users Tab - COMMENTED OUT FOR 3RD PARTY API
+            <div id="tab-users" class="tab-content">
+                <div class="endpoint-title"><span class="method get">GET</span>/sw/api/users</div>
+                <p class="endpoint-desc">Retrieve users with access to the selected site.</p>
+
+                <div class="param-section">
+                    <h4>Required <span class="badge required">REQUIRED</span></h4>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Site serial is automatically included from your selection above.</p>
+                </div>
+
+                <div class="param-section">
+                    <h4>Filters <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Email</label>
+                            <input type="email" id="users-email" placeholder="user@example.com">
+                        </div>
+                        <div class="param-field">
+                            <label>Name</label>
+                            <input type="text" id="users-name" placeholder="User name">
+                        </div>
+                    </div>
+                    <div class="param-row" style="margin-top: 10px;">
+                        <div class="param-field">
+                            <label>Has Admin Rights</label>
+                            <select id="users-hasAdminRights">
+                                <option value="">Any</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="param-field">
+                            <label>Has API Rights</label>
+                            <select id="users-hasApiRights">
+                                <option value="">Any</option>
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="param-section">
+                    <h4>Pagination <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Page</label>
+                            <input type="number" id="users-page" value="1" min="1">
+                        </div>
+                        <div class="param-field">
+                            <label>Page Size</label>
+                            <input type="number" id="users-pageSize" value="50" min="1" max="50000">
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executeRequest('users')">Execute Request</button>
+
+                <div id="users-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="users-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>GET /sw/api/users</h4>
+                    <p>Retrieve users with access to the specified site.</p>
+                    <strong>Response includes:</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">id, sEmail, sName, createdAt, hasAdminRights, hasApiRights, dLastActive</p>
+                </div>
+            </div>
+            END Users Tab -->
+        </div>
+        </div><!-- end left-column -->
+
+        <!-- Right Column: Debug Log -->
+        <div class="right-column">
+            <div class="section sticky">
+                <h2>Debug Log</h2>
+                <div id="log"></div>
+                <button onclick="clearLog()" class="btn-secondary" style="margin-top: 10px;">Clear Log</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentResponse = null;
+        let requestCount = 0;
+        let availableSites = [];
+        let selectedSite = null;
+        let apiRefOpen = false; // Track if API Reference should be open across tabs
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            setDefaultDates();
+            log('ScaleWatcher API Demo initialized', 'info');
+            log('Enter your credentials and click "Login & Get Sites" to begin', 'info');
+        });
+
+        // Debug logging
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const span = document.createElement('span');
+            span.className = `log-${type}`;
+            span.textContent = `[${timestamp}] ${message}\n`;
+            logEl.appendChild(span);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            log('Log cleared', 'info');
+        }
+
+        // Toggle password visibility
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('auth-password');
+            const eyeIcon = document.getElementById('eye-icon');
+            const eyeOffIcon = document.getElementById('eye-off-icon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.style.display = 'none';
+                eyeOffIcon.style.display = 'block';
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.style.display = 'block';
+                eyeOffIcon.style.display = 'none';
+            }
+        }
+
+        // Auth input handler
+        function onAuthInputChange() {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.disabled = !(email.length > 0 && password.length > 0);
+
+            // Reset if credentials changed after login
+            if (availableSites.length > 0) {
+                resetSites();
+            }
+        }
+
+        // Login and get sites
+        async function doLogin() {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const apiUrl = document.getElementById('api-url').value;
+
+            if (!email || !password) {
+                log('Email and password are required', 'error');
+                return;
+            }
+
+            log('Authenticating...', 'info');
+            document.getElementById('login-btn').disabled = true;
+            document.getElementById('login-btn').textContent = 'Logging in...';
+
+            const fullUrl = `${apiUrl}/sw/api/auth`;
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(fullUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+                const data = await response.json();
+                currentResponse = data;
+
+                // Show request/response
+                const outputWrapper = document.getElementById('auth-api-wrapper');
+                const output = document.getElementById('auth-api-output');
+                outputWrapper.style.display = 'block';
+
+                // Mask token in displayed response
+                const displayData = { ...data };
+                if (displayData.token) {
+                    displayData.token = displayData.token.substring(0, 20) + '...[truncated]';
+                }
+
+                output.innerHTML = `<span class="label">POST</span> ${fullUrl}\n` +
+                    `<span class="label">Status:</span> <span class="${response.ok ? 'success' : 'error'}">${response.status}</span>\n` +
+                    `<span class="label">Time:</span> ${duration}ms\n\n` +
+                    `<span class="label">Response:</span>\n` +
+                    syntaxHighlight(JSON.stringify(displayData, null, 2));
+
+                if (response.ok && data.token) {
+                    // Store the token
+                    document.getElementById('api-token').value = data.token;
+
+                    // Show user info
+                    document.getElementById('auth-user-name').textContent = data.user?.name || data.user?.email || email;
+                    document.getElementById('token-display').style.display = 'block';
+
+                    // Populate sites
+                    availableSites = data.sites?.data || [];
+                    renderSitesTable(availableSites);
+
+                    // Update step indicators
+                    document.getElementById('step1-indicator').classList.add('completed');
+                    document.getElementById('step2-indicator').classList.remove('pending');
+
+                    log(`Authenticated as ${data.user?.name || email}`, 'success');
+                    log(`Found ${data.sites?.count || 0} site(s) with API access`, 'success');
+
+                    updateStatus(true, 'Authenticated');
+                } else {
+                    log(`Error: ${data.error?.message || 'Authentication failed'}`, 'error');
+                    const errorMsg = data.error?.message || 'Authentication failed';
+                    const contact = data.error?.contact;
+
+                    let errorHtml = `
+                        <div class="sites-placeholder" style="border-color: #ffcdd2; background: #fff5f5;">
+                            <div class="icon" style="color: #c62828;">&#9888;</div>
+                            <div style="color: #c62828; margin-bottom: 10px;">${errorMsg}</div>
+                    `;
+
+                    if (contact) {
+                        errorHtml += `
+                            <div style="font-size: 13px; color: #666; margin-top: 10px;">
+                                <strong>Contact Dividia:</strong><br>
+                                Email: <a href="mailto:${contact.email}">${contact.email}</a><br>
+                                Phone: ${contact.phone}
+                            </div>
+                        `;
+                    }
+
+                    errorHtml += '</div>';
+                    document.getElementById('sites-container').innerHTML = errorHtml;
+                    updateStatus(false);
+                }
+
+            } catch (error) {
+                log(`Network error: ${error.message}`, 'error');
+                const outputWrapper = document.getElementById('auth-api-wrapper');
+                const output = document.getElementById('auth-api-output');
+                outputWrapper.style.display = 'block';
+                output.innerHTML = `<span class="label">POST</span> ${fullUrl}\n<span class="error">Network error: ${error.message}</span>`;
+
+                document.getElementById('sites-container').innerHTML = `
+                    <div class="sites-placeholder" style="border-color: #ffcdd2; background: #fff5f5;">
+                        <div class="icon" style="color: #c62828;">&#9888;</div>
+                        <div style="color: #c62828;">Network error: ${error.message}</div>
+                    </div>
+                `;
+                updateStatus(false);
+            }
+
+            document.getElementById('login-btn').disabled = false;
+            document.getElementById('login-btn').textContent = 'Login & Get Sites';
+        }
+
+        // Copy API token to clipboard
+        function copyToken() {
+            const token = document.getElementById('api-token').value;
+            if (!token) return;
+
+            navigator.clipboard.writeText(token).then(() => {
+                const feedback = document.getElementById('token-copy-feedback');
+                feedback.textContent = 'Copied!';
+                setTimeout(() => { feedback.textContent = ''; }, 2000);
+            });
+        }
+
+        // Render sites table
+        function renderSitesTable(sites) {
+            if (!sites || sites.length === 0) {
+                document.getElementById('sites-container').innerHTML = `
+                    <div class="sites-placeholder">
+                        <div class="icon">&#128203;</div>
+                        <div>No sites with API access found for this account</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="sites-table">
+                    <thead>
+                        <tr>
+                            <th>Parent</th>
+                            <th>Site Name</th>
+                            <th>Serial</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            sites.forEach(site => {
+                html += `
+                    <tr id="site-row-${site.bSerial}">
+                        <td>${site.sParentName || '-'}</td>
+                        <td><strong>${site.sName}</strong></td>
+                        <td><code>${site.bSerial}</code></td>
+                        <td><button class="site-select-btn" onclick="selectSite(${site.bSerial}, '${site.sName}', '${site.sParentName || ''}')">Select</button></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('sites-container').innerHTML = html;
+        }
+
+        // Select a site
+        function selectSite(serial, name, parentName) {
+            selectedSite = { serial, name, parentName };
+
+            // Update hidden input
+            document.getElementById('site-serial').value = serial;
+
+            // Update selected display
+            const badge = document.getElementById('selected-site-badge');
+            badge.textContent = `${parentName ? parentName + ' > ' : ''}${name} (Serial: ${serial})`;
+            document.getElementById('selected-site-display').style.display = 'block';
+
+            // Highlight selected row
+            document.querySelectorAll('.sites-table tr').forEach(row => row.classList.remove('selected'));
+            document.getElementById(`site-row-${serial}`).classList.add('selected');
+
+            // Update button states
+            document.querySelectorAll('.site-select-btn').forEach(btn => {
+                btn.classList.remove('selected');
+                btn.textContent = 'Select';
+            });
+            const selectedBtn = document.querySelector(`#site-row-${serial} .site-select-btn`);
+            selectedBtn.classList.add('selected');
+            selectedBtn.textContent = 'Selected';
+
+            // Update step indicators
+            document.getElementById('step2-indicator').classList.add('completed');
+            document.getElementById('step3-indicator').classList.remove('pending');
+
+            log(`Selected site: ${name} (Serial: ${serial})`, 'success');
+            updateStatus(true, 'Ready');
+        }
+
+        // Reset sites
+        function resetSites() {
+            availableSites = [];
+            selectedSite = null;
+            document.getElementById('site-serial').value = '';
+            document.getElementById('api-token').value = '';
+            document.getElementById('selected-site-display').style.display = 'none';
+            document.getElementById('token-display').style.display = 'none';
+            document.getElementById('auth-api-wrapper').style.display = 'none';
+            document.getElementById('sites-container').innerHTML = `
+                <div class="sites-placeholder">
+                    <div class="icon">&#128274;</div>
+                    <div>Enter your credentials above and click "Login & Get Sites"</div>
+                </div>
+            `;
+
+            // Reset step indicators
+            document.getElementById('step1-indicator').classList.remove('completed');
+            document.getElementById('step2-indicator').classList.add('pending');
+            document.getElementById('step2-indicator').classList.remove('completed');
+            document.getElementById('step3-indicator').classList.add('pending');
+
+            // Hide all endpoint outputs
+            document.querySelectorAll('.api-output-wrapper').forEach(w => w.style.display = 'none');
+
+            updateStatus(false);
+        }
+
+        // Clear all
+        function clearAll() {
+            document.getElementById('auth-email').value = '';
+            document.getElementById('auth-password').value = '';
+            document.getElementById('login-btn').disabled = true;
+            resetSites();
+            log('All settings cleared', 'info');
+        }
+
+        // Tab handling
+        function initTabs() {
+            document.querySelectorAll('.endpoint-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.dataset.tab;
+
+                    // Update tab buttons
+                    document.querySelectorAll('.endpoint-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    // Update tab content
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    const newTab = document.getElementById(`tab-${tabId}`);
+                    newTab.classList.add('active');
+
+                    // Apply API Reference state to new tab
+                    const apiRefBtn = newTab.querySelector('.api-ref-toggle');
+                    const apiRefContent = newTab.querySelector('.api-ref');
+                    if (apiRefBtn && apiRefContent) {
+                        if (apiRefOpen) {
+                            apiRefBtn.classList.add('open');
+                            apiRefContent.classList.add('open');
+                        } else {
+                            apiRefBtn.classList.remove('open');
+                            apiRefContent.classList.remove('open');
+                        }
+                    }
+                });
+            });
+        }
+
+        // Set default dates (yesterday to today)
+        function setDefaultDates() {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            const todayStr = today.toISOString().split('T')[0];
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            const startDateInputs = ['tx-startDate', 'stats-startDate', 'events-startDate', 'alerts-startDate'];
+            const endDateInputs = ['tx-endDate', 'stats-endDate', 'events-endDate', 'alerts-endDate'];
+
+            startDateInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = yesterdayStr;
+            });
+
+            endDateInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = todayStr;
+            });
+        }
+
+        // Configuration
+        function validateConfig() {
+            const token = document.getElementById('api-token').value.trim();
+            const serial = document.getElementById('site-serial').value.trim();
+
+            if (!token) {
+                alert('Please login first');
+                return false;
+            }
+
+            if (!serial) {
+                alert('Please select a site first');
+                return false;
+            }
+
+            return true;
+        }
+
+        function updateStatus(ready, text = null) {
+            const statusEl = document.getElementById('api-status');
+            if (ready) {
+                statusEl.textContent = text || 'Ready';
+                statusEl.className = 'status status-ready';
+            } else {
+                statusEl.textContent = 'Not Connected';
+                statusEl.className = 'status status-not-ready';
+            }
+        }
+
+        // Build query parameters for each endpoint
+        function getParams(endpoint) {
+            const params = {};
+
+            switch (endpoint) {
+                case 'transactions':
+                    addParam(params, 'startDate', 'tx-startDate');
+                    addParam(params, 'endDate', 'tx-endDate');
+                    addParam(params, 'scale', 'tx-scale');
+                    addParam(params, 'lpn', 'tx-lpn');
+                    addParam(params, 'ticket', 'tx-ticket');
+                    addParam(params, 'tag', 'tx-tag');
+                    addParam(params, 'includeEvents', 'tx-includeEvents');
+                    addParam(params, 'includeAlerts', 'tx-includeAlerts');
+                    addParam(params, 'page', 'tx-page');
+                    addParam(params, 'pageSize', 'tx-pageSize');
+                    break;
+
+                case 'transactions-stats':
+                    addParam(params, 'startDate', 'stats-startDate');
+                    addParam(params, 'endDate', 'stats-endDate');
+                    addParam(params, 'scale', 'stats-scale');
+                    addParam(params, 'interval', 'stats-interval');
+                    addParam(params, 'lpn', 'stats-lpn');
+                    addParam(params, 'tag', 'stats-tag');
+                    break;
+
+                case 'events':
+                    addParam(params, 'startDate', 'events-startDate');
+                    addParam(params, 'endDate', 'events-endDate');
+                    addParam(params, 'transactionId', 'events-transactionId');
+                    addParam(params, 'name', 'events-name');
+                    addParam(params, 'page', 'events-page');
+                    addParam(params, 'pageSize', 'events-pageSize');
+                    break;
+
+                case 'events-tickets':
+                    addParam(params, 'ticket', 'tickets-ticket');
+                    addParam(params, 'customer', 'tickets-customer');
+                    addParam(params, 'product', 'tickets-product');
+                    addParam(params, 'carrier', 'tickets-carrier');
+                    addParam(params, 'truck', 'tickets-truck');
+                    addParam(params, 'date', 'tickets-date');
+                    addParam(params, 'page', 'tickets-page');
+                    addParam(params, 'pageSize', 'tickets-pageSize');
+                    break;
+
+                case 'alerts':
+                    addParam(params, 'startDate', 'alerts-startDate');
+                    addParam(params, 'endDate', 'alerts-endDate');
+                    addParam(params, 'status', 'alerts-status');
+                    addParam(params, 'priority', 'alerts-priority');
+                    addParam(params, 'flagged', 'alerts-flagged');
+                    addParam(params, 'scale', 'alerts-scale');
+                    addParam(params, 'page', 'alerts-page');
+                    addParam(params, 'pageSize', 'alerts-pageSize');
+                    break;
+
+                /* COMMENTED OUT FOR 3RD PARTY API
+                case 'users':
+                    addParam(params, 'email', 'users-email');
+                    addParam(params, 'name', 'users-name');
+                    addParam(params, 'hasAdminRights', 'users-hasAdminRights');
+                    addParam(params, 'hasApiRights', 'users-hasApiRights');
+                    addParam(params, 'page', 'users-page');
+                    addParam(params, 'pageSize', 'users-pageSize');
+                    break;
+                */
+            }
+
+            return params;
+        }
+
+        function addParam(params, name, elementId) {
+            const el = document.getElementById(elementId);
+            if (el && el.value.trim()) {
+                params[name] = el.value.trim();
+            }
+        }
+
+        // Execute API request
+        async function executeRequest(endpoint) {
+            if (!validateConfig()) {
+                return;
+            }
+
+            const apiUrl = document.getElementById('api-url').value;
+            const token = document.getElementById('api-token').value.trim();
+            const serial = document.getElementById('site-serial').value.trim();
+
+            // Map endpoint to path
+            const pathMap = {
+                'transactions': '/sw/api/transactions',
+                'transactions-stats': '/sw/api/transactions/stats',
+                'events': '/sw/api/events',
+                'events-tickets': '/sw/api/events/tickets',
+                'alerts': '/sw/api/alerts'
+                // 'users': '/sw/api/users' // COMMENTED OUT FOR 3RD PARTY API
+            };
+
+            const path = pathMap[endpoint];
+            const params = getParams(endpoint);
+
+            // Add serial to params
+            params.serial = serial;
+
+            // Build URL
+            const queryString = new URLSearchParams(params).toString();
+            const fullUrl = `${apiUrl}${path}?${queryString}`;
+
+            requestCount++;
+            log(`[${requestCount}] Requesting: ${path}`, 'info');
+            const startTime = performance.now();
+
+            // Get output elements
+            const outputWrapper = document.getElementById(`${endpoint}-api-wrapper`);
+            const output = document.getElementById(`${endpoint}-api-output`);
+
+            outputWrapper.style.display = 'block';
+            output.innerHTML = `<span class="label">GET</span> ${fullUrl}\n<span class="label">Status:</span> Loading...`;
+
+            try {
+                const response = await fetch(fullUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+
+                const data = await response.json();
+                currentResponse = data;
+
+                const count = data.count || data.data?.length || 0;
+                const total = data.total || count;
+
+                output.innerHTML = `<span class="label">GET</span> ${fullUrl}\n` +
+                    `<span class="label">Status:</span> <span class="${response.ok ? 'success' : 'error'}">${response.status}</span>\n` +
+                    `<span class="label">Time:</span> ${duration}ms\n` +
+                    `<span class="label">Results:</span> ${count} of ${total}\n\n` +
+                    `<span class="label">Response:</span>\n` +
+                    syntaxHighlight(JSON.stringify(data, null, 2));
+
+                if (response.ok) {
+                    log(`[${requestCount}] Success: ${count} results (${total} total) in ${duration}ms`, 'success');
+                } else {
+                    log(`[${requestCount}] Error ${response.status}: ${data.error?.message || 'Unknown error'}`, 'error');
+                }
+
+            } catch (error) {
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+
+                output.innerHTML = `<span class="label">GET</span> ${fullUrl}\n` +
+                    `<span class="label">Status:</span> <span class="error">Error</span>\n` +
+                    `<span class="label">Time:</span> ${duration}ms\n\n` +
+                    `<span class="error">Network error: ${error.message}</span>`;
+
+                log(`[${requestCount}] Network error: ${error.message}`, 'error');
+            }
+        }
+
+        // JSON syntax highlighting
+        function syntaxHighlight(json) {
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // Toggle API output panels
+        function toggleApiOutput(toggle) {
+            const content = toggle.nextElementSibling;
+            const isCollapsed = content.classList.toggle('collapsed');
+            toggle.classList.toggle('collapsed', isCollapsed);
+            toggle.innerHTML = (isCollapsed ? '&#9654;' : '&#9660;') + ' Request/Response';
+        }
+
+        // Toggle API reference
+        function toggleApiRef(btn) {
+            btn.classList.toggle('open');
+            btn.nextElementSibling.classList.toggle('open');
+            // Track global state
+            apiRefOpen = btn.classList.contains('open');
+        }
+    </script>
+</body>
+</html>

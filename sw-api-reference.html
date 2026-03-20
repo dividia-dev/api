@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScaleWatcher Cloud API Reference</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #00695c; border-bottom: 3px solid #00695c; padding-bottom: 10px; }
+        h2 { color: #00695c; margin-top: 50px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+        h3 { color: #00897b; margin-top: 30px; }
+        h4 { color: #555; margin-top: 20px; margin-bottom: 10px; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 14px;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        pre .comment { color: #6a9955; }
+        pre .string { color: #ce9178; }
+        pre .keyword { color: #569cd6; }
+        pre .number { color: #b5cea8; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        .required {
+            color: #c62828;
+            font-weight: 600;
+        }
+        .method {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .method.get { background: #e8f5e9; color: #2e7d32; }
+        .method.post { background: #fff3e0; color: #e65100; }
+        .endpoint-path {
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 16px;
+        }
+        .info-box {
+            background: #e0f2f1;
+            border-left: 4px solid #00897b;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .info-box.warning {
+            background: #fff3e0;
+            border-left-color: #fb8c00;
+        }
+        .info-box.note {
+            background: #e3f2fd;
+            border-left-color: #1976d2;
+        }
+        .info-box strong { color: #00695c; }
+        .info-box.warning strong { color: #e65100; }
+        .info-box.note strong { color: #1565c0; }
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px 30px;
+            margin: 30px 0;
+        }
+        .toc h3 { margin-top: 0; color: #00695c; }
+        .toc ul { margin: 0; padding-left: 20px; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: #00695c; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .endpoint-section {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin: 25px 0;
+            overflow: hidden;
+        }
+        .endpoint-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .endpoint-body {
+            padding: 20px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00695c;
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #00695c 0%, #00897b 100%);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        @media print {
+            body { max-width: none; padding: 20px; }
+            .back-link { display: none; }
+            pre { white-space: pre-wrap; word-wrap: break-word; }
+        }
+    </style>
+</head>
+<body>
+    <a href="sw-api-demo.html" class="back-link">&larr; Back to API Demo</a>
+
+    <h1>ScaleWatcher Cloud API Reference<span class="badge">SCALEWATCHER</span></h1>
+    <p>Complete API documentation for integrating with the ScaleWatcher Cloud platform. Access transaction data, events, alerts, and more programmatically.</p>
+
+    <div class="toc">
+        <h3>Table of Contents</h3>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#authentication">Authentication</a></li>
+            <li><a href="#rate-limiting">Rate Limiting</a></li>
+            <li><a href="#endpoints">Endpoints</a>
+                <ul>
+                    <li><a href="#auth">POST /sw/api/auth</a> - Authenticate</li>
+                    <li><a href="#sites">GET /sw/api/sites</a> - Get Sites</li>
+                    <li><a href="#transactions">GET /sw/api/transactions</a> - Get Transactions</li>
+                    <li><a href="#transactions-stats">GET /sw/api/transactions/stats</a> - Get Statistics</li>
+                    <li><a href="#events">GET /sw/api/events</a> - Get Events</li>
+                    <li><a href="#events-tickets">GET /sw/api/events/tickets</a> - Get Tickets</li>
+                    <li><a href="#alerts">GET /sw/api/alerts</a> - Get Alerts</li>
+                    <!-- <li><a href="#users">GET /sw/api/users</a> - Get Users</li> -->
+                </ul>
+            </li>
+            <li><a href="#response-format">Response Format</a></li>
+            <li><a href="#error-handling">Error Handling</a></li>
+        </ul>
+    </div>
+
+    <h2 id="overview">Overview</h2>
+    <p>The ScaleWatcher Cloud API provides programmatic access to your scale transaction data, events, alerts, and user information. All API requests are made over HTTPS.</p>
+
+    <div class="info-box">
+        <strong>Base URL</strong><br>
+        <code>https://api.cloud.dividia.net/sw/api</code>
+    </div>
+
+    <h3>Quick Start</h3>
+    <ol>
+        <li><strong>Authenticate</strong> - POST to <code>/sw/api/auth</code> with your email and password</li>
+        <li><strong>Get your token</strong> - The response includes a JWT token valid for 30 days</li>
+        <li><strong>Select a site</strong> - Use the <code>bSerial</code> from your available sites</li>
+        <li><strong>Make requests</strong> - Include the token in the <code>Authorization</code> header</li>
+    </ol>
+
+    <h2 id="authentication">Authentication</h2>
+    <p>All API requests (except <code>/auth</code>) require authentication via a Bearer token in the HTTP header:</p>
+
+    <pre>Authorization: Bearer &lt;your-api-token&gt;</pre>
+
+    <h3>Getting a Token</h3>
+    <p>Obtain a token by authenticating with your ScaleWatcher credentials:</p>
+
+    <pre><span class="comment">// Request</span>
+POST /sw/api/auth
+Content-Type: application/json
+
+{
+  <span class="string">"email"</span>: <span class="string">"user@example.com"</span>,
+  <span class="string">"password"</span>: <span class="string">"your-password"</span>
+}
+
+<span class="comment">// Response</span>
+{
+  <span class="string">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="string">"user"</span>: {
+    <span class="string">"id"</span>: <span class="number">123</span>,
+    <span class="string">"email"</span>: <span class="string">"user@example.com"</span>,
+    <span class="string">"name"</span>: <span class="string">"John Doe"</span>
+  },
+  <span class="string">"sites"</span>: {
+    <span class="string">"count"</span>: <span class="number">2</span>,
+    <span class="string">"data"</span>: [...]
+  }
+}</pre>
+
+    <div class="info-box note">
+        <strong>Token Expiration</strong><br>
+        Tokens are valid for 30 days. After expiration, you must authenticate again to obtain a new token.
+    </div>
+
+    <div class="info-box warning">
+        <strong>API Access Required</strong><br>
+        API access must be enabled for your account by a Dividia administrator. If you receive a 403 error indicating no API access, contact <a href="mailto:support@dividia.net">support@dividia.net</a> or call 817-288-1040.
+    </div>
+
+    <h2 id="rate-limiting">Rate Limiting</h2>
+    <p>To ensure fair usage and system stability, the following rate limits apply:</p>
+
+    <table>
+        <tr><th>Limit Type</th><th>Value</th><th>Description</th></tr>
+        <tr><td>Per IP Address</td><td>60 requests/minute</td><td>Requests from a single IP address</td></tr>
+        <tr><td>Per Site Serial</td><td>60 requests/minute</td><td>Requests for a single site</td></tr>
+        <tr><td>Duplicate Prevention</td><td>10 seconds</td><td>Identical requests blocked within window</td></tr>
+        <tr><td>Query String Length</td><td>2000 characters</td><td>Maximum URL query string length</td></tr>
+        <tr><td>Response Limit</td><td>50,000 rows</td><td>Maximum rows returned per request</td></tr>
+    </table>
+
+    <div class="info-box warning">
+        <strong>Rate Limit Notice</strong><br>
+        These limits are provisional and may be adjusted as the API matures. For enterprise needs or questions about limits, contact <a href="mailto:support@dividia.net">support@dividia.net</a>.
+    </div>
+
+    <h2 id="endpoints">Endpoints</h2>
+
+    <!-- POST /sw/api/auth -->
+    <div class="endpoint-section" id="auth">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/sw/api/auth</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Authenticate with email and password to receive an API token and list of available sites.</p>
+
+            <h4>Request Body (JSON)</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                <tr><td><code>email</code></td><td>string</td><td class="required">Yes</td><td>Your ScaleWatcher account email</td></tr>
+                <tr><td><code>password</code></td><td>string</td><td class="required">Yes</td><td>Your ScaleWatcher account password</td></tr>
+            </table>
+
+            <h4>Response</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>token</code></td><td>string</td><td>JWT token for API authentication (valid 30 days)</td></tr>
+                <tr><td><code>user</code></td><td>object</td><td>User details: <code>id</code>, <code>email</code>, <code>name</code></td></tr>
+                <tr><td><code>sites</code></td><td>object</td><td>Available sites: <code>count</code> and <code>data</code> array</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl -X POST https://api.cloud.dividia.net/sw/api/auth \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "secret"}'</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/sites -->
+    <div class="endpoint-section" id="sites">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/sites</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Retrieve the list of sites (locations) the authenticated user has API access to. Use this if you already have a token and need to refresh your site list.</p>
+
+            <h4>Headers</h4>
+            <table>
+                <tr><th>Header</th><th>Value</th></tr>
+                <tr><td><code>Authorization</code></td><td><code>Bearer &lt;token&gt;</code></td></tr>
+            </table>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Internal site ID</td></tr>
+                <tr><td><code>sName</code></td><td>string</td><td>Site name</td></tr>
+                <tr><td><code>bSerial</code></td><td>integer</td><td>Site serial number (use this for API calls)</td></tr>
+                <tr><td><code>sParentName</code></td><td>string</td><td>Parent organization name</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl https://api.cloud.dividia.net/sw/api/sites \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/transactions -->
+    <div class="endpoint-section" id="transactions">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/transactions</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Retrieve transaction records with filtering, sorting, and pagination. Transactions represent complete scale weighing cycles.</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Optional Filters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD, site's local timezone)</td></tr>
+                <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD, site's local timezone)</td></tr>
+                <tr><td><code>scale</code></td><td>integer</td><td>Filter by scale number</td></tr>
+                <tr><td><code>lpn</code></td><td>string</td><td>Filter by license plate number</td></tr>
+                <tr><td><code>ticket</code></td><td>integer</td><td>Filter by ticket number</td></tr>
+                <tr><td><code>tag</code></td><td>string</td><td>Filter by vehicle type tag: <code>truck</code>, <code>car</code>, <code>other</code>, <code>pending</code></td></tr>
+                <tr><td><code>incomplete</code></td><td>0|1</td><td>Filter by incomplete/hidden status</td></tr>
+                <tr><td><code>includeEvents</code></td><td>0|1</td><td>Include related events in response</td></tr>
+                <tr><td><code>includeAlerts</code></td><td>0|1</td><td>Include related alerts in response</td></tr>
+            </table>
+
+            <h4>Pagination & Sorting</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 (max) if not specified.</td></tr>
+                <tr><td><code>orderBy</code></td><td>string</td><td>dTimestamp</td><td>Sort field</td></tr>
+                <tr><td><code>orderDir</code></td><td>ASC|DESC</td><td>ASC</td><td>Sort direction</td></tr>
+            </table>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Transaction ID</td></tr>
+                <tr><td><code>bSerial</code></td><td>integer</td><td>Site serial</td></tr>
+                <tr><td><code>bScale</code></td><td>integer</td><td>Scale number</td></tr>
+                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Transaction timestamp (local timezone)</td></tr>
+                <tr><td><code>dStart</code></td><td>datetime</td><td>Transaction start time</td></tr>
+                <tr><td><code>dEnd</code></td><td>datetime</td><td>Transaction end time</td></tr>
+                <tr><td><code>sLpn</code></td><td>string</td><td>License plate number</td></tr>
+                <tr><td><code>sTruck</code></td><td>string</td><td>Truck identifier</td></tr>
+                <tr><td><code>bTicket</code></td><td>integer</td><td>Ticket number</td></tr>
+                <tr><td><code>bFacilityDuration</code></td><td>integer</td><td>Total facility time (seconds)</td></tr>
+                <tr><td><code>bLoadDuration</code></td><td>integer</td><td>Loading time (seconds)</td></tr>
+                <tr><td><code>bWaitDuration</code></td><td>integer</td><td>Wait time (seconds)</td></tr>
+                <tr><td><code>fHidden</code></td><td>boolean</td><td>Incomplete/hidden flag</td></tr>
+                <tr><td><code>sTag</code></td><td>string</td><td>Transaction tag</td></tr>
+                <tr><td><code>events</code></td><td>array</td><td>Related events (if includeEvents=1)</td></tr>
+                <tr><td><code>alerts</code></td><td>array</td><td>Related alerts (if includeAlerts=1)</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/transactions?serial=248&startDate=2024-01-01&endDate=2024-01-31&pageSize=100" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/transactions/stats -->
+    <div class="endpoint-section" id="transactions-stats">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/transactions/stats</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Get aggregated statistics for transactions including counts, minimum, maximum, and average durations.</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Optional Filters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>scale</code></td><td>integer</td><td>Filter by scale number</td></tr>
+                <tr><td><code>lpn</code></td><td>string</td><td>Filter by license plate</td></tr>
+                <tr><td><code>tag</code></td><td>string</td><td>Filter by vehicle type tag: <code>truck</code>, <code>car</code>, <code>other</code>, <code>pending</code></td></tr>
+                <tr><td><code>interval</code></td><td>daily|hourly</td><td>Group results by time interval</td></tr>
+            </table>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>bCount</code></td><td>integer</td><td>Number of transactions</td></tr>
+                <tr><td><code>bFacilityMin</code></td><td>integer</td><td>Minimum facility duration (seconds)</td></tr>
+                <tr><td><code>bFacilityMax</code></td><td>integer</td><td>Maximum facility duration (seconds)</td></tr>
+                <tr><td><code>bFacilityAvg</code></td><td>integer</td><td>Average facility duration (seconds)</td></tr>
+                <tr><td><code>bLoadMin</code></td><td>integer</td><td>Minimum load duration (seconds)</td></tr>
+                <tr><td><code>bLoadMax</code></td><td>integer</td><td>Maximum load duration (seconds)</td></tr>
+                <tr><td><code>bLoadAvg</code></td><td>integer</td><td>Average load duration (seconds)</td></tr>
+                <tr><td><code>bWaitMin</code></td><td>integer</td><td>Minimum wait duration (seconds)</td></tr>
+                <tr><td><code>bWaitMax</code></td><td>integer</td><td>Maximum wait duration (seconds)</td></tr>
+                <tr><td><code>bWaitAvg</code></td><td>integer</td><td>Average wait duration (seconds)</td></tr>
+                <tr><td><code>dDate</code></td><td>date</td><td>Date (when interval=daily)</td></tr>
+                <tr><td><code>dHour</code></td><td>string</td><td>Hour (when interval=hourly)</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/transactions/stats?serial=248&startDate=2024-01-01&endDate=2024-01-31&interval=daily" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/events -->
+    <div class="endpoint-section" id="events">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/events</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Retrieve event records associated with transactions. Events capture specific moments in the scale process (arrival, weighing, departure, etc.).</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Optional Filters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>transactionId</code></td><td>integer</td><td>Filter by specific transaction ID</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>Filter by event name (e.g., ScaleArrival, TicketReceived)</td></tr>
+                <tr><td><code>ticket</code></td><td>integer</td><td>Filter by ticket number</td></tr>
+            </table>
+
+            <h4>Pagination</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 if not specified.</td></tr>
+            </table>
+
+            <h4>Common Event Names</h4>
+            <ul>
+                <li><code>FacilityIn</code> - Vehicle entered facility</li>
+                <li><code>ScaleArrival</code> - Vehicle arrived at scale</li>
+                <li><code>ScaleSettled</code> - Scale reading stabilized</li>
+                <li><code>TicketReceived</code> - Ticket data received</li>
+                <li><code>LPRRead</code> - License plate captured</li>
+                <li><code>ScaleDeparture</code> - Vehicle departed scale</li>
+                <li><code>FacilityOut</code> - Vehicle exited facility</li>
+            </ul>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Event ID</td></tr>
+                <tr><td><code>sName</code></td><td>string</td><td>Event name</td></tr>
+                <tr><td><code>bTransaction</code></td><td>integer</td><td>Associated transaction ID</td></tr>
+                <tr><td><code>bTicket</code></td><td>integer</td><td>Ticket number (if applicable)</td></tr>
+                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Event timestamp</td></tr>
+                <tr><td><code>sData</code></td><td>object</td><td>Event-specific data (JSON)</td></tr>
+                <tr><td><code>sImages</code></td><td>array</td><td>Associated image URLs</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/events?serial=248&name=TicketReceived&startDate=2024-01-01" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/events/tickets -->
+    <div class="endpoint-section" id="events-tickets">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/events/tickets</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Query ticket events by ticket data fields. This endpoint allows searching by customer, product, carrier, and other ticket-specific properties.</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Optional Filters (Ticket Fields)</h4>
+            <p>These parameters search within the ticket data:</p>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>ticket</code></td><td>integer</td><td>Ticket number</td></tr>
+                <tr><td><code>customer</code></td><td>string</td><td>Customer name (partial match)</td></tr>
+                <tr><td><code>product</code></td><td>string</td><td>Product name (partial match)</td></tr>
+                <tr><td><code>carrier</code></td><td>string</td><td>Carrier name (partial match)</td></tr>
+                <tr><td><code>truck</code></td><td>string</td><td>Truck identifier</td></tr>
+                <tr><td><code>plant</code></td><td>string</td><td>Plant name</td></tr>
+                <tr><td><code>scale</code></td><td>string</td><td>Scale identifier</td></tr>
+                <tr><td><code>weight</code></td><td>string</td><td>Weight value</td></tr>
+                <tr><td><code>date</code></td><td>date</td><td>Filter by date (YYYY-MM-DD)</td></tr>
+            </table>
+
+            <h4>Pagination</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 if not specified.</td></tr>
+            </table>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Event ID</td></tr>
+                <tr><td><code>bTransaction</code></td><td>integer</td><td>Associated transaction ID</td></tr>
+                <tr><td><code>bTicket</code></td><td>integer</td><td>Ticket number</td></tr>
+                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Event timestamp</td></tr>
+                <tr><td><code>sData</code></td><td>object</td><td>Ticket data including customer, product, weight, etc.</td></tr>
+                <tr><td><code>sImages</code></td><td>array</td><td>Associated image URLs</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/events/tickets?serial=248&customer=Acme&product=Sand" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/alerts -->
+    <div class="endpoint-section" id="alerts">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/alerts</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Retrieve alerts and their associated activity history. Alerts are generated for various conditions like weight discrepancies, LPR mismatches, etc.</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Optional Filters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>status</code></td><td>string</td><td>Filter by status (e.g., open, closed)</td></tr>
+                <tr><td><code>priority</code></td><td>low|medium|high</td><td>Filter by priority level</td></tr>
+                <tr><td><code>flagged</code></td><td>0|1</td><td>Filter by flagged status</td></tr>
+                <tr><td><code>scale</code></td><td>integer</td><td>Filter by scale number</td></tr>
+                <tr><td><code>transactionId</code></td><td>integer</td><td>Filter by transaction ID</td></tr>
+                <tr><td><code>assignedId</code></td><td>integer</td><td>Filter by assigned user ID</td></tr>
+                <tr><td><code>hasComment</code></td><td>0|1</td><td>Filter alerts with/without comments</td></tr>
+            </table>
+
+            <h4>Pagination</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 if not specified.</td></tr>
+            </table>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Alert ID</td></tr>
+                <tr><td><code>sName</code></td><td>string</td><td>Alert name/type</td></tr>
+                <tr><td><code>bTransaction</code></td><td>integer</td><td>Associated transaction ID</td></tr>
+                <tr><td><code>sStatus</code></td><td>string</td><td>Current status</td></tr>
+                <tr><td><code>sPriority</code></td><td>string</td><td>Priority level (High, Medium, Low)</td></tr>
+                <tr><td><code>fFlagged</code></td><td>boolean</td><td>Flagged for attention</td></tr>
+                <tr><td><code>bAssignedId</code></td><td>integer</td><td>Assigned user ID</td></tr>
+                <tr><td><code>sAssignedUser</code></td><td>string</td><td>Assigned user name</td></tr>
+                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Alert timestamp</td></tr>
+                <tr><td><code>sData</code></td><td>object</td><td>Alert-specific data</td></tr>
+                <tr><td><code>sImages</code></td><td>array</td><td>Associated image URLs</td></tr>
+                <tr><td><code>activities</code></td><td>array</td><td>Activity history (comments, status changes)</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/alerts?serial=248&priority=high&status=open" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/users - COMMENTED OUT FOR 3RD PARTY API
+    <div class="endpoint-section" id="users">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/users</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Retrieve users with access to the specified site. Returns basic user information and access levels.</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Optional Filters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Filter by specific user ID</td></tr>
+                <tr><td><code>email</code></td><td>string</td><td>Filter by email address</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>Filter by name (partial match)</td></tr>
+                <tr><td><code>hasAdminRights</code></td><td>0|1</td><td>Filter by admin status</td></tr>
+                <tr><td><code>hasApiRights</code></td><td>0|1</td><td>Filter by API access status</td></tr>
+                <tr><td><code>startDate</code></td><td>date</td><td>Users created after date</td></tr>
+            </table>
+
+            <h4>Pagination</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
+                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 if not specified.</td></tr>
+            </table>
+
+            <h4>Response Fields</h4>
+            <table>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>User ID</td></tr>
+                <tr><td><code>sEmail</code></td><td>string</td><td>Email address</td></tr>
+                <tr><td><code>sName</code></td><td>string</td><td>User display name</td></tr>
+                <tr><td><code>createdAt</code></td><td>datetime</td><td>Account creation date</td></tr>
+                <tr><td><code>hasAdminRights</code></td><td>0|1</td><td>Has admin privileges</td></tr>
+                <tr><td><code>hasApiRights</code></td><td>0|1</td><td>Has API access for this site</td></tr>
+                <tr><td><code>dLastActive</code></td><td>datetime</td><td>Last activity timestamp</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/users?serial=248&hasAdminRights=1" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+    END Users endpoint -->
+
+    <h2 id="response-format">Response Format</h2>
+    <p>All successful responses return JSON with a consistent structure:</p>
+
+    <pre>{
+  <span class="string">"page"</span>: <span class="number">1</span>,           <span class="comment">// Current page number</span>
+  <span class="string">"pagesize"</span>: <span class="number">25</span>,       <span class="comment">// Results per page</span>
+  <span class="string">"total"</span>: <span class="number">1250</span>,        <span class="comment">// Total results available</span>
+  <span class="string">"count"</span>: <span class="number">25</span>,          <span class="comment">// Results in this response</span>
+  <span class="string">"data"</span>: [...]         <span class="comment">// Array of result objects</span>
+}</pre>
+
+    <h3>Date/Time Format &amp; Timezones</h3>
+    <p>Date parameters must be specified in <code>YYYY-MM-DD</code> format and are interpreted in the <strong>site's local timezone</strong>.</p>
+
+    <p>All timestamps in responses are returned in the <strong>site's local timezone</strong> (converted from UTC storage):</p>
+    <pre><span class="string">"2024-01-15T14:30:00"</span></pre>
+
+    <p>Each response includes a <code>tzOffset</code> field indicating the site's timezone offset from UTC (e.g., <code>-6</code> for CST).</p>
+
+    <div class="info-box note">
+        <strong>Timezone Note</strong><br>
+        Data is stored in UTC and converted to the site's local timezone for both filtering and response output. This ensures consistent date boundaries regardless of the API caller's location.
+    </div>
+
+    <h3>Image URLs</h3>
+    <p>Event and alert images are returned as full URLs:</p>
+    <pre><span class="string">"https://api.cloud.dividia.net/uploads/scalewatcher/api/248/2024/01/15/image.jpg"</span></pre>
+
+    <h2 id="error-handling">Error Handling</h2>
+    <p>Error responses include a structured error object:</p>
+
+    <pre>{
+  <span class="string">"error"</span>: {
+    <span class="string">"code"</span>: <span class="number">400</span>,
+    <span class="string">"type"</span>: <span class="string">"BadRequest"</span>,
+    <span class="string">"message"</span>: <span class="string">"Invalid 'startDate' value"</span>
+  }
+}</pre>
+
+    <h3>HTTP Status Codes</h3>
+    <table>
+        <tr><th>Code</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>200</code></td><td>Success</td><td>Request completed successfully</td></tr>
+        <tr><td><code>400</code></td><td>BadRequest</td><td>Invalid parameters or malformed request</td></tr>
+        <tr><td><code>401</code></td><td>UnauthorizedAccess</td><td>Missing or invalid authentication token</td></tr>
+        <tr><td><code>403</code></td><td>ForbiddenRequest</td><td>User lacks permission for this resource</td></tr>
+        <tr><td><code>404</code></td><td>NotFound</td><td>Requested resource not found</td></tr>
+        <tr><td><code>413</code></td><td>PayloadTooLarge</td><td>Query string exceeds 2000 character limit</td></tr>
+        <tr><td><code>429</code></td><td>TooManyRequests</td><td>Rate limit exceeded</td></tr>
+        <tr><td><code>500</code></td><td>InternalServerError</td><td>Unexpected server error</td></tr>
+    </table>
+
+    <h3>Common Error Scenarios</h3>
+    <table>
+        <tr><th>Scenario</th><th>Code</th><th>Solution</th></tr>
+        <tr><td>Token expired</td><td>401</td><td>Re-authenticate to obtain a new token</td></tr>
+        <tr><td>Missing serial parameter</td><td>400</td><td>Include <code>serial</code> in query string</td></tr>
+        <tr><td>Invalid date format</td><td>400</td><td>Use YYYY-MM-DD format</td></tr>
+        <tr><td>No API access for site</td><td>403</td><td>Contact admin to enable API access</td></tr>
+        <tr><td>Rate limit hit</td><td>429</td><td>Wait and retry, or reduce request frequency</td></tr>
+    </table>
+
+    <div class="info-box">
+        <strong>Need Help?</strong><br>
+        For API support, integration assistance, or to request API access, contact:<br>
+        Email: <a href="mailto:support@dividia.net">support@dividia.net</a><br>
+        Phone: 817-288-1040
+    </div>
+
+    <script>
+        // Print-friendly mode
+        if (window.location.search.includes('print')) {
+            window.print();
+        }
+    </script>
+</body>
+</html>
