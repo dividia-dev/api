@@ -619,6 +619,7 @@
                 <button class="endpoint-tab" data-tab="events">Events</button>
                 <button class="endpoint-tab" data-tab="events-tickets">Tickets</button>
                 <button class="endpoint-tab" data-tab="alerts">Alerts</button>
+                <button class="endpoint-tab" data-tab="pdf">PDF Export</button>
                 <!-- <button class="endpoint-tab" data-tab="users">Users</button> -->
             </div>
 
@@ -1030,6 +1031,178 @@
                     <p>Retrieve alerts with optional activity history.</p>
                     <strong>Response includes:</strong>
                     <p style="font-size: 12px; margin: 5px 0;">id, sName, bTransaction, sStatus, sPriority, fFlagged, bAssignedId, sAssignedUser, dTimestamp, sData, sImages, activities</p>
+                </div>
+            </div>
+
+            <!-- PDF Export Tab -->
+            <div id="tab-pdf" class="tab-content">
+                <div class="endpoint-title"><span class="method get">GET</span><span class="method post" style="display:none;">POST</span>/sw/api/pdf/...</div>
+                <p class="endpoint-desc">Generate and download transaction PDFs - single or bulk.</p>
+
+                <div class="param-section">
+                    <h4>Export Mode <span class="badge required">REQUIRED</span></h4>
+                    <div class="param-row single">
+                        <div class="param-field">
+                            <label>Select Export Type</label>
+                            <select id="pdf-mode" onchange="updatePdfMode()">
+                                <option value="single">Single Transaction PDF</option>
+                                <option value="bulk-ids">Bulk by Transaction IDs</option>
+                                <option value="bulk-dates">Bulk by Date Range</option>
+                                <option value="bulk-tickets">Bulk by Ticket Numbers</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Single Transaction Mode -->
+                <div id="pdf-mode-single" class="param-section">
+                    <h4>Transaction <span class="badge required">REQUIRED</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Lookup By</label>
+                            <select id="pdf-single-type" onchange="updateSinglePdfType()">
+                                <option value="transactionId">Transaction ID</option>
+                                <option value="ticketNumber">Ticket Number</option>
+                            </select>
+                        </div>
+                        <div class="param-field" id="pdf-single-transactionId-field">
+                            <label>Transaction ID</label>
+                            <input type="number" id="pdf-transactionId" placeholder="Enter transaction ID">
+                            <div class="help-text">The ID of the transaction to export</div>
+                        </div>
+                        <div class="param-field" id="pdf-single-ticketNumber-field" style="display: none;">
+                            <label>Ticket Number</label>
+                            <input type="number" id="pdf-single-ticketNumber" placeholder="Enter ticket number">
+                            <div class="help-text">Finds the most recent transaction with this ticket</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk by IDs Mode -->
+                <div id="pdf-mode-bulk-ids" class="param-section" style="display: none;">
+                    <h4>Transaction IDs <span class="badge required">REQUIRED</span></h4>
+                    <div class="param-row single">
+                        <div class="param-field">
+                            <label>Transaction IDs (comma-separated)</label>
+                            <input type="text" id="pdf-transactionIds" placeholder="e.g., 12345, 12346, 12347">
+                            <div class="help-text">Enter up to 50 transaction IDs separated by commas</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk by Date Range Mode -->
+                <div id="pdf-mode-bulk-dates" class="param-section" style="display: none;">
+                    <h4>Date Range <span class="badge required">REQUIRED</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Start Date</label>
+                            <input type="date" id="pdf-startDate">
+                            <div class="help-text">YYYY-MM-DD</div>
+                        </div>
+                        <div class="param-field">
+                            <label>End Date</label>
+                            <input type="date" id="pdf-endDate">
+                            <div class="help-text">YYYY-MM-DD</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk by Tickets Mode -->
+                <div id="pdf-mode-bulk-tickets" class="param-section" style="display: none;">
+                    <h4>Ticket Numbers <span class="badge required">REQUIRED</span></h4>
+                    <div class="param-row single">
+                        <div class="param-field">
+                            <label>Ticket Numbers (comma-separated)</label>
+                            <input type="text" id="pdf-ticketNumbers" placeholder="e.g., 9999, 8888, 7777">
+                            <div class="help-text">Enter ticket numbers separated by commas</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagination (for bulk modes) -->
+                <div id="pdf-pagination" class="param-section" style="display: none;">
+                    <h4>Pagination <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row">
+                        <div class="param-field">
+                            <label>Page</label>
+                            <input type="number" id="pdf-page" value="1" min="1">
+                        </div>
+                        <div class="param-field">
+                            <label>Limit (max 50)</label>
+                            <input type="number" id="pdf-limit" value="25" min="1" max="50">
+                            <div class="help-text">Max 50 transactions per request</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="param-section">
+                    <h4>Options <span class="badge optional">OPTIONAL</span></h4>
+                    <div class="param-row single">
+                        <div class="param-field">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="pdf-excludeImages" style="width: auto;">
+                                Exclude Images from PDF
+                            </label>
+                            <div class="help-text">Images included by default (check to exclude)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="executePdfRequest()">Download PDF</button>
+
+                <div id="pdf-api-wrapper" class="api-output-wrapper" style="display: none;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">&#9660; Request/Response</div>
+                    <div id="pdf-api-output" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>PDF Export Endpoints</h4>
+                    <p>Generate transaction PDFs on-demand. Single transactions return a PDF file; bulk requests return a ZIP archive.</p>
+
+                    <strong style="display: block; margin-top: 15px;">GET /sw/api/pdf/transaction</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">Single transaction PDF download. Provide either transactionId OR ticketNumber.</p>
+                    <table>
+                        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>serial</code> <span class="required">*</span></td><td>integer</td><td>Site serial number</td></tr>
+                        <tr><td><code>transactionId</code></td><td>integer</td><td>Transaction ID (required if no ticketNumber)</td></tr>
+                        <tr><td><code>ticketNumber</code></td><td>integer</td><td>Ticket number - finds most recent transaction (required if no transactionId)</td></tr>
+                        <tr><td><code>excludeImages</code></td><td>0|1</td><td>Exclude images from PDF, default: 0 (images included)</td></tr>
+                    </table>
+
+                    <strong style="display: block; margin-top: 15px;">POST /sw/api/pdf/transactions</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">Bulk PDF download by transaction IDs or date range. Returns ZIP file.</p>
+                    <table>
+                        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>serial</code> <span class="required">*</span></td><td>integer</td><td>Site serial (query param)</td></tr>
+                        <tr><td><code>transactionIds</code></td><td>array</td><td>Array of transaction IDs (body)</td></tr>
+                        <tr><td><code>startDate</code></td><td>date</td><td>Start date YYYY-MM-DD (body)</td></tr>
+                        <tr><td><code>endDate</code></td><td>date</td><td>End date YYYY-MM-DD (body)</td></tr>
+                        <tr><td><code>page</code></td><td>integer</td><td>Page number (body)</td></tr>
+                        <tr><td><code>limit</code></td><td>integer</td><td>Max 50 per request (body)</td></tr>
+                        <tr><td><code>excludeImages</code></td><td>boolean</td><td>Exclude images, default: false (body)</td></tr>
+                    </table>
+
+                    <strong style="display: block; margin-top: 15px;">POST /sw/api/pdf/tickets</strong>
+                    <p style="font-size: 12px; margin: 5px 0;">Bulk PDF download by ticket numbers. Returns ZIP file.</p>
+                    <table>
+                        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                        <tr><td><code>serial</code> <span class="required">*</span></td><td>integer</td><td>Site serial (query param)</td></tr>
+                        <tr><td><code>ticketNumbers</code> <span class="required">*</span></td><td>array</td><td>Array of ticket numbers (body)</td></tr>
+                        <tr><td><code>page</code></td><td>integer</td><td>Page number (body)</td></tr>
+                        <tr><td><code>limit</code></td><td>integer</td><td>Max 50 per request (body)</td></tr>
+                        <tr><td><code>excludeImages</code></td><td>boolean</td><td>Exclude images, default: false (body)</td></tr>
+                    </table>
+
+                    <strong style="display: block; margin-top: 15px;">Response Headers (Bulk)</strong>
+                    <table>
+                        <tr><th>Header</th><th>Description</th></tr>
+                        <tr><td><code>X-Total-Count</code></td><td>Total matching transactions</td></tr>
+                        <tr><td><code>X-Page</code></td><td>Current page number</td></tr>
+                        <tr><td><code>X-Pages</code></td><td>Total pages available</td></tr>
+                        <tr><td><code>X-Limit</code></td><td>Items per page</td></tr>
+                    </table>
                 </div>
             </div>
 
@@ -1460,8 +1633,8 @@
             const todayStr = today.toISOString().split('T')[0];
             const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-            const startDateInputs = ['tx-startDate', 'stats-startDate', 'events-startDate', 'alerts-startDate'];
-            const endDateInputs = ['tx-endDate', 'stats-endDate', 'events-endDate', 'alerts-endDate'];
+            const startDateInputs = ['tx-startDate', 'stats-startDate', 'events-startDate', 'alerts-startDate', 'pdf-startDate'];
+            const endDateInputs = ['tx-endDate', 'stats-endDate', 'events-endDate', 'alerts-endDate', 'pdf-endDate'];
 
             startDateInputs.forEach(id => {
                 const el = document.getElementById(id);
@@ -1702,6 +1875,272 @@
             btn.nextElementSibling.classList.toggle('open');
             // Track global state
             apiRefOpen = btn.classList.contains('open');
+        }
+
+        // PDF Export Functions
+        function updatePdfMode() {
+            const mode = document.getElementById('pdf-mode').value;
+
+            // Hide all mode-specific sections
+            document.getElementById('pdf-mode-single').style.display = 'none';
+            document.getElementById('pdf-mode-bulk-ids').style.display = 'none';
+            document.getElementById('pdf-mode-bulk-dates').style.display = 'none';
+            document.getElementById('pdf-mode-bulk-tickets').style.display = 'none';
+            document.getElementById('pdf-pagination').style.display = 'none';
+
+            // Update method badges in title
+            const getMethod = document.querySelector('#tab-pdf .method.get');
+            const postMethod = document.querySelector('#tab-pdf .method.post');
+
+            // Show appropriate section based on mode
+            switch (mode) {
+                case 'single':
+                    document.getElementById('pdf-mode-single').style.display = 'block';
+                    getMethod.style.display = 'inline-block';
+                    postMethod.style.display = 'none';
+                    break;
+                case 'bulk-ids':
+                    document.getElementById('pdf-mode-bulk-ids').style.display = 'block';
+                    document.getElementById('pdf-pagination').style.display = 'block';
+                    getMethod.style.display = 'none';
+                    postMethod.style.display = 'inline-block';
+                    break;
+                case 'bulk-dates':
+                    document.getElementById('pdf-mode-bulk-dates').style.display = 'block';
+                    document.getElementById('pdf-pagination').style.display = 'block';
+                    getMethod.style.display = 'none';
+                    postMethod.style.display = 'inline-block';
+                    break;
+                case 'bulk-tickets':
+                    document.getElementById('pdf-mode-bulk-tickets').style.display = 'block';
+                    document.getElementById('pdf-pagination').style.display = 'block';
+                    getMethod.style.display = 'none';
+                    postMethod.style.display = 'inline-block';
+                    break;
+            }
+        }
+
+        function updateSinglePdfType() {
+            const type = document.getElementById('pdf-single-type').value;
+            const transactionIdField = document.getElementById('pdf-single-transactionId-field');
+            const ticketNumberField = document.getElementById('pdf-single-ticketNumber-field');
+
+            if (type === 'transactionId') {
+                transactionIdField.style.display = 'block';
+                ticketNumberField.style.display = 'none';
+            } else {
+                transactionIdField.style.display = 'none';
+                ticketNumberField.style.display = 'block';
+            }
+        }
+
+        async function executePdfRequest() {
+            if (!validateConfig()) {
+                return;
+            }
+
+            const mode = document.getElementById('pdf-mode').value;
+            const apiUrl = document.getElementById('api-url').value;
+            const token = document.getElementById('api-token').value.trim();
+            const serial = document.getElementById('site-serial').value.trim();
+            const excludeImages = document.getElementById('pdf-excludeImages').checked;
+
+            const outputWrapper = document.getElementById('pdf-api-wrapper');
+            const output = document.getElementById('pdf-api-output');
+            outputWrapper.style.display = 'block';
+
+            let fullUrl = '';
+            let method = 'GET';
+            let body = null;
+            let filename = '';
+
+            try {
+                switch (mode) {
+                    case 'single': {
+                        const singleType = document.getElementById('pdf-single-type').value;
+
+                        if (singleType === 'transactionId') {
+                            const transactionId = document.getElementById('pdf-transactionId').value.trim();
+                            if (!transactionId) {
+                                output.innerHTML = '<span class="error">Transaction ID is required</span>';
+                                log('PDF Export: Transaction ID is required', 'error');
+                                return;
+                            }
+                            fullUrl = `${apiUrl}/sw/api/pdf/transaction?serial=${serial}&transactionId=${transactionId}${excludeImages ? '&excludeImages=1' : ''}`;
+                            filename = `transaction_${transactionId}.pdf`;
+                        } else {
+                            const ticketNumber = document.getElementById('pdf-single-ticketNumber').value.trim();
+                            if (!ticketNumber) {
+                                output.innerHTML = '<span class="error">Ticket Number is required</span>';
+                                log('PDF Export: Ticket Number is required', 'error');
+                                return;
+                            }
+                            fullUrl = `${apiUrl}/sw/api/pdf/transaction?serial=${serial}&ticketNumber=${ticketNumber}${excludeImages ? '&excludeImages=1' : ''}`;
+                            filename = `ticket_${ticketNumber}.pdf`;
+                        }
+                        break;
+                    }
+
+                    case 'bulk-ids': {
+                        const idsInput = document.getElementById('pdf-transactionIds').value.trim();
+                        if (!idsInput) {
+                            output.innerHTML = '<span class="error">Transaction IDs are required</span>';
+                            log('PDF Export: Transaction IDs are required', 'error');
+                            return;
+                        }
+                        const transactionIds = idsInput.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                        if (transactionIds.length === 0) {
+                            output.innerHTML = '<span class="error">No valid transaction IDs provided</span>';
+                            log('PDF Export: No valid transaction IDs', 'error');
+                            return;
+                        }
+                        method = 'POST';
+                        fullUrl = `${apiUrl}/sw/api/pdf/transactions?serial=${serial}`;
+                        body = JSON.stringify({
+                            transactionIds,
+                            excludeImages,
+                            page: parseInt(document.getElementById('pdf-page').value) || 1,
+                            limit: parseInt(document.getElementById('pdf-limit').value) || 25
+                        });
+                        filename = `transactions_${Date.now()}.zip`;
+                        break;
+                    }
+
+                    case 'bulk-dates': {
+                        const startDate = document.getElementById('pdf-startDate').value;
+                        const endDate = document.getElementById('pdf-endDate').value;
+                        if (!startDate || !endDate) {
+                            output.innerHTML = '<span class="error">Start date and end date are required</span>';
+                            log('PDF Export: Start and end dates are required', 'error');
+                            return;
+                        }
+                        method = 'POST';
+                        fullUrl = `${apiUrl}/sw/api/pdf/transactions?serial=${serial}`;
+                        body = JSON.stringify({
+                            startDate,
+                            endDate,
+                            excludeImages,
+                            page: parseInt(document.getElementById('pdf-page').value) || 1,
+                            limit: parseInt(document.getElementById('pdf-limit').value) || 25
+                        });
+                        filename = `transactions_${startDate}_${endDate}.zip`;
+                        break;
+                    }
+
+                    case 'bulk-tickets': {
+                        const ticketsInput = document.getElementById('pdf-ticketNumbers').value.trim();
+                        if (!ticketsInput) {
+                            output.innerHTML = '<span class="error">Ticket numbers are required</span>';
+                            log('PDF Export: Ticket numbers are required', 'error');
+                            return;
+                        }
+                        const ticketNumbers = ticketsInput.split(',').map(t => parseInt(t.trim())).filter(t => !isNaN(t));
+                        if (ticketNumbers.length === 0) {
+                            output.innerHTML = '<span class="error">No valid ticket numbers provided</span>';
+                            log('PDF Export: No valid ticket numbers', 'error');
+                            return;
+                        }
+                        method = 'POST';
+                        fullUrl = `${apiUrl}/sw/api/pdf/tickets?serial=${serial}`;
+                        body = JSON.stringify({
+                            ticketNumbers,
+                            excludeImages,
+                            page: parseInt(document.getElementById('pdf-page').value) || 1,
+                            limit: parseInt(document.getElementById('pdf-limit').value) || 25
+                        });
+                        filename = `tickets_${Date.now()}.zip`;
+                        break;
+                    }
+                }
+
+                requestCount++;
+                log(`[${requestCount}] PDF Export: ${method} ${fullUrl}`, 'info');
+
+                output.innerHTML = `<span class="label">${method}</span> ${fullUrl}\n` +
+                    (body ? `<span class="label">Body:</span> ${body}\n` : '') +
+                    `<span class="label">Status:</span> Downloading...`;
+
+                const startTime = performance.now();
+
+                const fetchOptions = {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                };
+
+                if (body) {
+                    fetchOptions.headers['Content-Type'] = 'application/json';
+                    fetchOptions.body = body;
+                }
+
+                const response = await fetch(fullUrl, fetchOptions);
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+
+                if (!response.ok) {
+                    // Try to parse error JSON
+                    let errorMsg = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.error?.message || errorMsg;
+                    } catch (e) {
+                        // Response wasn't JSON
+                    }
+
+                    output.innerHTML = `<span class="label">${method}</span> ${fullUrl}\n` +
+                        (body ? `<span class="label">Body:</span> ${body}\n` : '') +
+                        `<span class="label">Status:</span> <span class="error">${response.status}</span>\n` +
+                        `<span class="label">Time:</span> ${duration}ms\n\n` +
+                        `<span class="error">Error: ${errorMsg}</span>`;
+
+                    log(`[${requestCount}] PDF Export failed: ${errorMsg}`, 'error');
+                    return;
+                }
+
+                // Get pagination info from headers (for bulk)
+                const totalCount = response.headers.get('X-Total-Count');
+                const page = response.headers.get('X-Page');
+                const pages = response.headers.get('X-Pages');
+                const limit = response.headers.get('X-Limit');
+
+                // Download the file
+                const blob = await response.blob();
+                const fileSize = (blob.size / 1024).toFixed(2);
+
+                // Create download link
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+
+                // Build output
+                let outputHtml = `<span class="label">${method}</span> ${fullUrl}\n`;
+                if (body) {
+                    outputHtml += `<span class="label">Body:</span> ${body}\n`;
+                }
+                outputHtml += `<span class="label">Status:</span> <span class="success">${response.status}</span>\n`;
+                outputHtml += `<span class="label">Time:</span> ${duration}ms\n`;
+
+                if (totalCount) {
+                    outputHtml += `\n<span class="label">Pagination:</span>\n`;
+                    outputHtml += `  Total: ${totalCount}, Page: ${page} of ${pages}, Limit: ${limit}\n`;
+                }
+
+                outputHtml += `\n<span class="success">✓ Downloaded: ${filename} (${fileSize} KB)</span>`;
+
+                output.innerHTML = outputHtml;
+                log(`[${requestCount}] PDF Export success: ${filename} (${fileSize} KB) in ${duration}ms`, 'success');
+
+            } catch (error) {
+                output.innerHTML = `<span class="label">${method}</span> ${fullUrl}\n` +
+                    `<span class="error">Network error: ${error.message}</span>`;
+                log(`[${requestCount}] PDF Export network error: ${error.message}`, 'error');
+            }
         }
     </script>
 </body>
