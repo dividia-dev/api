@@ -4,6 +4,11 @@
  * A fully self-contained WebSocket video player for Dividia NVR streams.
  * Generates all HTML (canvas, overlay, loading spinner, stats) inside a container.
  *
+ * Features:
+ * - Hardware/Software decoder auto-detection to avoid "pumping" (frame jitter)
+ * - Automatically switches to software decoding if hardware causes timing issues
+ * - Persists decoder preference per hostname in localStorage
+ *
  * @example Basic Usage:
  * ```html
  * <div id="cam1" style="width: 320px; height: 240px;"></div>
@@ -47,12 +52,17 @@
  * WSPlayer.create('cam1', { ..., noOverlay: [] });
  * ```
  *
+ * @example Reset decoder preference (retry hardware after switching to software):
+ * ```javascript
+ * WSPlayer.resetDecoderPreference();
+ * ```
+ *
  * Requirements:
  * - Secure context (HTTPS or localhost) for WebCodecs API
  * - Modern browser: Chrome 94+, Edge 94+, Safari 16.4+
  *
  * @author Dividia Technologies
- * @version 2.3.0
+ * @version 2.4.0
  */
 
 class WSPlayer {
@@ -127,6 +137,13 @@ class WSPlayer {
         this.gotKeyframe = false;  // Track if we've received a keyframe (required before decoding)
         this.startTime = null;
 
+        // Hardware/Software decoder auto-detection
+        // Starts with stored preference (default: hardware), switches to software if pumping detected
+        this.useHardwareAccel = this._getStoredDecoderPreference();
+        this.pumpingCheckDone = false;
+        this.frameTimings = [];
+        this.lastFrameTime = null;
+
         // Stats update interval
         this.statsInterval = null;
 
@@ -180,6 +197,99 @@ class WSPlayer {
             };
         }
         return { supported: true };
+    }
+
+    /**
+     * Reset decoder preference to retry hardware acceleration
+     * Call this if you want to re-test hardware decoding after it was switched to software
+     * @static
+     */
+    static resetDecoderPreference() {
+        try {
+            const key = `ws_decoder_${window.location.hostname}`;
+            localStorage.removeItem(key);
+            console.log('[WSPlayer] Decoder preference reset - will try hardware on next stream');
+        } catch (e) {
+            // localStorage not available
+        }
+    }
+
+    /**
+     * Get stored decoder preference from localStorage
+     * @private
+     * @returns {boolean} true = use hardware, false = use software
+     */
+    _getStoredDecoderPreference() {
+        try {
+            const key = `ws_decoder_${window.location.hostname}`;
+            const stored = localStorage.getItem(key);
+            if (stored === 'software') {
+                return false; // useHardwareAccel = false
+            }
+        } catch (e) {
+            // localStorage not available
+        }
+        return true; // Default: try hardware first
+    }
+
+    /**
+     * Store decoder preference to localStorage
+     * @private
+     * @param {boolean} useSoftware - true to store software preference
+     */
+    _storeDecoderPreference(useSoftware) {
+        try {
+            const key = `ws_decoder_${window.location.hostname}`;
+            localStorage.setItem(key, useSoftware ? 'software' : 'hardware');
+        } catch (e) {
+            // localStorage not available
+        }
+    }
+
+    /**
+     * Check for pumping (frame timing jitter) and switch to software if detected
+     * @private
+     */
+    _checkForPumping() {
+        if (this.pumpingCheckDone || !this.useHardwareAccel) return;
+        if (this.frameTimings.length < 30) return; // Need enough samples (~3 seconds at 10fps)
+
+        const renderDeltas = this.frameTimings.map(t => t.renderDelta).filter(d => d > 0);
+        if (renderDeltas.length < 25) return;
+
+        // Calculate standard deviation
+        const avg = renderDeltas.reduce((a, b) => a + b, 0) / renderDeltas.length;
+        const variance = renderDeltas.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / renderDeltas.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Check for burst pattern: multiple very short deltas followed by very long ones
+        const veryShort = renderDeltas.filter(d => d < 15).length;
+        const veryLong = renderDeltas.filter(d => d > 300).length;
+        const hasBurstPattern = veryShort > 5 && veryLong > 2;
+
+        this.pumpingCheckDone = true;
+
+        if (stdDev > 80 || hasBurstPattern) {
+            console.warn(`[WSPlayer] Detected pumping (stdDev=${stdDev.toFixed(1)}, burst=${hasBurstPattern}), switching to software decoding`);
+            this.useHardwareAccel = false;
+            this._storeDecoderPreference(true); // Store: use software
+            this._restartDecoder();
+        } else {
+            this._log(`Pumping check passed (stdDev=${stdDev.toFixed(1)}), keeping hardware decoding`);
+        }
+    }
+
+    /**
+     * Restart decoder with current acceleration preference
+     * @private
+     */
+    _restartDecoder() {
+        const savedCodec = this.codec;
+        this._stopDecoder();
+        if (savedCodec) {
+            this.codec = savedCodec;
+            this._initDecoder(savedCodec);
+        }
     }
 
     /**
@@ -462,6 +572,8 @@ class WSPlayer {
 
             // Decoder state
             decoderState: this.decoder ? this.decoder.state : 'none',
+            hardwareAcceleration: this.useHardwareAccel ? 'prefer-hardware' : 'prefer-software',
+            pumpingCheckDone: this.pumpingCheckDone,
 
             // Config
             wsUrl: this.wsUrl,
@@ -483,7 +595,7 @@ class WSPlayer {
             `Codec: ${s.codec || 'unknown'}`,
             `Frames: ${s.frameCount} | FPS: ${s.fps.toFixed(1)}`,
             `Uptime: ${s.uptime}s`,
-            `Decoder: ${s.decoderState}`
+            `Decoder: ${s.decoderState} (${s.hardwareAcceleration})`
         ];
         return lines.join('\n');
     }
@@ -735,19 +847,21 @@ class WSPlayer {
             }
         });
 
+        const accel = this.useHardwareAccel ? 'prefer-hardware' : 'prefer-software';
+
         if (codec === 'h264') {
             this.decoder.configure({
                 codec: 'avc1.42C01E',
                 avc: { format: 'annexb' },
-                hardwareAcceleration: 'prefer-hardware'
+                hardwareAcceleration: accel
             });
-            this._log('Decoder initialized (H.264)');
+            this._log(`Decoder initialized (H.264, ${accel})`);
         } else if (codec === 'h265') {
             this.decoder.configure({
                 codec: 'hvc1.1.1.L120.A0',
-                hardwareAcceleration: 'prefer-hardware'
+                hardwareAcceleration: accel
             });
-            this._log('Decoder initialized (H.265)');
+            this._log(`Decoder initialized (H.265, ${accel})`);
         }
     }
 
@@ -765,6 +879,8 @@ class WSPlayer {
         this.codec = null;
         this.timestampCounter = 0;
         this.gotKeyframe = false;  // Reset so we wait for keyframe on reconnect
+        // Note: Don't reset frameTimings/pumpingCheckDone here - preserve across decoder restarts
+        // They are reset in _cleanup() for full stop/reconnect scenarios
     }
 
     /**
@@ -873,6 +989,8 @@ class WSPlayer {
      * @private
      */
     _handleFrame(frame) {
+        const renderTime = performance.now();
+
         // Resize canvas if needed
         if (this.canvas.width !== frame.displayWidth ||
             this.canvas.height !== frame.displayHeight) {
@@ -890,6 +1008,25 @@ class WSPlayer {
 
         frame.close();
         this.frameCount++;
+
+        // Collect frame timing for pumping detection
+        const renderDelta = this.lastFrameTime ? (renderTime - this.lastFrameTime) : 0;
+        this.lastFrameTime = renderTime;
+
+        this.frameTimings.push({
+            renderTime: renderTime,
+            renderDelta: renderDelta
+        });
+
+        // Keep only last 200 samples
+        if (this.frameTimings.length > 200) {
+            this.frameTimings.shift();
+        }
+
+        // Check for pumping after ~3 seconds of data
+        if (!this.pumpingCheckDone && this.frameTimings.length >= 30) {
+            this._checkForPumping();
+        }
 
         // First frame - hide loading, show overlay, start stats
         if (!this.firstFrameReceived) {
@@ -964,6 +1101,11 @@ class WSPlayer {
         this._stopDecoder();
         this.isConnected = false;
         this.firstFrameReceived = false;
+
+        // Reset frame timing state for fresh start
+        // Note: pumpingCheckDone stays as-is since preference is persisted in localStorage
+        this.frameTimings = [];
+        this.lastFrameTime = null;
     }
 
     /**
