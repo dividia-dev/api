@@ -135,11 +135,12 @@ class WSPlayer {
         this.frameCount = 0;
         this.firstFrameReceived = false;
         this.gotKeyframe = false;  // Track if we've received a keyframe (required before decoding)
+        this.spsPpsBuffer = null;  // Buffer SPS/PPS until IDR arrives
         this.startTime = null;
 
-        // Hardware/Software decoder auto-detection
-        // Starts with stored preference (default: hardware), switches to software if pumping detected
-        this.useHardwareAccel = this._getStoredDecoderPreference();
+        // Always start with hardware — pumping detection may switch to software for this session
+        // (never persisted to localStorage; each page load starts fresh with hardware)
+        this.useHardwareAccel = true;
         this.pumpingCheckDone = false;
         this.frameTimings = [];
         this.lastFrameTime = null;
@@ -205,45 +206,9 @@ class WSPlayer {
      * @static
      */
     static resetDecoderPreference() {
-        try {
-            const key = `ws_decoder_${window.location.hostname}`;
-            localStorage.removeItem(key);
-            console.log('[WSPlayer] Decoder preference reset - will try hardware on next stream');
-        } catch (e) {
-            // localStorage not available
-        }
-    }
-
-    /**
-     * Get stored decoder preference from localStorage
-     * @private
-     * @returns {boolean} true = use hardware, false = use software
-     */
-    _getStoredDecoderPreference() {
-        try {
-            const key = `ws_decoder_${window.location.hostname}`;
-            const stored = localStorage.getItem(key);
-            if (stored === 'software') {
-                return false; // useHardwareAccel = false
-            }
-        } catch (e) {
-            // localStorage not available
-        }
-        return true; // Default: try hardware first
-    }
-
-    /**
-     * Store decoder preference to localStorage
-     * @private
-     * @param {boolean} useSoftware - true to store software preference
-     */
-    _storeDecoderPreference(useSoftware) {
-        try {
-            const key = `ws_decoder_${window.location.hostname}`;
-            localStorage.setItem(key, useSoftware ? 'software' : 'hardware');
-        } catch (e) {
-            // localStorage not available
-        }
+        // No-op: preference is no longer persisted to localStorage.
+        // Each page load starts fresh with hardware decoding.
+        // Pumping detection may switch to software for the current session only.
     }
 
     /**
@@ -270,9 +235,8 @@ class WSPlayer {
         this.pumpingCheckDone = true;
 
         if (stdDev > 80 || hasBurstPattern) {
-            console.warn(`[WSPlayer] Detected pumping (stdDev=${stdDev.toFixed(1)}, burst=${hasBurstPattern}), switching to software decoding`);
+            console.warn(`[WSPlayer] Detected pumping (stdDev=${stdDev.toFixed(1)}, burst=${hasBurstPattern}), switching to software decoding for this session`);
             this.useHardwareAccel = false;
-            this._storeDecoderPreference(true); // Store: use software
             this._restartDecoder();
         } else {
             this._log(`Pumping check passed (stdDev=${stdDev.toFixed(1)}), keeping hardware decoding`);
@@ -838,7 +802,7 @@ class WSPlayer {
      * Initialize the video decoder
      * @private
      */
-    _initDecoder(codec) {
+    _initDecoder(codec, keyframeBytes) {
         this.decoder = new VideoDecoder({
             output: (frame) => this._handleFrame(frame),
             error: (e) => {
@@ -850,12 +814,14 @@ class WSPlayer {
         const accel = this.useHardwareAccel ? 'prefer-hardware' : 'prefer-software';
 
         if (codec === 'h264') {
+            // Extract actual profile/level from SPS — fallback to High Profile L4.0
+            const codecStr = (keyframeBytes && this._extractH264Codec(keyframeBytes)) || 'avc1.640028';
             this.decoder.configure({
-                codec: 'avc1.42C01E',
+                codec: codecStr,
                 avc: { format: 'annexb' },
                 hardwareAcceleration: accel
             });
-            this._log(`Decoder initialized (H.264, ${accel})`);
+            this._log(`Decoder initialized (H.264 ${codecStr}, ${accel})`);
         } else if (codec === 'h265') {
             this.decoder.configure({
                 codec: 'hvc1.1.1.L120.A0',
@@ -863,6 +829,32 @@ class WSPlayer {
             });
             this._log(`Decoder initialized (H.265, ${accel})`);
         }
+    }
+
+    /**
+     * Extract H.264 codec string from SPS NAL unit in the bitstream.
+     * Handles both Annex B (start codes) and raw NAL format.
+     * @private
+     */
+    _extractH264Codec(bytes) {
+        // Scan for SPS via start codes
+        for (let i = 0; i < bytes.length - 4; i++) {
+            if (bytes[i] === 0 && bytes[i + 1] === 0) {
+                let s = -1;
+                if (bytes[i + 2] === 1) s = i + 3;
+                else if (bytes[i + 2] === 0 && bytes[i + 3] === 1) s = i + 4;
+                if (s > 0 && s + 3 < bytes.length && (bytes[s] & 0x1F) === 7) {
+                    const hex = (v) => v.toString(16).padStart(2, '0').toUpperCase();
+                    return `avc1.${hex(bytes[s+1])}${hex(bytes[s+2])}${hex(bytes[s+3])}`;
+                }
+            }
+        }
+        // Raw NAL: check if first byte is SPS header
+        if (bytes.length > 3 && (bytes[0] & 0x1F) === 7) {
+            const hex = (v) => v.toString(16).padStart(2, '0').toUpperCase();
+            return `avc1.${hex(bytes[1])}${hex(bytes[2])}${hex(bytes[3])}`;
+        }
+        return null;
     }
 
     /**
@@ -879,6 +871,7 @@ class WSPlayer {
         this.codec = null;
         this.timestampCounter = 0;
         this.gotKeyframe = false;  // Reset so we wait for keyframe on reconnect
+        this.spsPpsBuffer = null;
         // Note: Don't reset frameTimings/pumpingCheckDone here - preserve across decoder restarts
         // They are reset in _cleanup() for full stop/reconnect scenarios
     }
@@ -906,38 +899,56 @@ class WSPlayer {
     }
 
     /**
-     * Detect if frame is a keyframe by scanning all NAL units in the buffer
+     * Collect all NAL types in a buffer.
+     * Handles both Annex B (start codes) and raw NAL (no start codes, single NAL per message).
      * @private
      */
-    _detectKey(bytes, codec) {
-        // Scan through buffer looking for NAL start codes and check each NAL type
-        for (let i = 0; i < bytes.length - 4; i++) {
-            // Look for start code: 00 00 01 or 00 00 00 01
-            if (bytes[i] === 0 && bytes[i + 1] === 0) {
-                let nalStart = -1;
-                if (bytes[i + 2] === 1) {
-                    nalStart = i + 3;
-                } else if (bytes[i + 2] === 0 && bytes[i + 3] === 1) {
-                    nalStart = i + 4;
-                }
+    _scanNalTypes(bytes, codec) {
+        const types = new Set();
+        const getNalType = (b) => codec === 'h265' ? ((b >> 1) & 0x3F) : (b & 0x1F);
 
-                if (nalStart > 0 && nalStart < bytes.length) {
-                    if (codec === 'h264') {
-                        const nalType = bytes[nalStart] & 0x1F;
-                        // IDR (5), SPS (7), PPS (8) indicate keyframe
-                        if (nalType === 5 || nalType === 7 || nalType === 8) {
-                            return true;
-                        }
-                    } else if (codec === 'h265') {
-                        const nalType = (bytes[nalStart] >> 1) & 0x3F;
-                        // IDR (19-21), VPS (32), SPS (33), PPS (34)
-                        if (nalType >= 19 && nalType <= 21 || nalType >= 32 && nalType <= 34) {
-                            return true;
-                        }
-                    }
+        // Try Annex B: scan for start codes (00 00 01 or 00 00 00 01)
+        let foundStartCode = false;
+        for (let i = 0; i < bytes.length - 4; i++) {
+            if (bytes[i] === 0 && bytes[i + 1] === 0) {
+                let s = -1;
+                if (bytes[i + 2] === 1) s = i + 3;
+                else if (bytes[i + 2] === 0 && bytes[i + 3] === 1) s = i + 4;
+                if (s > 0 && s < bytes.length) {
+                    foundStartCode = true;
+                    types.add(getNalType(bytes[s]));
                 }
             }
         }
+
+        // No start codes found — treat as raw NAL (first byte is NAL header)
+        if (!foundStartCode && bytes.length > 0) {
+            types.add(getNalType(bytes[0]));
+        }
+
+        return types;
+    }
+
+    /**
+     * Detect if buffer contains a decodable keyframe (IDR picture data)
+     * SPS/PPS alone are NOT keyframes — the decoder needs actual picture data
+     * @private
+     */
+    _detectKey(bytes, codec) {
+        const types = this._scanNalTypes(bytes, codec);
+        if (codec === 'h264') return types.has(5);        // IDR slice
+        if (codec === 'h265') return types.has(19) || types.has(20) || types.has(21);
+        return false;
+    }
+
+    /**
+     * Check if buffer has SPS/PPS parameter sets
+     * @private
+     */
+    _hasParamSets(bytes, codec) {
+        const types = this._scanNalTypes(bytes, codec);
+        if (codec === 'h264') return types.has(7) || types.has(8);
+        if (codec === 'h265') return types.has(32) || types.has(33) || types.has(34);
         return false;
     }
 
@@ -951,26 +962,51 @@ class WSPlayer {
         }
 
         const isKey = this._detectKey(bytes, this.codec);
+        const hasParams = this._hasParamSets(bytes, this.codec);
 
         // Debug: log NAL info for first few frames
         if (this.debug && this.timestampCounter < 10) {
-            const hdr = this._nalHeaderIndex(bytes);
-            const nalType = this.codec === 'h264' ? (bytes[hdr] & 0x1F) : ((bytes[hdr] >> 1) & 0x3F);
-            this._log(`Frame ${this.timestampCounter}: ${bytes.length} bytes, NAL type ${nalType}, isKey=${isKey}`);
+            const types = Array.from(this._scanNalTypes(bytes, this.codec));
+            this._log(`Frame ${this.timestampCounter}: ${bytes.length} bytes, NALs=[${types}], isKey=${isKey}, params=${hasParams}`);
         }
 
-        // Must wait for keyframe before decoding (required after configure/flush)
+        // If decoder died from a previous error, fully reset and start over
+        if (this.decoder && this.decoder.state === 'closed') {
+            this._log('Decoder closed (error recovery), waiting for next keyframe');
+            this.decoder = null;
+            this.codec = null;
+            this.gotKeyframe = false;
+            this.spsPpsBuffer = null;
+            this.timestampCounter = 0;
+            // Re-detect codec for this frame
+            this.codec = this._detectCodec(bytes);
+        }
+
+        // Must wait for keyframe before decoding
         if (!this.gotKeyframe) {
-            if (!isKey) {
-                // Skip delta frames until we get a keyframe
+            // Buffer SPS/PPS that arrive without an IDR
+            if (hasParams && !isKey) {
+                this.spsPpsBuffer = new Uint8Array(bytes);
+                this._log('Buffered SPS/PPS, waiting for IDR...');
                 return;
             }
+            if (!isKey) return;  // skip delta frames
+
+            // IDR arrived — prepend buffered SPS/PPS if IDR doesn't have its own
+            if (!hasParams && this.spsPpsBuffer) {
+                this._log('Prepending buffered SPS/PPS to IDR');
+                const combined = new Uint8Array(this.spsPpsBuffer.length + bytes.length);
+                combined.set(this.spsPpsBuffer, 0);
+                combined.set(bytes, this.spsPpsBuffer.length);
+                bytes = combined;
+            }
+            this.spsPpsBuffer = null;
             this.gotKeyframe = true;
             this._log('Got first keyframe, starting decode');
         }
 
-        if (!this.decoder || this.decoder.state === 'closed') {
-            this._initDecoder(this.codec);
+        if (!this.decoder) {
+            this._initDecoder(this.codec, isKey ? bytes : null);
         }
 
         try {
