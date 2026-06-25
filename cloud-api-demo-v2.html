@@ -11,7 +11,7 @@
             margin: 0;
             padding: 20px 30px;
             background: #f5f5f5;
-            min-width: 1360px;
+            color-scheme: light;   /* render native controls (selects, dropdowns) light, even on dark-mode OS */
         }
         .page-title {
             background: #f5f5f5;
@@ -24,6 +24,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .page-title h1 { margin: 0; color: #0d47a1; }
         .page-title .header-buttons {
@@ -70,7 +72,6 @@
         .page-content {
             display: flex;
             gap: 24px;
-            min-width: 1300px;
         }
         .left-column {
             flex: 1.4;
@@ -81,8 +82,17 @@
             min-width: 0;
         }
         .right-column .section {
-            position: sticky;
-            top: 80px;
+            position: static;
+        }
+        /* Debug Log is a flex column so its log box fills the section height that JS
+           (alignDetections) sets, lining the Live Detections panel up with the
+           "3. Live Video Streaming" section in the left column. */
+        .right-column .section:first-child {
+            display: flex;
+            flex-direction: column;
+        }
+        .right-column .section:first-child #log {
+            flex: 1 1 auto;
         }
         .section {
             background: white;
@@ -158,7 +168,7 @@
             font-size: 12px;
             padding: 15px;
             border-radius: 4px;
-            height: 374px;
+            min-height: 200px;
             overflow-y: auto;
             white-space: pre-wrap;
         }
@@ -447,18 +457,114 @@
             margin-left: 10px;
             vertical-align: middle;
         }
+
+        /* ===== Analytics additions (v2) ===== */
+        .analytics-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+            color: #fff; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 600; margin-left: 8px; vertical-align: middle;
+        }
+        .overlay-toggles {
+            display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+            margin: 12px 0 0 0; padding: 10px 12px;
+            background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px;
+        }
+        .overlay-toggles label {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin: 0; font-weight: 500; cursor: pointer; white-space: nowrap;
+        }
+        .overlay-toggles input[type=checkbox] { width: auto; margin: 0; cursor: pointer; }
+        .overlay-toggles .ot-hint { color: #666; font-size: 12px; font-weight: 400; }
+        .swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+        .swatch-obj { background: #32cd32; }
+        .swatch-lpr { background: #ff3b30; }
+        .swatch-pos { background: #00bcd4; }
+
+        .det-group { margin-bottom: 14px; }
+        .det-group h3 {
+            margin: 0 0 6px 0; font-size: 13px; color: #0d47a1;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .det-count {
+            background: #e3f2fd; color: #1565c0; border-radius: 10px;
+            padding: 0 7px; font-size: 11px; font-weight: 600;
+        }
+        .det-cols { display: flex; gap: 14px; }
+        .det-col { flex: 1 1 0; min-width: 0; }
+        .det-col h3 { margin: 0 0 6px 0; font-size: 13px; color: #0d47a1; display: flex; align-items: center; gap: 6px; }
+        .det-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+        .det-item {
+            display: flex; gap: 8px; align-items: center;
+            background: #f8f9fa; border: 1px solid #eee; border-radius: 4px; padding: 6px;
+            cursor: pointer;
+        }
+        .det-item:hover { background: #eef3fb; border-color: #90caf9; }
+
+        /* Fixed-height mode (wide layout): the Live Detections box is locked to the
+           "3. Live Video Streaming" height; each column + POS reserve their space and
+           the lists scroll internally, so the box doesn't grow as events arrive. */
+        .section.det-fixed { display: flex; flex-direction: column; }
+        .section.det-fixed .det-cols { flex: 1 1 auto; min-height: 0; }
+        .section.det-fixed .det-col { display: flex; flex-direction: column; min-height: 0; }
+        .section.det-fixed .det-col .det-list { flex: 1 1 auto; max-height: none; min-height: 0; }
+        .section.det-fixed .det-group { flex: 0 0 auto; }
+        .section.det-fixed > button { flex: 0 0 auto; }
+        .det-thumb {
+            width: 56px; height: 42px; object-fit: cover; flex: 0 0 auto;
+            background: #000; border-radius: 3px;
+        }
+        .det-thumb.lpr { object-fit: contain; }
+        .det-meta { font-size: 12px; color: #333; line-height: 1.4; min-width: 0; word-break: break-word; }
+        .det-meta .plate { font-weight: 700; font-family: monospace; font-size: 14px; color: #c62828; }
+        .det-meta .label { font-weight: 600; text-transform: capitalize; }
+        .det-meta .sub { color: #666; font-size: 11px; }
+        .det-empty { color: #999; font-size: 12px; font-style: italic; padding: 4px 0; }
+        .pos-block {
+            background: #1e1e1e; color: #e0e0e0; font-family: monospace; font-size: 12px;
+            padding: 10px; border-radius: 4px; white-space: pre; overflow: auto; min-height: 40px; max-height: 130px;
+        }
+
+        /* Detection detail modal */
+        .det-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;
+            display: none; align-items: center; justify-content: center; padding: 20px; }
+        .det-modal.open { display: flex; }
+        .det-modal-box { background: #fff; border-radius: 8px; max-width: 560px; width: 100%;
+            max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+        .det-modal-img { width: 100%; max-height: 360px; object-fit: contain; background: #000;
+            border-radius: 8px 8px 0 0; display: block; }
+        .det-modal-body { padding: 16px 20px; }
+        .det-modal-body h3 { margin: 0 0 10px; color: #0d47a1; font-family: monospace; }
+        .det-modal-body table { width: 100%; border-collapse: collapse; }
+        .det-modal-body td { padding: 5px 6px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
+        .det-modal-body td.k { color: #666; width: 130px; font-weight: 600; }
+        .det-modal-close { float: right; cursor: pointer; border: none; background: #eee; color: #333;
+            border-radius: 4px; padding: 4px 10px; font-size: 14px; margin: 8px 8px 0 0; }
+        .det-modal-close:hover { background: #ddd; }
+
+        /* Responsive (within reason): stack main columns, then the detection sub-columns */
+        @media (max-width: 1100px) {
+            .page-content { flex-direction: column; }
+            .right-column .section:first-child { display: block; }   /* stop JS height-pinning */
+            .right-column .section:first-child #log { height: 260px; }
+        }
+        @media (max-width: 640px) {
+            body { padding: 14px; }
+            .det-cols { flex-direction: column; }
+            .row { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
     <div class="page-title">
-        <h1>Dividia Cloud Camera API Demo (v1.6)<span class="cloud-badge">CLOUD</span></h1>
+        <h1>Dividia Cloud Camera API Demo (v2 &mdash; Analytics)<span class="cloud-badge">CLOUD</span></h1>
         <div class="header-buttons">
-            <a href="cloud-api-demo-v2.html" class="header-btn">Analytics Demo (v2) &rarr;</a>
-            <a href="cloud-api-reference.html" target="_blank" class="header-btn">View API Reference</a>
+            <a href="cloud-api-demo.html" class="header-btn secondary">&larr; Classic Demo (v1)</a>
+            <a href="cloud-api-reference-v2.html" target="_blank" class="header-btn">View API Reference</a>
             <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
         </div>
     </div>
-    <p class="page-description">Demo page for Cloud Camera API integration - live video streaming from cloud-connected devices.</p>
+    <p class="page-description">Demo page for Cloud Camera API integration - live video streaming from cloud-connected devices, with live <strong>object detection</strong>, <strong>license-plate recognition</strong>, and <strong>point-of-sale</strong> analytics delivered over the same WebSocket.</p>
     <div class="page-description" style="background: #f5f5f5; padding: 15px; border: 1px solid #ddd; border-radius: 6px; margin: 15px auto; max-width: 900px; font-size: 13px; text-align: left;">
         <strong>☁️ Cloud API:</strong>
         <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 10px;">
@@ -562,7 +668,7 @@
                     <strong>Device Object</strong>
                     <table>
                         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-                        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "0A58A9FEAC02") - used in WebSocket URL</td></tr>
+                        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "A1B2C3D4E5F6") - used in WebSocket URL</td></tr>
                         <tr><td>sName</td><td>string</td><td>Device display name</td></tr>
                         <tr><td>fOnline</td><td>int</td><td>1 = online, 0 = offline</td></tr>
                     </table>
@@ -641,6 +747,15 @@
                         <span>Select a device and camera, then click Start Live Video</span>
                     </div>
 
+                    <div class="overlay-toggles">
+                        <strong style="font-weight:600;">Overlays:</strong>
+                        <label><input type="checkbox" id="toggle-objects" checked onchange="onOverlayToggle('objects', this.checked)"><span class="swatch swatch-obj"></span>Objects</label>
+                        <label><input type="checkbox" id="toggle-lpr" checked onchange="onOverlayToggle('lpr', this.checked)"><span class="swatch swatch-lpr"></span>License Plates</label>
+                        <label><input type="checkbox" id="toggle-pos" checked onchange="onOverlayToggle('pos', this.checked)"><span class="swatch swatch-pos"></span>POS</label>
+                        <label><input type="checkbox" id="toggle-ptz" onchange="onOverlayToggle('ptz', this.checked)">PTZ controls</label>
+                        <span class="ot-hint">&larr; right-click the video for the same toggles &middot; hiding a box still streams its data</span>
+                    </div>
+
                     <div class="api-output-wrapper" id="live-api-wrapper" style="display:none; margin-top: 15px;">
                         <div class="api-output-toggle" onclick="toggleApiOutput(this)">- Stream Details</div>
                         <div id="live-api" class="api-output"></div>
@@ -682,7 +797,7 @@
                             <tr><td>WebSocket</td><td><code>wss://api.../{deviceID}-cam{N}-pro{P}</code></td></tr>
                         </table>
                         <div class="note">
-                            <strong>Note:</strong> WebSocket streaming uses WebCodecs API for H.264/H.265 decoding. Requires HTTPS (secure context). See <a href="cloud-api-reference.html#live-streaming">API Reference</a> for WSPlayer.js integration details.
+                            <strong>Note:</strong> WebSocket streaming uses WebCodecs API for H.264/H.265 decoding. Requires HTTPS (secure context). See <a href="cloud-api-reference-v2.html#live-streaming">API Reference</a> for WSPlayer.js integration details.
                         </div>
                     </div>
                 </div>
@@ -754,10 +869,30 @@
                 -->
 
             </div>
+            <div class="section">
+                <h2>Live Detections <span class="analytics-badge">ANALYTICS</span></h2>
+                <p style="margin:0 0 12px 0; color:#666; font-size:12px;">Structured events the player publishes on its <code>MessageQueue</code> as detections arrive. A 3rd-party integration subscribes here for license-plate, object, and POS data &mdash; each event also carries a cropped JPEG.</p>
+                <div class="det-cols">
+                    <div class="det-col">
+                        <h3><span class="swatch swatch-lpr"></span> License Plates <span class="det-count" id="lpr-count">0</span></h3>
+                        <div class="det-list" id="lpr-list"><div class="det-empty">No plate reads yet</div></div>
+                    </div>
+                    <div class="det-col">
+                        <h3><span class="swatch swatch-obj"></span> Objects <span class="det-count" id="obj-count">0</span></h3>
+                        <div class="det-list" id="obj-list"><div class="det-empty">No objects yet</div></div>
+                    </div>
+                </div>
+                <div class="det-group">
+                    <h3><span class="swatch swatch-pos"></span> Point of Sale</h3>
+                    <div class="pos-block" id="pos-block">No POS data</div>
+                </div>
+                <button onclick="clearDetections()">Clear Detections</button>
+            </div>
         </div><!-- end right-column -->
     </div><!-- end page-content -->
 
-    <!-- WebSocket H.264 Player -->
+    <!-- WebSocket H.264 Player + analytics event bus -->
+    <script src="messageQueue.js"></script>
     <script src="WSPlayer.js"></script>
 
     <script>
@@ -765,7 +900,7 @@
         const DEBUG = true;
 
         // Detect if running via dev proxy (localhost:3000)
-        const isDevProxy = window.location.hostname === 'localhost' && window.location.port === '3000';
+        const isDevProxy = window.location.hostname === 'localhost' && (window.location.port === '3000' || window.location.port === '3001');
         const PROXY_PREFIX = '/api';  // Proxy routes /api/* to cloud API
 
         // ==================== STATE ====================
@@ -793,6 +928,14 @@
         // WebSocket streaming state
         let wsPlayer = null;
 
+        // ==================== ANALYTICS (v2) ====================
+        // One MessageQueue aggregates object / LPR / POS events from the player. A
+        // 3rd-party integration would subscribe to it exactly like the panel below does.
+        const mq = new MessageQueue();
+        let lprCount = 0, objCount = 0;
+        // Overlay visibility (mirrors the checkboxes); read when (re)starting a stream.
+        const overlayState = { objects: true, lpr: true, pos: true, ptz: false };
+
         // ==================== UTILITIES ====================
         function log(message, type = 'info') {
             const logEl = document.getElementById('log');
@@ -804,7 +947,7 @@
         }
 
         function printApiReference() {
-            window.open('cloud-api-reference.html?print=1', '_blank');
+            window.open('cloud-api-reference-v2.html?print=1', '_blank');
         }
 
         // ==================== FORM VALIDATION ====================
@@ -1252,8 +1395,14 @@
         }
 
         // ==================== WEBSOCKET H.264 STREAM ====================
+        function setLiveStatus(text, color) {
+            const el = document.getElementById('live-status');
+            if (el) el.innerHTML = '<span style="color: ' + (color || '#666') + ';">' + text + '</span>';
+        }
+
         function startWebsocketStream(profile) {
             log('Starting WebSocket stream...');
+            clearDetections();
 
             // Check WebCodecs support first
             const support = WSPlayer.checkSupport();
@@ -1304,41 +1453,45 @@
                 url: wsUrl,
                 camera: [selectedCamera.bCamera, camName],
                 debug: DEBUG,
-                // autoReconnect: true,
-                // onConnect: () => {
-                //     log('WebSocket connected, waiting for video data...');
-                //     document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connected, buffering...</span>';
-                // },
-                // onFirstFrame: () => {
-                //     log('WebSocket stream active - receiving video', 'success');
-                //     document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (WebSocket H.264)</span>';
-                // },
-                // onDisconnect: () => {
-                //     log('WebSocket disconnected', 'error');
-                //     document.getElementById('live-status').innerHTML = '<span style="color: #c62828;">Disconnected</span>';
-                // },
-                // onError: (err) => {
-                //     log('WebSocket error: ' + (err.message || err), 'error');
-           
-                // },
-                // onReconnecting: () => {
-                //   document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Reconnecting...</span>';
-                // },
-                // onStall: () => {
-                //     if (this.isConnected) {
-                //         this._hideLoading();
-                //         this._hideOverlay();
-                //     } else {
-                //         log('WebSocket stream stalled - no data received', 'warn');
-                //         document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Stream stalled</span>';
-                //     }
-                // }
+                // ---- Analytics (v2): publish events to the bus + draw overlays ----
+                messageQueue: mq,
+                showObjects: overlayState.objects,
+                showLpr: overlayState.lpr,
+                showPos: overlayState.pos,
+                showPtz: overlayState.ptz,
+                onOverlayChange: (type, on) => {            // keep checkboxes in sync with the right-click menu
+                    overlayState[type] = !!on;
+                    const cb = document.getElementById('toggle-' + type);
+                    if (cb) cb.checked = !!on;
+                },
+                onPtz: (cmd) => log('PTZ -> ' + JSON.stringify(cmd)),  // show each command sent upstream
+                // ---- Status callbacks: keep the status text in sync with reality ----
+                onConnect: () => {
+                    setLiveStatus('Connected, buffering...', '#ff9800');
+                },
+                onFirstFrame: () => {
+                    log('WebSocket stream active - receiving video', 'success');
+                    setLiveStatus('Streaming (WebSocket H.264)', '#2e7d32');
+                },
+                onReconnecting: () => {
+                    setLiveStatus('Reconnecting...', '#ff9800');
+                },
+                onStall: () => {
+                    setLiveStatus('Stream stalled - no data', '#ff9800');
+                },
+                onError: (err) => {
+                    log('WebSocket error: ' + ((err && err.message) || err), 'error');
+                    setLiveStatus('Connection error', '#c62828');
+                },
+                onDisconnect: () => {
+                    setLiveStatus('Disconnected', '#c62828');
+                },
             });
 
             streamActive = true;
             document.getElementById('btn-start-live').disabled = true;
             document.getElementById('btn-stop-live').disabled = false;
-            document.getElementById('live-status').innerHTML = '<span style="color: #ff9800;">Connecting...</span>';
+            setLiveStatus('Connecting...', '#ff9800');
         }
 
         function stopWebsocketStream() {
@@ -1417,8 +1570,12 @@
                     '<span class="label">Profile:</span> ' + params.profile + '\n\n' +
                     // '<span class="label">Token:</span> ' + params.token + '\n\n' +
                     '<span class="label">Protocol:</span>\n' +
-                    '- Binary messages: H.264 NAL units\n' +
-                    '- String messages: JSON metadata (timestamp, motion)';
+                    '- Binary frames: H.264/H.265 NAL units (video)\n' +
+                    '- Text frames:   JSON metadata { camname, time, objects[], lpr{}, pos[] }\n\n' +
+                    '<span class="label">Analytics events (via MessageQueue):</span>\n' +
+                    '- objectEvent { id, label, description, image }\n' +
+                    '- lprEvent    { camname, plate, state, confidence, region, coordinates, image }\n' +
+                    '- posEvent    { camname, pos:[{ terminal, name, lines }] }';
             }
         }
 
@@ -1427,18 +1584,198 @@
             stopAllStreams();
         }
 
+        // ==================== ANALYTICS PANEL (v2) ====================
+        function clearDetections() {
+            lprCount = 0; objCount = 0;
+            document.getElementById('lpr-count').textContent = '0';
+            document.getElementById('obj-count').textContent = '0';
+            document.getElementById('lpr-list').innerHTML = '<div class="det-empty">No plate reads yet</div>';
+            document.getElementById('obj-list').innerHTML = '<div class="det-empty">No objects yet</div>';
+            document.getElementById('pos-block').textContent = 'No POS data';
+        }
+
+        // Toggle a single overlay live. Drawing stops; events keep publishing.
+        function onOverlayToggle(type, checked) {
+            overlayState[type] = checked;
+            if (wsPlayer) wsPlayer.setOverlayVisible(type, checked);
+            log('Overlay "' + type + '" ' + (checked ? 'shown' : 'hidden') + ' (data still streaming to panel)');
+        }
+
+        const MAX_DET_ITEMS = 30;
+        function prependItem(listId, node) {
+            const list = document.getElementById(listId);
+            const empty = list.querySelector('.det-empty');
+            if (empty) empty.remove();
+            list.insertBefore(node, list.firstChild);
+            while (list.children.length > MAX_DET_ITEMS) list.removeChild(list.lastChild);
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+
+        function fmtConfidence(c) {
+            if (typeof c !== 'number') return '';
+            return (c <= 1 ? Math.round(c * 100) : Math.round(c)) + '%';
+        }
+
+        function addLprItem(e) {
+            lprCount++;
+            document.getElementById('lpr-count').textContent = String(lprCount);
+            const t = new Date().toLocaleTimeString();
+            const conf = fmtConfidence(e.confidence);
+            const item = document.createElement('div');
+            item.className = 'det-item';
+            item.innerHTML =
+                (e.image ? '<img class="det-thumb lpr" src="' + e.image + '" alt="plate">' : '') +
+                '<div class="det-meta">' +
+                    '<span class="plate">' + escapeHtml(e.plate) + '</span> ' +
+                    '<span class="sub">' + escapeHtml(e.state) + (conf ? ' &middot; ' + conf : '') + '</span><br>' +
+                    '<span class="sub">' + escapeHtml(e.region || '') + (e.camname ? ' &middot; ' + escapeHtml(e.camname) : '') + ' &middot; ' + t + '</span>' +
+                '</div>';
+            item.onclick = () => openDetModal('lpr', e, t);
+            prependItem('lpr-list', item);
+            log('lprEvent: ' + e.plate + ' (' + e.state + (conf ? ', ' + conf : '') + ')', 'success');
+        }
+
+        function addObjItem(e) {
+            objCount++;
+            document.getElementById('obj-count').textContent = String(objCount);
+            const t = new Date().toLocaleTimeString();
+            const item = document.createElement('div');
+            item.className = 'det-item';
+            item.innerHTML =
+                (e.image ? '<img class="det-thumb" src="' + e.image + '" alt="object">' : '') +
+                '<div class="det-meta">' +
+                    '<span class="label">' + escapeHtml(e.label || 'object') + '</span>' +
+                    (e.description ? '<br><span class="sub">' + escapeHtml(e.description) + '</span>' : '') +
+                    '<br><span class="sub">id ' + escapeHtml(e.id) + ' &middot; ' + t + '</span>' +
+                '</div>';
+            item.onclick = () => openDetModal('obj', e, t);
+            prependItem('obj-list', item);
+            log('objectEvent: ' + (e.label || 'object') + ' #' + e.id, 'info');
+        }
+
+        function setPos(e) {
+            const lines = [];
+            for (const reg of (e.pos || [])) {
+                const term = (reg.terminal != null) ? ' [' + reg.terminal + ']' : '';
+                lines.push((reg.name || 'POS') + term);
+                for (const l of (reg.lines || [])) lines.push('  ' + l);
+                lines.push('');
+            }
+            document.getElementById('pos-block').textContent = lines.join('\n').trim() || 'No POS data';
+            log('posEvent: ' + (e.pos || []).length + ' register(s)', 'info');
+        }
+
+        // Click a detection to enlarge its crop and see the full event data.
+        function openDetModal(type, e, t) {
+            const img = document.getElementById('det-modal-img');
+            if (e.image) { img.src = e.image; img.style.display = 'block'; }
+            else { img.removeAttribute('src'); img.style.display = 'none'; }
+            const rows = [];
+            const row = (k, v) => { if (v !== undefined && v !== null && v !== '') rows.push('<tr><td class="k">' + k + '</td><td>' + escapeHtml(v) + '</td></tr>'); };
+            if (type === 'lpr') {
+                document.getElementById('det-modal-title').textContent = e.plate || 'License plate';
+                row('Plate', e.plate);
+                row('State', e.state);
+                row('Confidence', fmtConfidence(e.confidence));
+                row('Region', e.region);
+                row('Camera', e.camname);
+                row('Time', t);
+            } else {
+                document.getElementById('det-modal-title').textContent = e.label || 'Object';
+                row('Label', e.label);
+                row('Description', e.description);
+                row('Object id', e.id);
+                row('Time', t);
+            }
+            document.getElementById('det-modal-table').innerHTML = rows.join('');
+            document.getElementById('det-modal').classList.add('open');
+        }
+        function closeDetModal() {
+            document.getElementById('det-modal').classList.remove('open');
+        }
+
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function() {
-            log('Cloud Camera API Demo loaded');
+            log('Cloud Camera API Demo loaded (v2 — Analytics)');
+
+            // Subscribe the Detections panel to the player's analytics events.
+            // A 3rd-party integration would subscribe the same way.
+            mq.subscribe('lprEvent', addLprItem);
+            mq.subscribe('objectEvent', addObjItem);
+            mq.subscribe('posEvent', setPos);
+
+            // Align the Live Detections panel's TOP with the Profile selector in
+            // section 3 (Debug Log grows to fill the gap). The detections HEIGHT is
+            // locked once to its initial render size and never tracks section 3.
+            let fixedDetHeight = null;
+            const alignDetections = () => {
+                const profileSel = document.getElementById('stream-profile');
+                const profileRow = profileSel && profileSel.closest('.row');
+                const sec3 = document.querySelector('#tab-content-live .section');
+                const debugSec = document.querySelector('.right-column .section:first-child');
+                const detSec = document.querySelector('.right-column .section:last-child');
+                if (!profileRow || !sec3 || !debugSec || !detSec) return;
+                // Wide layout only; on narrow screens let everything flow naturally.
+                if (window.innerWidth <= 1100) {
+                    debugSec.style.height = '';
+                    detSec.style.height = '';
+                    detSec.classList.remove('det-fixed');
+                    return;
+                }
+                detSec.classList.add('det-fixed');
+                // Lock the detections height ONCE (initial render) — do not resize with section 3.
+                if (fixedDetHeight === null) {
+                    const h = Math.round(sec3.getBoundingClientRect().bottom - profileRow.getBoundingClientRect().top);
+                    if (h > 200) fixedDetHeight = h;
+                }
+                if (fixedDetHeight !== null) detSec.style.height = fixedDetHeight + 'px';
+                // Keep the top aligned with the Profile row even as the left column grows.
+                const gap = profileRow.getBoundingClientRect().top - debugSec.getBoundingClientRect().top - 20;
+                debugSec.style.height = Math.max(120, gap) + 'px';
+            };
+            alignDetections();
+            setTimeout(alignDetections, 200);
+            window.addEventListener('resize', alignDetections);
+            if (window.ResizeObserver) new ResizeObserver(alignDetections).observe(document.querySelector('.left-column'));
+
+            // Esc closes the detection modal.
+            document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeDetModal(); });
+
             if (isDevProxy) {
-                log('Running via dev proxy (localhost:3000) - CORS bypass enabled', 'success');
+                log('Running via dev proxy (' + window.location.host + ') - CORS bypass enabled', 'success');
                 log('API requests will be proxied to: ' + document.getElementById('api-url').value);
             } else {
                 log('Direct mode - ensure CORS is configured on the API server');
             }
             log('Enter credentials and connect to start');
+
+            // Enter in the username/password fields submits — only when both are non-empty.
+            ['username', 'password'].forEach(function (id) {
+                document.getElementById(id).addEventListener('keydown', function (ev) {
+                    if (ev.key !== 'Enter') return;
+                    const user = document.getElementById('username').value.trim();
+                    const pass = document.getElementById('password').value;
+                    if (user && pass.length > 0) { ev.preventDefault(); connect(); }
+                });
+            });
+
             validateConnectForm();
         });
     </script>
+
+    <!-- Detection detail modal: click any detection to enlarge its crop + see full data -->
+    <div class="det-modal" id="det-modal" onclick="if(event.target===this)closeDetModal()">
+        <div class="det-modal-box">
+            <button class="det-modal-close" onclick="closeDetModal()" title="Close">&times;</button>
+            <img class="det-modal-img" id="det-modal-img" alt="detection crop" style="display:none;">
+            <div class="det-modal-body">
+                <h3 id="det-modal-title"></h3>
+                <table id="det-modal-table"></table>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

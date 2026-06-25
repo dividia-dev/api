@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividia Cloud NVR API Reference</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #0d47a1; border-bottom: 3px solid #0d47a1; padding-bottom: 10px; }
+        h2 { color: #0d47a1; margin-top: 40px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+        h3 { color: #1565c0; margin-top: 30px; }
+        h4 { color: #555; margin-top: 20px; margin-bottom: 10px; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 14px;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        pre .comment { color: #6a9955; }
+        pre .string { color: #ce9178; }
+        pre .keyword { color: #569cd6; }
+        pre .number { color: #b5cea8; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+        .note {
+            background: #e3f2fd;
+            border-left: 4px solid #1565c0;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .note strong { color: #0d47a1; }
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning strong { color: #e65100; }
+        .info {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .info strong { color: #2e7d32; }
+        .toc {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .toc ul { margin: 0; padding-left: 20px; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: #1565c0; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .endpoint {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .method {
+            display: inline-block;
+            background: #0d47a1;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .method.get { background: #2e7d32; }
+        .method.post { background: #0d47a1; }
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+        .cloud-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                font-size: 10px;
+                line-height: 1.4;
+                padding: 0;
+                max-width: none;
+            }
+            h1 { font-size: 18px; padding-bottom: 5px; margin-bottom: 10px; }
+            h2 { font-size: 14px; margin-top: 20px; padding-bottom: 4px; }
+            h3 { font-size: 12px; margin-top: 15px; }
+            h4 { font-size: 11px; margin-top: 10px; margin-bottom: 5px; }
+            p { margin: 8px 0; }
+            pre {
+                font-size: 9px;
+                padding: 8px;
+                line-height: 1.3;
+            }
+            code { font-size: 9px; }
+            table { margin: 8px 0; }
+            th, td { padding: 4px 6px; font-size: 9px; }
+            .toc { padding: 10px 15px; margin: 10px 0; }
+            .toc li { margin: 4px 0; }
+            .note, .warning, .info { padding: 6px 10px; margin: 8px 0; font-size: 9px; }
+            .endpoint { padding: 5px 10px; margin: 5px 0; font-size: 10px; }
+            .method { font-size: 9px; padding: 1px 5px; }
+            footer { margin-top: 20px; padding-top: 10px; font-size: 9px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Dividia Cloud NVR API Reference <span class="cloud-badge">CLOUD</span></h1>
+    <p><strong>Version:</strong> 2.0 (Analytics) &nbsp;|&nbsp; <strong>Last Updated:</strong> June 2026</p>
+
+    <div class="toc">
+        <strong>Table of Contents</strong>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#authentication">1. Authentication</a></li>
+            <li><a href="#data-model">2. Data Model</a></li>
+            <li><a href="#live-streaming">3. Live Video Streaming (WebSocket)</a>
+                <ul><li><a href="#analytics-metadata">3.1 Analytics Metadata (Objects, LPR, POS)</a></li></ul>
+            </li>
+            <!-- <li><a href="#playback">4. Video Playback (Coming Soon)</a></li> -->
+            <li><a href="#status">4. Device & Camera Status</a></li>
+            <li><a href="#errors">5. Error Handling</a></li>
+        </ul>
+    </div>
+
+    <h2 id="overview">Overview</h2>
+    <p>The Dividia Cloud NVR API provides REST endpoints for integrating with cloud-connected video surveillance systems. This API enables third-party applications to authenticate users, retrieve device and camera information, and stream live video.</p>
+
+    <h3>Base URL</h3>
+    <div class="endpoint">
+        https://api.cloud.dividia.net
+    </div>
+
+    <h3>Authentication Method</h3>
+    <p>The Cloud API uses <strong>JWT (JSON Web Tokens)</strong> for authentication. After login, include the token in all authenticated requests:</p>
+    <pre>Authorization: Bearer &lt;your-jwt-token&gt;</pre>
+
+    <h2 id="authentication">1. Authentication</h2>
+
+    <h3>POST /ve/auth</h3>
+    <p>Authenticates a user and returns a JWT token along with all authorized devices and cameras.</p>
+
+    <div class="endpoint">
+        <span class="method post">POST</span> /ve/auth
+    </div>
+
+    <h4>Request Body</h4>
+    <pre>{
+  <span class="string">"username"</span>: <span class="string">"user@example.com"</span>,
+  <span class="string">"password"</span>: <span class="string">"your-password"</span>
+}</pre>
+
+    <h4>Request Parameters</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>username</td><td>string</td><td>Yes</td><td>User email address</td></tr>
+        <tr><td>password</td><td>string</td><td>Yes</td><td>User password</td></tr>
+    </table>
+
+    <h4>Success Response</h4>
+    <pre>{
+  <span class="string">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="string">"devices"</span>: [
+    {
+      <span class="string">"sDeviceID"</span>: <span class="string">"A1B2C3D4E5F6"</span>,
+      <span class="string">"sName"</span>: <span class="string">"Front Lobby NVR"</span>,
+      <span class="string">"fOnline"</span>: <span class="number">1</span>
+    }
+  ],
+  <span class="string">"cameras"</span>: [
+    {
+      <span class="string">"sDeviceID"</span>: <span class="string">"A1B2C3D4E5F6"</span>,
+      <span class="string">"bCamera"</span>: <span class="number">1</span>,
+      <span class="string">"bProfile"</span>: <span class="number">2</span>,
+      <span class="string">"sName"</span>: <span class="string">"Front Door"</span>,
+      <span class="string">"fEnabled"</span>: <span class="number">1</span>,
+      <span class="string">"fOnline"</span>: <span class="number">1</span>
+    }
+  ]
+}</pre>
+
+    <h4>Response Fields</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>token</td><td>string</td><td>JWT token for authenticated requests (valid 30 days)</td></tr>
+        <tr><td>devices</td><td>array</td><td>Recording devices user has access to (see Device Object below)</td></tr>
+        <tr><td>cameras</td><td>array</td><td>Cameras available for streaming (see Camera Object below)</td></tr>
+    </table>
+
+    <h4>Error Response</h4>
+    <pre><span class="comment">// Invalid credentials</span>
+{<span class="string">"error"</span>: <span class="string">"Could not find user."</span>}
+
+<span class="comment">// Password change required</span>
+{<span class="string">"changePassword"</span>: <span class="keyword">true</span>, <span class="string">"user"</span>: {...}}</pre>
+
+    <div class="note">
+        <strong>Important:</strong> The login response includes all devices and cameras the user has access to for streaming. No separate API call is needed to fetch cameras or build WebSocket URLs.
+    </div>
+
+    <h3>Token Usage</h3>
+    <p>Include the JWT token in the <code>Authorization</code> header for all authenticated endpoints:</p>
+    <pre>GET /ve/streamstart?device=A1B2C3D4E5F6&amp;cam=1&amp;pro=1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
+
+    <div class="info">
+        <strong>Token Expiry:</strong> JWT tokens are valid for 30 days. When the token expires, re-authenticate with <code>/ve/auth</code>.
+    </div>
+
+    <h2 id="data-model">2. Data Model</h2>
+
+    <h3>Streaming Hierarchy</h3>
+    <pre>Device (Recording Unit)
+  └── Camera (Video Stream)</pre>
+    <p>The login response returns devices and cameras authorized for the user. Each camera belongs to a device, and the WebSocket URL is constructed from device and camera IDs.</p>
+
+    <h3>Device Object</h3>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "A1B2C3D4E5F6") - used in WebSocket URL</td></tr>
+        <tr><td>sName</td><td>string</td><td>Device display name</td></tr>
+        <tr><td>fOnline</td><td>int</td><td>Online status: 1 = online, 0 = offline</td></tr>
+    </table>
+
+    <h3>Camera Object</h3>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>sDeviceID</td><td>string</td><td>Parent device serial - links camera to device</td></tr>
+        <tr><td>bCamera</td><td>int</td><td>Camera number on device (1-16) - used in WebSocket URL as cam{N}</td></tr>
+        <tr><td>bProfile</td><td>int</td><td>Stream profile (1 = full res, 2 = lower res) - used in WebSocket URL as pro{P}</td></tr>
+        <tr><td>sName</td><td>string</td><td>Camera display name</td></tr>
+        <tr><td>fEnabled</td><td>int</td><td>Enabled status: 1 = enabled, 0 = disabled</td></tr>
+        <tr><td>fOnline</td><td>int</td><td>Online status: 1 = online, 0 = offline</td></tr>
+    </table>
+
+    <div class="note">
+        <strong>WebSocket URL Construction:</strong> Use the device, camera fields and JWT token to build the streaming URL:<br>
+        <code>wss://api.cloud.dividia.net/{sDeviceID}-cam{bCamera}-pro{bProfile}?token={token}</code>
+    </div>
+
+    <h2 id="live-streaming">3. Live Video Streaming</h2>
+
+    <p>For low-latency live streaming, the Cloud API supports WebSocket-based H.264 streaming using the browser's WebCodecs API for hardware-accelerated decoding.</p>
+
+    <div class="endpoint">
+        <span class="method">WS</span> wss://api.cloud.dividia.net/{deviceID}-cam{N}-pro{P}?token={token}
+    </div>
+
+    <div class="note" style="background: #fff3e0; border-left-color: #ff9800;">
+        <strong>Authentication Required:</strong> The <code>token</code> query parameter is required. The JWT token from <code>/ve/auth</code> must be included in the WebSocket URL. Connections without a valid token will be rejected with code 1008 (Policy Violation).
+    </div>
+
+    <h4>URL Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>deviceID</td><td>string</td><td>Device serial ID from <code>/ve/devices</code></td></tr>
+        <tr><td>N</td><td>int</td><td>Camera number (1, 2, 3...)</td></tr>
+        <tr><td>P</td><td>int</td><td>Video profile: <code>1</code> (full resolution) or <code>2</code> (lower resolution)</td></tr>
+        <tr><td>token</td><td>string</td><td>JWT token from <code>/ve/auth</code></td></tr>
+    </table>
+
+    <h4>Example URLs</h4>
+    <pre><span class="comment">// Full resolution stream</span>
+wss://api.cloud.dividia.net/A1B2C3D4E5F6-cam1-pro1?token=eyJhbGciOiJIUzI1Ni...
+
+<span class="comment">// Lower resolution for multi-camera grids</span>
+wss://api.cloud.dividia.net/A1B2C3D4E5F6-cam1-pro2?token=eyJhbGciOiJIUzI1Ni...</pre>
+
+    <div class="note">
+        <strong>Protocol:</strong> Always use <code>wss://</code> (secure WebSocket) as the Cloud API requires HTTPS.
+    </div>
+
+    <h4>Using WSPlayer.js (Recommended)</h4>
+    <p>The easiest way to integrate WebSocket H.264 streaming is using the <code>WSPlayer.js</code> library. It's a fully self-contained component that generates all HTML (canvas, overlays, loading spinner, stats) inside a container element.</p>
+
+    <pre><span class="comment">// Include the WSPlayer.js library</span>
+&lt;script src="WSPlayer.js"&gt;&lt;/script&gt;
+
+<span class="comment">&lt;!-- Just provide an empty container - WSPlayer generates all HTML inside --&gt;</span>
+&lt;div id="camera-1" style="width: 640px; height: 480px;"&gt;&lt;/div&gt;
+
+&lt;script&gt;
+<span class="comment">// Build WebSocket URL from device/camera/token info</span>
+<span class="keyword">const</span> deviceId = <span class="string">'A1B2C3D4E5F6'</span>;  <span class="comment">// From /ve/auth response</span>
+<span class="keyword">const</span> token = <span class="string">'eyJhbGciOiJIUzI1Ni...'</span>;  <span class="comment">// JWT token from /ve/auth</span>
+<span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam1-pro1?token=${encodeURIComponent(token)}`</span>;
+
+<span class="comment">// Create and start player using the factory method</span>
+<span class="keyword">const</span> player = WSPlayer.create(<span class="string">'camera-1'</span>, {
+    url: wsUrl,
+    camera: [<span class="number">1</span>, <span class="string">'Front Door'</span>],  <span class="comment">// [cameraId, cameraName]</span>
+
+    <span class="comment">// Optional: event callbacks</span>
+    onConnect: () =&gt; console.log(<span class="string">'Connected'</span>),
+    onFirstFrame: () =&gt; console.log(<span class="string">'Video started'</span>),
+    onError: (err) =&gt; console.error(<span class="string">'Error:'</span>, err),
+    onDisconnect: () =&gt; console.log(<span class="string">'Disconnected'</span>),
+    onReconnecting: () =&gt; console.log(<span class="string">'Reconnecting...'</span>),
+    onStall: () =&gt; console.log(<span class="string">'Stream stalled'</span>),
+    onMetadata: (data) =&gt; console.log(<span class="string">'Metadata:'</span>, data)
+});
+
+<span class="comment">// Control methods</span>
+player.stop();      <span class="comment">// Stop streaming</span>
+player.start();     <span class="comment">// Start streaming</span>
+player.restart();   <span class="comment">// Restart streaming</span>
+
+<span class="comment">// Status methods</span>
+player.connected();       <span class="comment">// Returns true/false</span>
+player.getFrameCount();   <span class="comment">// Returns number of frames decoded</span>
+player.getFPS();          <span class="comment">// Returns current FPS</span>
+player.getStatus();       <span class="comment">// Returns full status object</span>
+&lt;/script&gt;</pre>
+
+    <h5>Multiple Cameras Example</h5>
+    <pre><span class="comment">// Create players for multiple cameras from a device</span>
+cameras.forEach(cam =&gt; {
+    <span class="keyword">const</span> wsUrl = <span class="string">`wss://api.cloud.dividia.net/${deviceId}-cam${cam.bCamera}-pro2?token=${encodeURIComponent(token)}`</span>;
+    WSPlayer.create(<span class="string">`cam-${cam.bCamera}`</span>, {
+        url: wsUrl,
+        camera: [cam.bCamera, cam.sName],
+    });
+});</pre>
+
+    <p><strong>WSPlayer.js Features:</strong></p>
+    <ul style="margin: 5px 0 10px 20px;">
+        <li><strong>Self-contained HTML generation</strong> - canvas, overlays, loading spinner, stats all generated internally</li>
+        <li>Automatic H.264 codec detection</li>
+        <li>Hardware-accelerated decoding via WebCodecs</li>
+        <li>Auto-reconnect on disconnect with configurable delay</li>
+        <li>Stall detection with callback notification</li>
+        <li>Built-in loading spinner and connection status</li>
+        <li>Camera name, FPS/frame stats, and timestamp overlays</li>
+        <li>Debug mode with detailed logging</li>
+    </ul>
+
+    <p><strong>WSPlayer Options:</strong></p>
+    <table>
+        <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>url</code></td><td>string</td><td>-</td><td>Full WebSocket URL (required)</td></tr>
+        <tr><td><code>camera</code></td><td>array</td><td>-</td><td>Camera info as <code>[id, name]</code> array</td></tr>
+        <tr><td><code>noOverlay</code></td><td>boolean | array</td><td>-</td><td>Hide overlays: <code>true</code> = hide all, or array like <code>['cam_name', 'fps', 'ts']</code></td></tr>
+        <tr><td><code>autoReconnect</code></td><td>boolean</td><td>true</td><td>Auto-reconnect on disconnect</td></tr>
+        <tr><td><code>reconnectDelay</code></td><td>number</td><td>5000</td><td>Reconnect delay in milliseconds</td></tr>
+        <tr><td><code>stallTimeout</code></td><td>number</td><td>5000</td><td>Stall detection timeout in milliseconds</td></tr>
+        <tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging to console</td></tr>
+        <tr><td><code>messageQueue</code></td><td>MessageQueue</td><td>-</td><td>Pub/sub bus; when set, publishes <code>objectEvent</code> / <code>lprEvent</code> / <code>posEvent</code> (see Analytics Metadata)</td></tr>
+        <tr><td><code>showObjects</code></td><td>boolean | fn</td><td>true</td><td>Draw object boxes. A predicate <code>(obj)=&gt;bool</code> draws only matching objects</td></tr>
+        <tr><td><code>showLpr</code></td><td>boolean | fn</td><td>false</td><td>Draw license-plate quads + ROI. Predicate <code>(result)=&gt;bool</code> supported</td></tr>
+        <tr><td><code>showPos</code></td><td>boolean | fn</td><td>false</td><td>Draw the point-of-sale receipt panel</td></tr>
+        <tr><td><code>showPtz</code></td><td>boolean</td><td>false</td><td>Show on-video PTZ controls (D-pad / zoom / presets) &mdash; see PTZ Controls</td></tr>
+        <tr><td><code>onPtz</code></td><td>fn</td><td>-</td><td>Called with each PTZ command sent upstream over the socket</td></tr>
+    </table>
+
+    <p><strong>Overlay Control:</strong></p>
+    <p>WSPlayer displays three overlay elements by default. Use <code>noOverlay</code> to hide specific elements:</p>
+    <table>
+        <tr><th>Value</th><th>Position</th><th>Content</th></tr>
+        <tr><td><code>'cam_name'</code></td><td>Top-left</td><td>Camera name</td></tr>
+        <tr><td><code>'fps'</code></td><td>Bottom-left</td><td>Frame count and FPS stats</td></tr>
+        <tr><td><code>'ts'</code></td><td>Bottom-right</td><td>Current timestamp</td></tr>
+    </table>
+    <pre><span class="comment">// Hide all overlays</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: <span class="keyword">true</span> });
+
+<span class="comment">// Hide specific overlays (show only camera name)</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., noOverlay: [<span class="string">'fps'</span>, <span class="string">'ts'</span>] });</pre>
+
+    <p><strong>Event Callbacks:</strong></p>
+    <table>
+        <tr><th>Callback</th><th>Description</th></tr>
+        <tr><td><code>onConnect</code></td><td>Called when WebSocket connection is established</td></tr>
+        <tr><td><code>onFirstFrame</code></td><td>Called when first video frame is decoded and displayed</td></tr>
+        <tr><td><code>onError</code></td><td>Called on connection or decode errors (receives error object)</td></tr>
+        <tr><td><code>onDisconnect</code></td><td>Called when connection is closed (not during auto-reconnect)</td></tr>
+        <tr><td><code>onReconnecting</code></td><td>Called when auto-reconnect begins</td></tr>
+        <tr><td><code>onStall</code></td><td>Called when no data received for <code>stallTimeout</code> ms</td></tr>
+        <tr><td><code>onMetadata</code></td><td>Called when server sends metadata (camera info, etc.)</td></tr>
+    </table>
+
+    <p><strong>Instance Methods:</strong></p>
+    <table>
+        <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+        <tr><td><code>start()</code></td><td>void</td><td>Start streaming</td></tr>
+        <tr><td><code>stop()</code></td><td>void</td><td>Stop streaming and cleanup</td></tr>
+        <tr><td><code>restart()</code></td><td>void</td><td>Stop and restart streaming</td></tr>
+        <tr><td><code>connected()</code></td><td>boolean</td><td>Returns true if WebSocket is connected</td></tr>
+        <tr><td><code>getFrameCount()</code></td><td>number</td><td>Returns total frames decoded</td></tr>
+        <tr><td><code>getFPS()</code></td><td>number</td><td>Returns current frames per second</td></tr>
+        <tr><td><code>getCamera()</code></td><td>object</td><td>Returns <code>{ id, name }</code></td></tr>
+        <tr><td><code>setOverlayVisible(type, value)</code></td><td>void</td><td>Show/hide an overlay live: <code>type</code> = <code>'objects'|'lpr'|'pos'|'ptz'</code>, <code>value</code> = bool or predicate</td></tr>
+        <tr><td><code>getOverlayVisible(type)</code></td><td>boolean | fn</td><td>Current visibility setting for an overlay type</td></tr>
+        <tr><td><code>getStatus()</code></td><td>object</td><td>Returns full status object for debugging</td></tr>
+    </table>
+
+    <p><strong>Static Methods:</strong></p>
+    <pre><span class="comment">// Check if WebCodecs is supported before creating player</span>
+<span class="keyword">const</span> support = WSPlayer.checkSupport();
+<span class="keyword">if</span> (!support.supported) {
+    console.error(support.reason);
+}
+
+<span class="comment">// Factory method (auto-starts the player)</span>
+<span class="keyword">const</span> player = WSPlayer.create(<span class="string">'container-id'</span>, options);</pre>
+
+    <div class="info">
+        <strong>Custom Implementation:</strong> If you need to implement WebSocket H.264 streaming without using WSPlayer.js, refer to the <code>WSPlayer.js</code> source code for a complete working implementation including codec detection and decoder management.
+    </div>
+
+    <div class="warning">
+        <strong>Secure Context Required:</strong> WebCodecs API only works in <strong>secure contexts</strong>:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li><strong>HTTPS</strong> - <code>https://yourapp.com</code></li>
+            <li><strong>localhost</strong> - <code>http://localhost</code> (development exception)</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <strong>Codec Support:</strong> Cameras may use different H.264 profiles (Baseline, Main, High). <strong>WSPlayer.js detects and handles all supported profiles automatically.</strong>
+    </div>
+
+    <div class="note">
+        <strong>Browser Requirements:</strong> WebSocket H.264 requires modern browser support for the WebCodecs API:
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li>Chrome 94+ / Edge 94+</li>
+            <li>Safari 16.4+</li>
+            <li>Firefox: Not supported (no WebCodecs)</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <strong>Error Recovery:</strong> WSPlayer.js automatically handles decoder errors, hardware/software fallback, and stream recovery. It will attempt hardware decoding first and fall back to software decoding if needed.
+    </div>
+
+    <div class="info">
+        <strong>Advantages:</strong> WebSocket H.264 offers low bandwidth usage, lowest latency, and hardware-accelerated decoding. Use <code>WSPlayer.js</code> for the simplest integration.
+    </div>
+
+    <h2 id="analytics-metadata">Analytics Metadata (Objects, LPR &amp; POS)</h2>
+
+    <p>On analytics-capable devices, the same live WebSocket carries <strong>metadata text frames</strong> interleaved with the binary video. Each text (string) frame is a JSON object describing what the device sees right now: detected <strong>objects</strong>, <strong>license-plate</strong> reads, and <strong>point-of-sale</strong> register text. <code>WSPlayer.js</code> draws these on the video and, when given a <code>MessageQueue</code>, publishes them as structured events for your application to consume.</p>
+
+    <div class="note">
+        <strong>Device requirement:</strong> Object / LPR / POS metadata is produced by analytics-capable devices. A standard recorder emits only <code>{ "camname", "time" }</code> in its metadata frames (no objects/lpr/pos). The Cloud relay forwards whatever the device sends through unchanged &mdash; no extra Cloud API call or parameter is required to receive metadata.
+    </div>
+
+    <h3>Metadata Frame Schema</h3>
+    <p>The stream interleaves two frame types on one socket: <strong>binary</strong> frames (H.264/H.265 video) and <strong>text</strong> frames (the JSON below). All coordinates are normalized to <code>[0..1]</code> relative to the frame, so they scale to any canvas size.</p>
+    <pre>{
+  <span class="string">"camname"</span>: <span class="string">"Front Lot"</span>,
+  <span class="string">"time"</span>: <span class="string">"2026-06-25 14:03:21"</span>,
+
+  <span class="string">"objects"</span>: [
+    { <span class="string">"id"</span>: <span class="string">"42"</span>, <span class="string">"label"</span>: <span class="string">"car"</span>, <span class="string">"description"</span>: <span class="string">"white sedan"</span>,
+      <span class="string">"bbox"</span>: [<span class="number">0.31</span>, <span class="number">0.40</span>, <span class="number">0.18</span>, <span class="number">0.22</span>] }        <span class="comment">// [x, y, w, h] normalized</span>
+  ],
+
+  <span class="string">"lpr"</span>: {
+    <span class="string">"state"</span>: <span class="string">"HIT"</span>,                              <span class="comment">// WAITING | DETECTING | HIT</span>
+    <span class="string">"plate"</span>: <span class="string">"ABC1234"</span>,                          <span class="comment">// confirmed plate (on HIT)</span>
+    <span class="string">"roi"</span>: [<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">1.0</span>, <span class="number">1.0</span>],                 <span class="comment">// region the LPR scans</span>
+    <span class="string">"results"</span>: [
+      { <span class="string">"plate"</span>: <span class="string">"ABC1234"</span>, <span class="string">"confidence"</span>: <span class="number">0.93</span>, <span class="string">"region"</span>: <span class="string">"us-tx"</span>,
+        <span class="string">"coordinates"</span>: [ {<span class="string">"x"</span>:<span class="number">0.33</span>,<span class="string">"y"</span>:<span class="number">0.42</span>}, {<span class="string">"x"</span>:<span class="number">0.41</span>,<span class="string">"y"</span>:<span class="number">0.42</span>},
+                         {<span class="string">"x"</span>:<span class="number">0.41</span>,<span class="string">"y"</span>:<span class="number">0.47</span>}, {<span class="string">"x"</span>:<span class="number">0.33</span>,<span class="string">"y"</span>:<span class="number">0.47</span>} ] }
+    ]
+  },
+
+  <span class="string">"pos"</span>: [
+    { <span class="string">"terminal"</span>: <span class="number">1</span>, <span class="string">"name"</span>: <span class="string">"Register 1"</span>,
+      <span class="string">"lines"</span>: [<span class="string">"ITEM 001      2.99"</span>, <span class="string">"TOTAL         2.99"</span>] }
+  ]
+}</pre>
+
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>camname</td><td>string</td><td>Camera display name</td></tr>
+        <tr><td>time</td><td>string</td><td>Frame timestamp from the device</td></tr>
+        <tr><td>objects[]</td><td>array</td><td>Detected objects: <code>id</code> = tracking id, <code>label</code> = class, <code>description</code> = optional text, <code>bbox</code> = <code>[x,y,w,h]</code> normalized</td></tr>
+        <tr><td>lpr</td><td>object</td><td>License-plate state: <code>state</code> = WAITING / DETECTING / HIT; <code>plate</code> = confirmed read; <code>roi</code> = scan rectangle; <code>results[]</code> = candidates</td></tr>
+        <tr><td>lpr.results[]</td><td>array</td><td><code>plate</code>, <code>confidence</code> (0..1), <code>region</code>, and <code>coordinates</code> (4 corner points, normalized)</td></tr>
+        <tr><td>pos[]</td><td>array</td><td>POS registers: <code>terminal</code>, <code>name</code>, and <code>lines[]</code> of receipt text</td></tr>
+    </table>
+
+    <h3>Consuming Events with a MessageQueue</h3>
+    <p>Include <code>messageQueue.js</code>, create a <code>MessageQueue</code>, and pass it to one or more players via the <code>messageQueue</code> option. The player publishes three event types as detections arrive. A single queue can aggregate events from every camera on the page &mdash; one place for an integration to subscribe.</p>
+
+    <pre>&lt;script src=<span class="string">"messageQueue.js"</span>&gt;&lt;/script&gt;
+&lt;script src=<span class="string">"WSPlayer.js"</span>&gt;&lt;/script&gt;
+
+&lt;script&gt;
+<span class="keyword">const</span> mq = <span class="keyword">new</span> MessageQueue();
+
+mq.subscribe(<span class="string">'lprEvent'</span>, e =&gt; {
+    console.log(<span class="string">'Plate'</span>, e.plate, e.confidence, e.region);
+    <span class="comment">// e.image is a base64 JPEG of the cropped plate (or null)</span>
+});
+mq.subscribe(<span class="string">'objectEvent'</span>, e =&gt; console.log(<span class="string">'Object'</span>, e.label, e.description));
+mq.subscribe(<span class="string">'posEvent'</span>, e =&gt; console.log(<span class="string">'POS'</span>, e.pos));
+
+WSPlayer.create(<span class="string">'cam1'</span>, {
+    url: wsUrl,
+    camera: [<span class="number">1</span>, <span class="string">'Front Lot'</span>],
+    messageQueue: mq,        <span class="comment">// publish events to the bus</span>
+    showObjects: <span class="keyword">true</span>,       <span class="comment">// draw object boxes</span>
+    showLpr: <span class="keyword">true</span>,           <span class="comment">// draw plate quads</span>
+    showPos: <span class="keyword">false</span>           <span class="comment">// hide POS panel (events still publish)</span>
+});
+&lt;/script&gt;</pre>
+
+    <h4>objectEvent</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>id</td><td>string</td><td>Object tracking id (fires once per new id)</td></tr>
+        <tr><td>label</td><td>string</td><td>Detected class (e.g. "person", "car")</td></tr>
+        <tr><td>description</td><td>string</td><td>Optional descriptive text, when the device provides it</td></tr>
+        <tr><td>image</td><td>string</td><td>Base64 JPEG data URL of the cropped object (or null)</td></tr>
+    </table>
+
+    <h4>lprEvent</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>camname</td><td>string</td><td>Camera display name</td></tr>
+        <tr><td>plate</td><td>string</td><td>Plate text (confirmed on HIT, else this result's candidate)</td></tr>
+        <tr><td>state</td><td>string</td><td><code>DETECTING</code> or <code>HIT</code></td></tr>
+        <tr><td>confidence</td><td>number</td><td>Read confidence (0..1)</td></tr>
+        <tr><td>region</td><td>string</td><td>Plate region / jurisdiction</td></tr>
+        <tr><td>coordinates</td><td>array</td><td>4 corner points <code>{x,y}</code>, normalized</td></tr>
+        <tr><td>image</td><td>string</td><td>Base64 JPEG data URL of the cropped plate (or null)</td></tr>
+    </table>
+    <div class="note"><strong>Dedup:</strong> <code>lprEvent</code> fires once per <code>(state, plate)</code> transition (DETECTING then HIT), not every frame the plate stays in view.</div>
+
+    <h4>posEvent</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td>camname</td><td>string</td><td>Camera display name</td></tr>
+        <tr><td>pos</td><td>array</td><td>Registers <code>{ terminal, name, lines:[...] }</code>. Fires when the register text changes</td></tr>
+    </table>
+
+    <div class="info">
+        <strong>Data is independent of the overlays:</strong> events publish to the <code>MessageQueue</code> whether or not the matching overlay is drawn. You can hide the boxes and still receive the data &mdash; useful when the video and the data go to different places.
+    </div>
+
+    <h3>Overlay Display &amp; Filtering</h3>
+    <p>Each overlay type toggles independently. A toggle accepts <code>true</code>, <code>false</code>, or a <strong>predicate</strong> for per-detection filtering, and can be changed at runtime with <code>setOverlayVisible()</code>.</p>
+    <p>Users can also <strong>right-click the video</strong> to toggle overlays from a built-in context menu (Show object boxes / license plates / POS). Pass <code>onOverlayChange(type, value)</code> to keep your own UI (e.g. checkboxes) in sync when an overlay is toggled from that menu.</p>
+    <pre><span class="comment">// Toggle at runtime (drawing stops; events keep publishing)</span>
+player.setOverlayVisible(<span class="string">'lpr'</span>, <span class="keyword">false</span>);
+
+<span class="comment">// Predicate: only draw high-confidence plates</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., showLpr: (r) =&gt; r.confidence &gt; <span class="number">0.8</span> });
+
+<span class="comment">// Predicate: only box people and cars</span>
+WSPlayer.create(<span class="string">'cam1'</span>, { ..., showObjects: (o) =&gt; [<span class="string">'person'</span>, <span class="string">'car'</span>].includes(o.label) });</pre>
+
+    <h3>PTZ Controls</h3>
+    <p>Set <code>showPtz: true</code> (or toggle <strong>"Show PTZ controls"</strong> from the right-click menu) to overlay pan/tilt/zoom controls on the video: a 3&times;3 D-pad with a home button in the center, zoom in/out, and presets 1&ndash;4. The player sends commands <strong>upstream over the same WebSocket</strong> and the connected device acts on them. The Cloud relay forwards client&rarr;device messages, so PTZ works over the cloud path too.</p>
+
+    <h4>Command Protocol</h4>
+    <p>Each control sends a JSON text frame to the server of the form <code>{ "type": "ptz", ... }</code>:</p>
+    <table>
+        <tr><th>Control</th><th>Message(s) sent</th></tr>
+        <tr><td>Pan / tilt (press &amp; hold)</td><td><code>{type:"ptz", axis:"x"|"y", value:N}</code> on press, then <code>{..., value:0}</code> on release</td></tr>
+        <tr><td>Zoom (press &amp; hold)</td><td><code>{type:"ptz", axis:"z", value:N}</code> on press, then <code>{..., value:0}</code> on release</td></tr>
+        <tr><td>Diagonal pan</td><td>two messages &mdash; one <code>x</code> and one <code>y</code> command</td></tr>
+        <tr><td>Home / preset (one-shot)</td><td><code>{type:"ptz", preset:"goto", n:0-4}</code> (0 = home)</td></tr>
+    </table>
+    <p><code>value</code> is a velocity (the player uses &plusmn;80): the device moves while it's non-zero and stops on <code>0</code>. Use the <code>onPtz</code> callback to mirror or log every command:</p>
+    <pre><span class="keyword">const</span> player = WSPlayer.create(<span class="string">'cam1'</span>, {
+    url: wsUrl,
+    showPtz: <span class="keyword">true</span>,
+    onPtz: (cmd) =&gt; console.log(<span class="string">'PTZ'</span>, cmd)   <span class="comment">// e.g. {axis:'x',value:80} then {axis:'x',value:0}</span>
+});
+
+<span class="comment">// Toggle the controls at runtime:</span>
+player.setOverlayVisible(<span class="string">'ptz'</span>, <span class="keyword">true</span>);</pre>
+    <div class="note"><strong>Device support:</strong> the connected device must understand the <code>ptz</code> message (analytics-capable devices do). A device that doesn't will simply ignore it.</div>
+
+    <!-- COMMENTED OUT: Playback not yet implemented for Cloud API
+    <h2 id="playback">4. Video Playback (Recorded)</h2>
+
+    <h3>GET /ve/playbackevents</h3>
+    <p>Retrieves recorded events for a camera within a date/time range.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/playbackevents
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>device</td><td>string</td><td>Yes</td><td>Device serial ID</td></tr>
+        <tr><td>cam</td><td>int</td><td>Yes</td><td>Camera number</td></tr>
+        <tr><td>date</td><td>string</td><td>Yes</td><td>Date (MM/DD/YYYY format)</td></tr>
+        <tr><td>startTime</td><td>string</td><td>No</td><td>Start time (HH:MM:SS)</td></tr>
+        <tr><td>endTime</td><td>string</td><td>No</td><td>End time (HH:MM:SS)</td></tr>
+    </table>
+
+    <h4>Example Request</h4>
+    <pre>GET /ve/playbackevents?device=A1B2C3D4E5F6&amp;cam=1&amp;date=03/09/2026&amp;startTime=00:00:00&amp;endTime=23:59:59</pre>
+
+    <h4>Response</h4>
+    <pre>[
+  {
+    <span class="string">"bID"</span>: <span class="number">12345</span>,
+    <span class="string">"sDeviceID"</span>: <span class="string">"A1B2C3D4E5F6"</span>,
+    <span class="string">"sTimeStamp"</span>: <span class="string">"20260309120000"</span>,
+    <span class="string">"sType"</span>: <span class="string">"VIDEO"</span>,
+    <span class="string">"bDuration"</span>: <span class="number">30</span>,
+    <span class="string">"bCamera"</span>: <span class="number">1</span>,
+    <span class="string">"fCached"</span>: <span class="keyword">true</span>
+  }
+]</pre>
+
+    <h3>GET /ve/videoevent</h3>
+    <p>Requests a specific video event for playback. This triggers the backend to cache the video.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/videoevent
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>device</td><td>string</td><td>Device serial ID</td></tr>
+        <tr><td>cam</td><td>int</td><td>Camera number</td></tr>
+        <tr><td>ts</td><td>string</td><td>Event timestamp (YYYYMMDDHHMMSS)</td></tr>
+    </table>
+
+    <h3>GET /ve/videoeventdownloadstatus</h3>
+    <p>Checks the download/cache progress of a video event.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/videoeventdownloadstatus
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>id</td><td>int</td><td>Event ID from playbackevents response</td></tr>
+    </table>
+
+    <h4>Response</h4>
+    <pre>{
+  <span class="string">"result"</span>: {
+    <span class="string">"dCacheProgress"</span>: <span class="number">75</span>  <span class="comment">// 0-100 percentage</span>
+  }
+}</pre>
+    -->
+
+    <h2 id="status">4. Device & Camera Status</h2>
+
+    <h3>GET /ve/onlinestatus</h3>
+    <p>Retrieves the current online status of devices and their cameras.</p>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> /ve/onlinestatus
+    </div>
+
+    <h4>Query Parameters</h4>
+    <table>
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>ids</td><td>string</td><td>Colon-separated device IDs (e.g., "DEV1:DEV2:DEV3")</td></tr>
+    </table>
+
+    <h4>Example Request</h4>
+    <pre>GET /ve/onlinestatus?ids=A1B2C3D4E5F6:0F1E2D3C4B5A
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
+
+    <h4>Response</h4>
+    <pre>[
+  {
+    <span class="string">"sDeviceID"</span>: <span class="string">"A1B2C3D4E5F6"</span>,
+    <span class="string">"fOnline"</span>: <span class="number">1</span>,
+    <span class="string">"sBackendID"</span>: <span class="string">"backend-01"</span>,
+    <span class="string">"cams"</span>: [
+      {<span class="string">"bID"</span>: <span class="number">1</span>, <span class="string">"fEnabled"</span>: <span class="number">1</span>, <span class="string">"fOnline"</span>: <span class="number">1</span>},
+      {<span class="string">"bID"</span>: <span class="number">2</span>, <span class="string">"fEnabled"</span>: <span class="number">1</span>, <span class="string">"fOnline"</span>: <span class="number">0</span>}
+    ]
+  }
+]</pre>
+
+    <div class="info">
+        <strong>Polling:</strong> Call this endpoint periodically (every 30-60 seconds) to keep status updated in your application.
+    </div>
+
+    <h2 id="errors">5. Error Handling</h2>
+
+    <h3>HTTP Status Codes</h3>
+    <table>
+        <tr><th>Code</th><th>Description</th></tr>
+        <tr><td>200</td><td>Success</td></tr>
+        <tr><td>400</td><td>Bad request (invalid parameters)</td></tr>
+        <tr><td>401</td><td>Unauthorized (invalid or expired token)</td></tr>
+        <tr><td>403</td><td>Forbidden (no access to requested resource)</td></tr>
+        <tr><td>500</td><td>Server error</td></tr>
+    </table>
+
+    <h3>Error Response Format</h3>
+    <pre>{
+  <span class="string">"error"</span>: <span class="string">"Error message description"</span>
+}</pre>
+
+    <h3>Common Errors</h3>
+    <table>
+        <tr><th>Error</th><th>Cause</th><th>Solution</th></tr>
+        <tr><td>"Could not find user."</td><td>Invalid credentials</td><td>Verify username/password</td></tr>
+        <tr><td>"No body provided"</td><td>Missing request body</td><td>Send JSON body with request</td></tr>
+        <tr><td>401 Unauthorized</td><td>Invalid/expired token</td><td>Re-authenticate with /ve/auth</td></tr>
+        <tr><td>403 Forbidden</td><td>No access to device</td><td>Check user permissions</td></tr>
+    </table>
+
+    <h3>WebSocket Close Codes</h3>
+    <table>
+        <tr><th>Code</th><th>Description</th><th>Cause</th></tr>
+        <tr><td>1008</td><td>Policy Violation</td><td>Missing or invalid token, or device not authorized for this token</td></tr>
+        <tr><td>1011</td><td>Internal Error</td><td>Backend connection failed</td></tr>
+        <tr><td>1006</td><td>Abnormal Closure</td><td>Connection dropped unexpectedly</td></tr>
+    </table>
+
+    <footer>
+        <p><strong>Dividia Cloud NVR API Reference</strong> | Version 2.0 (Analytics) | June 2026</p>
+        <p>For the interactive demo, see <a href="cloud-api-demo-v2.html">cloud-api-demo-v2.html</a></p>
+    </footer>
+    <script>
+        // Auto-trigger print dialog if opened with ?print=1
+        if (window.location.search.includes('print=1')) {
+            window.onload = function() {
+                window.print();
+            };
+        }
+    </script>
+</body>
+</html>

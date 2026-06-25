@@ -8,6 +8,11 @@
  * - Hardware/Software decoder auto-detection to avoid "pumping" (frame jitter)
  * - Automatically switches to software decoding if hardware causes timing issues
  * - Persists decoder preference per hostname in localStorage
+ * - Analytics overlays (object detection, license-plate recognition, point-of-sale)
+ *   drawn on the video, with per-type show/hide toggles
+ * - Structured analytics events (objectEvent / lprEvent / posEvent) published to an
+ *   optional MessageQueue, each with a cropped JPEG of the detection. Event emission
+ *   is independent of the overlay toggles, so data flows even while boxes are hidden.
  *
  * @example Basic Usage:
  * ```html
@@ -62,7 +67,7 @@
  * - Modern browser: Chrome 94+, Edge 94+, Safari 16.4+
  *
  * @author Dividia Technologies
- * @version 2.4.0
+ * @version 2.5.0
  */
 
 class WSPlayer {
@@ -93,6 +98,19 @@ class WSPlayer {
      * @param {Function} [options.onMetadata] - Called when metadata is received
      * @param {Function} [options.onReconnecting] - Called when reconnection starts
      * @param {Function} [options.onStall] - Called when stream stalls (no data received)
+     * @param {MessageQueue} [options.messageQueue] - Optional pub/sub bus. When set, the
+     *        player publishes 'objectEvent' / 'lprEvent' / 'posEvent' (each with a cropped
+     *        JPEG). Emission is independent of the overlay toggles below.
+     * @param {boolean|Function} [options.showObjects=true] - Draw object detection boxes.
+     *        Pass a predicate (obj)=>boolean to draw only matching objects.
+     * @param {boolean|Function} [options.showLpr=false] - Draw license-plate quads + ROI.
+     *        Pass a predicate (result)=>boolean to draw only matching plate reads.
+     * @param {boolean|Function} [options.showPos=false] - Draw the point-of-sale receipt panel.
+     * @param {Function} [options.onOverlayChange] - Called (type, value) when an overlay is
+     *        toggled (e.g. via the right-click menu), so external UI can stay in sync.
+     * @param {boolean} [options.showPtz=false] - Show on-video PTZ controls (D-pad / zoom / presets).
+     * @param {Function} [options.onPtz] - Called with each PTZ command object as it is sent
+     *        upstream over the WebSocket (e.g. {axis:'x',value:80} or {preset:'goto',n:1}).
      */
     constructor(target, options = {}) {
         this.options = options;
@@ -151,6 +169,23 @@ class WSPlayer {
         // Metadata from server
         this.metadata = null;
 
+        // ---- Analytics metadata layer (objects / LPR / POS) ----
+        // Optional pub/sub bus; when present the player publishes structured events.
+        this.messageQueue = options.messageQueue || null;
+
+        // Overlay visibility (per-type). Each accepts true | false | predicate fn.
+        // Defaults preserve historical behavior: object boxes on, LPR/POS off.
+        this.showObjects = options.showObjects !== undefined ? options.showObjects : true;
+        this.showLpr = options.showLpr !== undefined ? options.showLpr : false;
+        this.showPos = options.showPos !== undefined ? options.showPos : false;
+        this.showPtz = options.showPtz !== undefined ? options.showPtz : false;
+
+        // Dedup state so events fire once, not every frame.
+        this.objIds = [];          // recently-seen object tracking ids (ring, cap 100)
+        this._lprSeen = [];        // recently-emitted "state|plate" keys (ring, cap 100)
+        this._lastPosJson = null;  // last POS payload published (fire only on change)
+        this._ptzEl = null;        // PTZ control overlay element (built when showPtz)
+
         // Callbacks
         this.onConnect = options.onConnect || null;
         this.onDisconnect = options.onDisconnect || null;
@@ -159,6 +194,8 @@ class WSPlayer {
         this.onMetadata = options.onMetadata || null;
         this.onReconnecting = options.onReconnecting || null;
         this.onStall = options.onStall || null;
+        this.onOverlayChange = options.onOverlayChange || null;
+        this.onPtz = options.onPtz || null;
 
         // Debug mode
         this.debug = options.debug || false;
@@ -300,6 +337,9 @@ class WSPlayer {
         this.canvas.style.cssText = 'width: 100%; height: 100%; display: block; object-fit: contain;';
         this.container.appendChild(this.canvas);
         this.ctx = this.canvas.getContext('2d');
+
+        // Right-click the video to toggle analytics overlays (objects / LPR / POS).
+        this.canvas.addEventListener('contextmenu', (e) => this._openOverlayMenu(e));
 
         // Create overlay (top-left: camera info)
         this.overlayEl = document.createElement('div');
@@ -474,6 +514,7 @@ class WSPlayer {
         this.firstFrameReceived = false;
 
         this._showLoading('Connecting...', 'Establishing WebSocket');
+        this._updatePtzVisible();
         this._connect();
     }
 
@@ -484,6 +525,8 @@ class WSPlayer {
         this._log('Stopping');
         this.shouldReconnect = false;
         this._cleanup();
+        this._closeOverlayMenu();
+        if (this._ptzEl) { try { this._ptzEl.remove(); } catch (_) {} this._ptzEl = null; }
         this._setOverlay('Stopped');
         this._hideLoading();
 
@@ -1037,10 +1080,9 @@ class WSPlayer {
         // Draw frame
         this.ctx.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw object detection boxes if present
-        if (this.metadata?.objects) {
-            this._drawObjects(this.metadata.objects);
-        }
+        // Draw + publish analytics metadata (objects / LPR / POS) if present.
+        // Runs after the frame is on the canvas so event crops capture real pixels.
+        this._processMetadata();
 
         frame.close();
         this.frameCount++;
@@ -1081,28 +1123,528 @@ class WSPlayer {
         }
     }
 
+    // ==================== Analytics Metadata (objects / LPR / POS) ====================
+
     /**
-     * Draw object detection boxes
+     * Set overlay visibility at runtime.
+     * @param {'objects'|'lpr'|'pos'} type
+     * @param {boolean|Function} value - true | false | predicate(item)=>boolean
+     */
+    setOverlayVisible(type, value) {
+        if (type === 'objects') this.showObjects = value;
+        else if (type === 'lpr') this.showLpr = value;
+        else if (type === 'pos') this.showPos = value;
+        else if (type === 'ptz') { this.showPtz = value; this._updatePtzVisible(); }
+        if (this.onOverlayChange) {
+            try { this.onOverlayChange(type, value); } catch (_) {}
+        }
+    }
+
+    /**
+     * Get the current overlay visibility setting for a type.
+     * @param {'objects'|'lpr'|'pos'} type
+     * @returns {boolean|Function}
+     */
+    getOverlayVisible(type) {
+        if (type === 'objects') return this.showObjects;
+        if (type === 'lpr') return this.showLpr;
+        if (type === 'pos') return this.showPos;
+        if (type === 'ptz') return this.showPtz;
+        return undefined;
+    }
+
+    /**
+     * Right-click context menu to toggle analytics overlays directly on the video.
+     * Mirrors setOverlayVisible() so users can do by hand what the API does in code.
      * @private
      */
-    _drawObjects(objects) {
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeStyle = 'lime';
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '12px sans-serif';
+    _openOverlayMenu(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this._closeOverlayMenu();
 
-        for (const obj of objects) {
+        const menu = document.createElement('div');
+        menu.style.cssText =
+            'position:fixed;z-index:99999;background:#1e1e1e;border:1px solid #444;' +
+            'border-radius:4px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;' +
+            'color:#ddd;padding:4px 0;box-shadow:0 4px 14px rgba(0,0,0,0.45);user-select:none;min-width:180px;';
+
+        const items = [
+            ['objects', 'Show object boxes'],
+            ['lpr', 'Show license plates'],
+            ['pos', 'Show POS'],
+            ['ptz', 'Show PTZ controls'],
+        ];
+        for (const [type, label] of items) {
+            const on = this._overlayEnabled(this.getOverlayVisible(type));
+            const row = document.createElement('div');
+            row.style.cssText = 'padding:6px 14px;cursor:pointer;white-space:nowrap;';
+            row.textContent = (on ? '☑ ' : '☐ ') + label;
+            row.addEventListener('mouseenter', () => { row.style.background = '#333'; });
+            row.addEventListener('mouseleave', () => { row.style.background = 'transparent'; });
+            row.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                this.setOverlayVisible(type, !this._overlayEnabled(this.getOverlayVisible(type)));
+                this._closeOverlayMenu();
+            });
+            menu.appendChild(row);
+        }
+
+        document.body.appendChild(menu);
+        this._overlayMenuEl = menu;
+
+        // Position at the cursor, clamped to the viewport.
+        const mw = menu.offsetWidth, mh = menu.offsetHeight;
+        const x = Math.min(e.clientX, window.innerWidth - mw - 6);
+        const y = Math.min(e.clientY, window.innerHeight - mh - 6);
+        menu.style.left = Math.max(4, x) + 'px';
+        menu.style.top = Math.max(4, y) + 'px';
+
+        // Close on any outside click or another right-click (capture phase).
+        setTimeout(() => {
+            const close = (ev) => {
+                if (this._overlayMenuEl && this._overlayMenuEl.contains(ev.target)) return;
+                this._closeOverlayMenu();
+            };
+            this._overlayMenuCloser = close;
+            document.addEventListener('click', close, true);
+            document.addEventListener('contextmenu', close, true);
+        }, 0);
+    }
+
+    /**
+     * Tear down the overlay context menu.
+     * @private
+     */
+    _closeOverlayMenu() {
+        if (this._overlayMenuEl) {
+            try { this._overlayMenuEl.remove(); } catch (_) {}
+            this._overlayMenuEl = null;
+        }
+        if (this._overlayMenuCloser) {
+            document.removeEventListener('click', this._overlayMenuCloser, true);
+            document.removeEventListener('contextmenu', this._overlayMenuCloser, true);
+            this._overlayMenuCloser = null;
+        }
+    }
+
+    // ==================== PTZ Controls ====================
+
+    /**
+     * Send a PTZ command upstream over the WebSocket. The server receives
+     * { type: 'ptz', ...cmd } — e.g. {axis:'x',value:80} (move) / {axis:'x',value:0}
+     * (stop) / {preset:'goto',n:1} (recall preset). Also fires the onPtz callback.
+     * @private
+     */
+    _sendPtz(cmd) {
+        if (this.onPtz) { try { this.onPtz(cmd); } catch (_) {} }
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            this._log('PTZ not sent (socket not open):', cmd);
+            return;
+        }
+        try {
+            this.ws.send(JSON.stringify(Object.assign({ type: 'ptz' }, cmd)));
+        } catch (e) {
+            this._log('PTZ send failed:', e);
+        }
+    }
+
+    /**
+     * Build the PTZ control overlay: a 3x3 pan/tilt D-pad (home in the center),
+     * zoom +/- and presets 1-4. Directional/zoom buttons send a velocity on press
+     * and a stop (value:0) on release; home/presets are one-shot recalls.
+     * @private
+     */
+    _buildPtzOverlay() {
+        const root = document.createElement('div');
+        root.style.cssText =
+            'position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:15;' +
+            'background:rgba(0,0,0,0.45);border:1px solid #444;border-radius:6px;padding:6px;' +
+            'display:flex;flex-direction:column;gap:6px;user-select:none;pointer-events:auto;';
+
+        const V = 80;
+        const ACTIONS = {
+            'pan-n':   { hold: [{ axis: 'y', value: -V }] },
+            'pan-s':   { hold: [{ axis: 'y', value:  V }] },
+            'pan-e':   { hold: [{ axis: 'x', value:  V }] },
+            'pan-w':   { hold: [{ axis: 'x', value: -V }] },
+            'pan-ne':  { hold: [{ axis: 'y', value: -V }, { axis: 'x', value:  V }] },
+            'pan-nw':  { hold: [{ axis: 'y', value: -V }, { axis: 'x', value: -V }] },
+            'pan-se':  { hold: [{ axis: 'y', value:  V }, { axis: 'x', value:  V }] },
+            'pan-sw':  { hold: [{ axis: 'y', value:  V }, { axis: 'x', value: -V }] },
+            'zoom-in': { hold: [{ axis: 'z', value:  V }] },
+            'zoom-out':{ hold: [{ axis: 'z', value: -V }] },
+            'home':    { oneshot: [{ preset: 'goto', n: 0 }] },
+            'preset-1':{ oneshot: [{ preset: 'goto', n: 1 }] },
+            'preset-2':{ oneshot: [{ preset: 'goto', n: 2 }] },
+            'preset-3':{ oneshot: [{ preset: 'goto', n: 3 }] },
+            'preset-4':{ oneshot: [{ preset: 'goto', n: 4 }] },
+        };
+
+        const makeBtn = (label, action, w) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.style.cssText =
+                'width:' + (w || 26) + 'px;height:26px;background:#111;border:1px solid #444;' +
+                'color:#fff;font-family:monospace;font-size:13px;cursor:pointer;padding:0;line-height:24px;border-radius:3px;';
+            const cfg = ACTIONS[action];
+            let pressed = false;
+            const press = (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (pressed) return;
+                pressed = true;
+                b.style.background = '#2e7d32';
+                b.style.borderColor = '#fff';
+                if (!cfg) return;
+                if (cfg.oneshot) cfg.oneshot.forEach(c => this._sendPtz(c));
+                else if (cfg.hold) cfg.hold.forEach(c => this._sendPtz(c));
+            };
+            const release = () => {
+                if (!pressed) return;
+                pressed = false;
+                b.style.background = '#111';
+                b.style.borderColor = '#444';
+                if (cfg && cfg.hold) cfg.hold.forEach(c => this._sendPtz({ axis: c.axis, value: 0 }));
+            };
+            b.addEventListener('mousedown', press);
+            b.addEventListener('touchstart', press, { passive: false });
+            b.addEventListener('mouseup', release);
+            b.addEventListener('mouseleave', release);
+            b.addEventListener('touchend', release);
+            b.addEventListener('touchcancel', release);
+            b.addEventListener('click', ev => ev.stopPropagation());
+            return b;
+        };
+
+        // 3x3 D-pad with home (house) in the center.
+        const pad = document.createElement('div');
+        pad.style.cssText = 'display:grid;grid-template-columns:repeat(3,26px);gap:3px;';
+        const dirs = [
+            ['↖', 'pan-nw'], ['↑', 'pan-n'], ['↗', 'pan-ne'],
+            ['←', 'pan-w'],  ['⌂', 'home'],  ['→', 'pan-e'],
+            ['↙', 'pan-sw'], ['↓', 'pan-s'], ['↘', 'pan-se'],
+        ];
+        dirs.forEach(d => pad.appendChild(makeBtn(d[0], d[1])));
+        root.appendChild(pad);
+
+        // Zoom +/-.
+        const zoom = document.createElement('div');
+        zoom.style.cssText = 'display:flex;gap:3px;justify-content:center;';
+        zoom.appendChild(makeBtn('+', 'zoom-in', 39));
+        zoom.appendChild(makeBtn('−', 'zoom-out', 39));
+        root.appendChild(zoom);
+
+        // Presets 1-4.
+        const presets = document.createElement('div');
+        presets.style.cssText = 'display:flex;gap:3px;justify-content:center;';
+        for (let i = 1; i <= 4; i++) presets.appendChild(makeBtn(String(i), 'preset-' + i, 18));
+        root.appendChild(presets);
+
+        // Keep clicks on the controls from bubbling to the video (fullscreen/menu).
+        root.addEventListener('click', ev => ev.stopPropagation());
+        root.addEventListener('mousedown', ev => ev.stopPropagation());
+        root.addEventListener('contextmenu', ev => ev.stopPropagation());
+
+        return root;
+    }
+
+    /**
+     * Show or remove the PTZ control overlay to match this.showPtz.
+     * @private
+     */
+    _updatePtzVisible() {
+        if (!this.container) return;
+        if (this._overlayEnabled(this.showPtz)) {
+            if (!this._ptzEl) {
+                this._ptzEl = this._buildPtzOverlay();
+                this.container.appendChild(this._ptzEl);
+            }
+        } else if (this._ptzEl) {
+            try { this._ptzEl.remove(); } catch (_) {}
+            this._ptzEl = null;
+        }
+    }
+
+    /**
+     * Is an overlay type enabled at all (truthy bool, or a predicate function)?
+     * @private
+     */
+    _overlayEnabled(flag) {
+        return typeof flag === 'function' ? true : !!flag;
+    }
+
+    /**
+     * Should this specific item be drawn? Evaluates a predicate if one was given.
+     * @private
+     */
+    _overlayOn(flag, item) {
+        if (typeof flag === 'function') {
+            try { return !!flag(item); } catch (_) { return false; }
+        }
+        return !!flag;
+    }
+
+    /**
+     * Track object ids so each object publishes an event only once.
+     * Objects without a usable id are not published (can't dedup safely).
+     * @private
+     */
+    _isObjNew(id) {
+        if (id === undefined || id === null || id === '') return false;
+        const key = String(id);
+        if (this.objIds.includes(key)) return false;
+        if (this.objIds.length > 100) this.objIds.shift();
+        this.objIds.push(key);
+        return true;
+    }
+
+    /**
+     * Dedup LPR reads by (state, plate) so a plate fires once per state transition
+     * (DETECTING then HIT) rather than every frame it stays in view.
+     * @private
+     */
+    _isLprNew(state, plate) {
+        const key = state + '|' + plate;
+        if (this._lprSeen.includes(key)) return false;
+        if (this._lprSeen.length > 100) this._lprSeen.shift();
+        this._lprSeen.push(key);
+        return true;
+    }
+
+    /**
+     * Crop a region of the current canvas to a base64 JPEG data URL.
+     * Used to attach a detection snippet to published events.
+     * @private
+     * @returns {Promise<string|null>}
+     */
+    _cropToJpeg(px, py, pw, ph) {
+        try {
+            const tmp = document.createElement('canvas');
+            tmp.width = Math.max(1, Math.round(pw));
+            tmp.height = Math.max(1, Math.round(ph));
+            const tctx = tmp.getContext('2d');
+            tctx.drawImage(this.canvas, px, py, pw, ph, 0, 0, tmp.width, tmp.height);
+            return new Promise((resolve) => {
+                tmp.toBlob((blob) => {
+                    if (!blob) return resolve(null);
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                }, 'image/jpeg', 0.85);
+            });
+        } catch (_) {
+            return Promise.resolve(null);
+        }
+    }
+
+    /**
+     * Draw + publish analytics metadata for the current frame.
+     * Drawing is gated by the per-type overlay toggles; publishing to the
+     * MessageQueue is NOT (so data flows even when boxes are hidden).
+     * @private
+     */
+    _processMetadata() {
+        const md = this.metadata;
+        if (!md) return;
+
+        const ctx = this.ctx;
+        const W = this.canvas.width;
+        const H = this.canvas.height;
+        if (!W || !H) return;
+
+        // Scale stroke + font to canvas resolution so overlays stay legible after
+        // CSS downscales a high-res canvas (e.g. a 4K source shown ~960px wide).
+        const stroke = Math.max(2, Math.round(W / 500));
+        const fontSize = Math.max(11, Math.round(W / 80));
+        const pad = Math.max(2, Math.round(fontSize / 4));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textBaseline = 'top';
+
+        this._processObjects(md, ctx, W, H, stroke, fontSize, pad);
+        this._processLpr(md, ctx, W, H, stroke, fontSize, pad);
+        this._processPos(md, ctx, W, H);
+    }
+
+    /**
+     * Object detection boxes (normalized bbox [x,y,w,h]) + objectEvent publish.
+     * @private
+     */
+    _processObjects(md, ctx, W, H, stroke, fontSize, pad) {
+        if (!Array.isArray(md.objects)) return;
+
+        for (const obj of md.objects) {
+            if (!Array.isArray(obj.bbox) || obj.bbox.length !== 4) continue;
             const [x, y, w, h] = obj.bbox;
-            const px = x * this.canvas.width;
-            const py = y * this.canvas.height;
-            const pw = w * this.canvas.width;
-            const ph = h * this.canvas.height;
+            const px = x * W, py = y * H, pw = w * W, ph = h * H;
 
-            this.ctx.strokeRect(px, py, pw, ph);
-            if (obj.label) {
-                this.ctx.fillText(obj.label, px + 4, Math.max(12, py + 14));
+            // Publish once per new tracked id (independent of the overlay toggle).
+            if (this.messageQueue && this._isObjNew(obj.id)) {
+                this._cropToJpeg(px, py, pw, ph).then((image) => {
+                    this.messageQueue.publish('objectEvent', {
+                        id: obj.id,
+                        label: obj.label,
+                        description: obj.description,
+                        image
+                    });
+                });
+            }
+
+            if (this._overlayOn(this.showObjects, obj)) {
+                ctx.lineWidth = stroke;
+                ctx.strokeStyle = 'lime';
+                ctx.strokeRect(px, py, pw, ph);
+                if (obj.label) {
+                    const textW = ctx.measureText(obj.label).width;
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(px, py, textW + pad * 2, fontSize + pad * 2);
+                    ctx.fillStyle = 'lime';
+                    ctx.fillText(obj.label, px + pad, py + pad);
+                }
             }
         }
+    }
+
+    /**
+     * LPR plate quadrilaterals + ROI rectangle + lprEvent publish.
+     * coordinates are 4 corner points in [0..1]; state is WAITING | DETECTING | HIT.
+     * @private
+     */
+    _processLpr(md, ctx, W, H, stroke, fontSize, pad) {
+        const lpr = md.lpr;
+        if (!lpr) return;
+
+        // Publish plate reads (independent of the overlay toggle), deduped by state+plate.
+        if (this.messageQueue && (lpr.state === 'DETECTING' || lpr.state === 'HIT') && Array.isArray(lpr.results)) {
+            for (const r of lpr.results) {
+                if (!Array.isArray(r.coordinates) || r.coordinates.length !== 4) continue;
+                // On HIT prefer the confirmed global plate; else this result's candidate.
+                const plate = (lpr.state === 'HIT' && lpr.plate) ? lpr.plate : (r.plate || '');
+                if (!plate || !this._isLprNew(lpr.state, plate)) continue;
+
+                const xs = r.coordinates.map(p => p.x * W);
+                const ys = r.coordinates.map(p => p.y * H);
+                const cx = Math.min(...xs), cy = Math.min(...ys);
+                const cw = Math.max(...xs) - cx, ch = Math.max(...ys) - cy;
+                const evt = {
+                    camname: md.camname, plate, state: lpr.state,
+                    confidence: r.confidence, region: r.region, coordinates: r.coordinates
+                };
+                if (cw > 0 && ch > 0) {
+                    this._cropToJpeg(cx, cy, cw, ch).then((image) => {
+                        this.messageQueue.publish('lprEvent', Object.assign({}, evt, { image }));
+                    });
+                } else {
+                    this.messageQueue.publish('lprEvent', Object.assign({}, evt, { image: null }));
+                }
+            }
+        }
+
+        // ROI rectangle (faint, dashed) — skip the trivial full-frame default.
+        if (this._overlayEnabled(this.showLpr) && Array.isArray(lpr.roi) && lpr.roi.length === 4) {
+            const [rx, ry, rw, rh] = lpr.roi;
+            if (!(rx === 0 && ry === 0 && rw === 1 && rh === 1)) {
+                ctx.save();
+                ctx.lineWidth = Math.max(1, Math.round(stroke / 2));
+                ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+                ctx.setLineDash([Math.max(4, stroke * 2), Math.max(4, stroke * 2)]);
+                ctx.strokeRect(rx * W, ry * H, rw * W, rh * H);
+                ctx.restore();
+            }
+        }
+
+        // Plate quads + labels.
+        if (Array.isArray(lpr.results) && lpr.results.length) {
+            const color = lpr.state === 'HIT' ? 'red' : 'yellow';
+            for (const r of lpr.results) {
+                if (!Array.isArray(r.coordinates) || r.coordinates.length !== 4) continue;
+                if (!this._overlayOn(this.showLpr, r)) continue;
+
+                ctx.lineWidth = stroke;
+                ctx.strokeStyle = color;
+                ctx.beginPath();
+                for (let i = 0; i < 4; i++) {
+                    const p = r.coordinates[i];
+                    const ppx = p.x * W, ppy = p.y * H;
+                    if (i === 0) ctx.moveTo(ppx, ppy);
+                    else ctx.lineTo(ppx, ppy);
+                }
+                ctx.closePath();
+                ctx.stroke();
+
+                const text = (lpr.state === 'HIT' && lpr.plate) ? lpr.plate : (r.plate || '');
+                if (text) {
+                    const xs = r.coordinates.map(p => p.x * W);
+                    const ys = r.coordinates.map(p => p.y * H);
+                    const minX = Math.min(...xs), minY = Math.min(...ys);
+                    const textW = ctx.measureText(text).width;
+                    const labelY = Math.max(0, minY - fontSize - pad * 2);
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(minX, labelY, textW + pad * 2, fontSize + pad * 2);
+                    ctx.fillStyle = color;
+                    ctx.fillText(text, minX + pad, labelY + pad);
+                }
+            }
+        }
+    }
+
+    /**
+     * POS register text: posEvent publish (on change) + receipt-style panel.
+     * md.pos is an array of { terminal, name, lines:[...] }.
+     * @private
+     */
+    _processPos(md, ctx, W, H) {
+        const pos = md.pos;
+        if (!Array.isArray(pos) || !pos.length) return;
+
+        // Publish only when the register text changes (independent of the toggle).
+        if (this.messageQueue) {
+            const posJson = JSON.stringify(pos);
+            if (posJson !== this._lastPosJson) {
+                this._lastPosJson = posJson;
+                this.messageQueue.publish('posEvent', { camname: md.camname, pos });
+            }
+        }
+
+        if (!this._overlayEnabled(this.showPos)) return;
+
+        // Receipt-style panel, top-right. Monospace preserves POS column alignment.
+        ctx.save();
+        const fs = Math.max(11, Math.round(W / 90));
+        const lineH = Math.round(fs * 1.3);
+        const boxPad = Math.max(4, Math.round(fs / 2));
+        ctx.font = `${fs}px monospace`;
+        ctx.textBaseline = 'top';
+
+        const rows = [];
+        for (const reg of pos) {
+            const term = (reg.terminal !== undefined && reg.terminal !== null) ? ` [${reg.terminal}]` : '';
+            rows.push({ text: (reg.name || 'POS') + term, header: true });
+            if (Array.isArray(reg.lines)) {
+                for (const l of reg.lines) rows.push({ text: String(l), header: false });
+            }
+            rows.push({ text: '', header: false }); // spacer between registers
+        }
+        if (rows.length && rows[rows.length - 1].text === '') rows.pop();
+
+        let maxW = 0;
+        for (const r of rows) maxW = Math.max(maxW, ctx.measureText(r.text).width);
+        const boxW = maxW + boxPad * 2;
+        const boxH = rows.length * lineH + boxPad * 2;
+        const bx = Math.max(0, W - boxW - boxPad);
+        const by = boxPad;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(bx, by, boxW, boxH);
+
+        let ty = by + boxPad;
+        for (const r of rows) {
+            ctx.fillStyle = r.header ? '#0ff' : '#fff';
+            ctx.fillText(r.text, bx + boxPad, ty);
+            ty += lineH;
+        }
+        ctx.restore();
     }
 
     /**
@@ -1142,6 +1684,11 @@ class WSPlayer {
         // Note: pumpingCheckDone stays as-is since preference is persisted in localStorage
         this.frameTimings = [];
         this.lastFrameTime = null;
+
+        // Reset metadata dedup state so a fresh stream starts clean
+        this.objIds = [];
+        this._lprSeen = [];
+        this._lastPosJson = null;
     }
 
     /**

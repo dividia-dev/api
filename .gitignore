@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Claude / gstack pair-agent session scaffolding
+.gstack/
+
+# Node deps & logs (if ever added)
+node_modules/
+*.log
