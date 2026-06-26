@@ -15,7 +15,7 @@
         }
         .page-title {
             background: #f5f5f5;
-            padding: 9px 30px;
+            padding: 12px 30px;
             margin: -20px -30px 0 -30px;
             position: sticky;
             top: 0;
@@ -24,32 +24,29 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-wrap: nowrap;
-            gap: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .page-title h1 { margin: 0; color: #0d47a1; }
         .page-title .header-buttons {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
-            flex: 0 0 auto;
-            flex-wrap: nowrap;
         }
         .page-title .header-btn {
             background: #0d47a1;
             color: white;
-            padding: 0 12px;
+            padding: 0 16px;
             border-radius: 4px;
             text-decoration: none;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             border: 1px solid #0d47a1;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            height: 34px;
-            white-space: nowrap;
+            height: 38px;
             line-height: 1;
             box-sizing: border-box;
             font-family: inherit;
@@ -72,56 +69,31 @@
             text-align: center;
             margin: 15px auto 20px auto;
         }
-        /* Intro row: demo description (left) + Cloud-API info block (right), side by
-           side to use horizontal space instead of stacking two full-width blocks. */
-        .intro-row {
-            display: flex; gap: 20px; align-items: stretch;
-            max-width: 1100px; margin: 12px auto 18px auto;
-        }
-        .intro-row .intro-col { flex: 1 1 0; min-width: 0; margin: 0; text-align: left; }
-        .intro-row #intro-desc { display: flex; align-items: center; font-size: 13px; color: #444; line-height: 1.5; }
-        @media (max-width: 760px) { .intro-row { flex-direction: column; } }
-        /* Workspace grid: collapsed Connect/Device bars span the full width; the player
-           and the Live Detections panel sit side-by-side in one row so the video and its
-           detections are seen together without scrolling. */
         .page-content {
-            display: grid;
-            grid-template-columns: 1.55fr 1fr;
-            grid-template-areas:
-                "connect connect"
-                "device  device"
-                "player  detect";
-            gap: 12px 20px;
-            align-items: start;
-            max-width: 1500px;
-            margin: 0 auto;
+            display: flex;
+            gap: 24px;
         }
-        .left-column, .right-column { display: contents; }
-        #sec-connect { grid-area: connect; }
-        #sec-device  { grid-area: device; }
-        #tab-content-live { grid-area: player; min-width: 0; }
-        .det-panel { grid-area: detect; min-width: 0; }
-        .right-column .section { position: static; margin-bottom: 0; }
-        /* Compact layout: Live Detections is the primary right-column panel and fills
-           the column height (columns are equal-height via flex stretch); its lists
-           scroll internally. Debug Log sits below it (order:2), collapsed by default.
-           No JS height-pinning needed. */
-        .right-column .det-panel {
+        .left-column {
+            flex: 1.4;
+            min-width: 0;
+        }
+        .right-column {
+            flex: 1;
+            min-width: 0;
+        }
+        .right-column .section {
+            position: static;
+        }
+        /* Debug Log is a flex column so its log box fills the section height that JS
+           (alignDetections) sets, lining the Live Detections panel up with the
+           "3. Live Video Streaming" section in the left column. */
+        .right-column .section:first-child {
             display: flex;
             flex-direction: column;
-            min-height: 0;
-            overflow: hidden;
         }
-        .right-column .det-panel .det-cols { flex: 1 1 auto; min-height: 0; }
-        .right-column .det-panel .det-col { display: flex; flex-direction: column; min-height: 0; }
-        .right-column .det-panel .det-col .det-list { flex: 1 1 auto; max-height: none; min-height: 0; }
-        .right-column .det-panel .det-group { flex: 0 0 auto; }
-        .right-column .det-panel > button { flex: 0 0 auto; }
-        /* Debug Log sits ABOVE detections, JS-sized to fill the space over the video,
-           so the Detections panel lines up beside the live feed (no scrolling to watch
-           detections populate while the video plays). */
-        .right-column .debug-panel { flex: 0 0 auto; display: flex; flex-direction: column; }
-        .right-column .debug-panel #log { flex: 1 1 auto; min-height: 120px; }
+        .right-column .section:first-child #log {
+            flex: 1 1 auto;
+        }
         .section {
             background: white;
             border-radius: 8px;
@@ -217,8 +189,7 @@
         #video-container, #live-video-container {
             background: #000;
             border-radius: 4px;
-            aspect-ratio: 4 / 3;
-            max-height: 72vh;
+            height: 380px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -229,7 +200,7 @@
         #video-container video, #video-container img,
         #live-video-container video, #live-video-container img, #live-video-container canvas {
             max-width: 100%;
-            max-height: 100%;
+            max-height: 380px;
             object-fit: contain;
         }
 
@@ -572,154 +543,48 @@
         .det-modal-close:hover { background: #ddd; }
 
         /* Responsive (within reason): stack main columns, then the detection sub-columns */
-        @media (max-width: 1024px) {
-            .page-content {
-                grid-template-columns: 1fr;
-                grid-template-areas: "connect" "device" "player" "detect";
-            }
-            .det-panel { height: auto !important; overflow: visible; }
-            .right-column .det-panel .det-list { max-height: 300px; }
+        @media (max-width: 1100px) {
+            .page-content { flex-direction: column; }
+            .right-column .section:first-child { display: block; }   /* stop JS height-pinning */
+            .right-column .section:first-child #log { height: 260px; }
         }
         @media (max-width: 640px) {
             body { padding: 14px; }
             .det-cols { flex-direction: column; }
             .row { flex-direction: column; }
         }
-
-        /* ===== Compact workspace additions ===== */
-        /* Collapsible sections: expanded = clickable header + body; collapsed = a
-           single-line summary bar (click anywhere on it to expand). Used for the
-           one-time Connect step, the device/camera reference, and the Debug Log. */
-        .section.collapsible .section-head {
-            display: flex; align-items: center; justify-content: space-between;
-            cursor: pointer; gap: 10px;
-        }
-        .section.collapsible .section-head h2 { margin: 0; }
-        .section.collapsible .section-head .caret { color: #888; font-size: 13px; flex: 0 0 auto; }
-        .section.collapsible .section-head:hover .caret { color: #0d47a1; }
-        .section.collapsible .section-summary { display: none; }
-        .section.collapsible.collapsed { padding: 0; }
-        .section.collapsible.collapsed .section-head,
-        .section.collapsible.collapsed .section-body { display: none; }
-        .section.collapsible.collapsed .section-summary {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-            padding: 12px 16px; cursor: pointer; font-size: 13px; color: #555;
-        }
-        .section.collapsible.collapsed .section-summary:hover { background: #fafafa; }
-        .section-summary .sum-strong { font-weight: 600; color: #333; }
-        .section-summary .sum-caret { margin-left: auto; color: #1565c0; font-size: 12px; flex: 0 0 auto; white-space: nowrap; }
-        .section-summary.connected { color: #2e7d32; }
-        .section-summary.connected .sum-strong { color: #2e7d32; }
-        .section-summary.connected .check { font-weight: 700; font-size: 15px; color: #2e7d32; }
-
-        /* Player control row: Device · Camera · Profile inline, right above the video. */
-        .player-controls { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
-        .player-controls > div { flex: 1 1 0; min-width: 150px; }
-        .player-controls label { margin-top: 0; }
-        @media (max-width: 640px) { .player-controls { flex-direction: column; } }
-
-        /* ===== Professional polish pass ===== */
-        /* Header: description as a subtitle under the title; nav buttons stay right. */
-        .page-title { align-items: center; }
-        .page-title .title-block { min-width: 0; flex: 1 1 auto; }
-        .page-title h1 { font-size: 23px; line-height: 1.15; }
-        .page-title .title-sub {
-            margin: 4px 0 0; font-size: 12.5px; color: #56616b; font-weight: 400;
-            line-height: 1.45; max-width: 900px;
-        }
-        .page-title .title-sub strong { color: #2b3640; font-weight: 600; }
-
-        /* Slim Cloud-API note (compact, vertical) — hidden once connected. */
-        #cloud-info-box {
-            max-width: 1500px; margin: 10px auto 0; padding: 8px 14px;
-            font-size: 12px; color: #44525e; text-align: left;
-            background: #eef4fb; border: 1px solid #d6e4f5; border-left: 3px solid #1565c0;
-            border-radius: 6px; line-height: 1.5;
-        }
-        #cloud-info-box strong { color: #0d47a1; }
-        #cloud-info-box .ci-sep { color: #9bb4d0; margin: 0 7px; }
-        #cloud-info-box a { color: #317e3a; }
-
-        /* Tighten vertical rhythm so the workspace stays in view. */
-        .section { padding: 16px; margin-bottom: 0; }
-        label { margin: 8px 0 4px; }
-        h2 { font-size: 19px; }
-        .viewer-tabs, #viewer-description, #tab-nav-section { display: none; }
-        .overlay-toggles { margin-top: 10px; padding: 8px 12px; }
-        .det-panel > p { margin: 0 0 8px; font-size: 11.5px; }
-        .det-list { max-height: none; }
-
-        /* Debug Log drawer: a fixed edge tab slides a panel in/out, so the log is always
-           reachable without consuming workspace space. */
-        #debug-toggle {
-            position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 300;
-            background: #263238; color: #cfd8dc; border: none; cursor: pointer;
-            padding: 9px 13px; border-radius: 6px 0 0 6px; font-size: 12px; font-weight: 600;
-            box-shadow: -2px 2px 8px rgba(0,0,0,.2); margin: 0;
-        }
-        #debug-toggle:hover { background: #37474f; }
-        #debug-drawer {
-            position: fixed; top: 0; right: 0; height: 100vh; width: 460px; max-width: 92vw;
-            background: #1e1e1e; z-index: 401; transform: translateX(100%);
-            transition: transform .22s ease; display: flex; flex-direction: column;
-            padding: 14px 16px; box-shadow: -6px 0 24px rgba(0,0,0,.45);
-        }
-        #debug-drawer.open { transform: translateX(0); }
-        #debug-drawer .dd-head {
-            display: flex; align-items: center; gap: 10px; color: #e0e0e0;
-            font-weight: 600; font-size: 14px; margin-bottom: 10px;
-        }
-        #debug-drawer .dd-head .dd-spacer { flex: 1 1 auto; }
-        #debug-drawer .dd-head button { margin: 0; padding: 5px 10px; font-size: 12px; background: #37474f; }
-        #debug-drawer #log { flex: 1 1 auto; min-height: 0; max-height: none; height: auto; margin: 0; }
-        #debug-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 400; display: none; }
-        #debug-backdrop.open { display: block; }
-
-        /* ===== Density pass: trim oversized fonts/padding that waste vertical space ===== */
-        button { padding: 7px 14px; font-size: 13px; margin-top: 8px; }
-        .section { padding: 14px 16px; }
-        label { margin: 6px 0 3px; font-size: 13px; }
-        h2 { font-size: 17px; }
-        input, select { padding: 7px; }
-        .help-text { margin-top: 3px; font-size: 11.5px; }
-        .player-controls { margin-top: 10px; gap: 12px; }
-        .overlay-toggles { margin-top: 8px; padding: 7px 12px; font-size: 12.5px; }
-        .viewer-description { font-size: 12px; }
-        .det-panel > h2 { margin-bottom: 6px; }
-        .det-panel > p { margin: 0 0 6px; }
-        .det-col h3, .det-group h3 { font-size: 12px; }
-        .det-group { margin-bottom: 10px; }
-        .analytics-badge { font-size: 10px; padding: 1px 6px; }
-        .det-item { padding: 5px; }
-        #btn-start-live, #btn-stop-live { margin-top: 0; }
     </style>
 </head>
 <body>
     <div class="page-title">
-        <div class="title-block">
-            <h1>Dividia Cloud Camera API Demo (v2 &mdash; Analytics)<span class="cloud-badge">CLOUD</span></h1>
-            <p class="title-sub">Live video from cloud-connected devices with live <strong>object detection</strong>, <strong>license-plate recognition</strong>, and <strong>point-of-sale</strong> analytics over one WebSocket.</p>
-        </div>
+        <h1>Dividia Cloud Camera API Demo (v2 &mdash; Analytics)<span class="cloud-badge">CLOUD</span></h1>
         <div class="header-buttons">
             <a href="cloud-api-demo.html" class="header-btn secondary">&larr; Classic Demo (v1)</a>
             <a href="cloud-api-reference-v2.html" target="_blank" class="header-btn">View API Reference</a>
             <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
         </div>
     </div>
-    <div id="cloud-info-box">
-        <strong>&#9729;&#65039; Cloud API</strong><span class="ci-sep">|</span>HTTPS required &mdash; all requests use <code>https://api.cloud.dividia.net</code><span class="ci-sep">&middot;</span>WebSocket H.264 via WSPlayer.js<span class="ci-sep">&middot;</span>JWT Bearer auth<span class="ci-sep">|</span>code base: <a href="https://github.com/dividia-dev/api" target="_blank">github.com/dividia-dev/api</a>
+    <p class="page-description">Demo page for Cloud Camera API integration - live video streaming from cloud-connected devices, with live <strong>object detection</strong>, <strong>license-plate recognition</strong>, and <strong>point-of-sale</strong> analytics delivered over the same WebSocket.</p>
+    <div class="page-description" style="background: #f5f5f5; padding: 15px; border: 1px solid #ddd; border-radius: 6px; margin: 15px auto; max-width: 900px; font-size: 13px; text-align: left;">
+        <strong>☁️ Cloud API:</strong>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 10px;">
+            <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; border-left: 3px solid #1565c0;">
+                <strong style="color: #0d47a1;">HTTPS Required</strong>
+                <ul style="margin: 5px 0 0 15px; padding: 0; font-size: 12px;">
+                    <li>All API requests use <code>https://api.cloud.dividia.net</code></li>
+                    <li>WebSocket H.264 streaming via WSPlayer.js</li>
+                    <li>JWT Bearer token authentication</li>
+                </ul>
+            </div>
+        </div>
+        <p style="margin: 10px 0 0 0; font-size: 12px; color: #317e3a;">code base: <a style="font-size: 12px; color: #317e3a;" href="https://github.com/dividia-dev/api" target="_blank">https://github.com/dividia-dev/api</a></p>
     </div>
 
     <div class="page-content">
         <div class="left-column">
-            <!-- Section 1: Connect to Cloud (collapses to a status bar after login) -->
-            <div class="section collapsible" id="sec-connect">
-                <div class="section-summary" id="sec-connect-summary" onclick="toggleSection('sec-connect')"></div>
-                <div class="section-head" onclick="toggleSection('sec-connect')">
-                    <h2>1. Connect to Cloud Backend</h2>
-                    <span class="caret">&#9662;</span>
-                </div>
-                <div class="section-body">
+            <!-- Section 1: Connect to Cloud -->
+            <div class="section">
+                <h2>1. Connect to Cloud Backend</h2>
                 <div class="row">
                     <div style="flex: 2;">
                         <label>Cloud API URL</label>
@@ -768,22 +633,12 @@
                         <tr><td>cameras</td><td>array</td><td>List of cameras (sDeviceID, bCamera, bProfile, sName, fEnabled, fOnline)</td></tr>
                     </table>
                 </div>
-                </div><!-- /section-body -->
             </div>
 
-            <!-- Section 2: Select Device & Camera (reference; live selectors live at the player) -->
-            <div class="section collapsible collapsed" id="sec-device">
-                <div class="section-summary" id="sec-device-summary" onclick="toggleSection('sec-device')">
-                    <span class="sum-strong">2. Select Device &amp; Camera</span>
-                    <span>&middot; how cameras are discovered from the auth response</span>
-                    <span class="sum-caret">how it works &#9662;</span>
-                </div>
-                <div class="section-head" onclick="toggleSection('sec-device')">
-                    <h2>2. Select Device &amp; Camera</h2>
-                    <span class="caret">&#9662;</span>
-                </div>
-                <div class="section-body">
-                <p style="margin: 0 0 15px 0; color: #666;">Devices and cameras are returned with authentication. Select a device, then a camera. <em>The live selectors are at the player (section 3) &mdash; these stay in sync.</em></p>
+            <!-- Section 2: Select Device & Camera -->
+            <div class="section">
+                <h2>2. Select Device & Camera</h2>
+                <p style="margin: 0 0 15px 0; color: #666;">Devices and cameras are returned with authentication. Select a device, then a camera.</p>
                 <div class="row">
                     <div>
                         <label>Device</label>
@@ -828,11 +683,10 @@
                         <tr><td>fOnline</td><td>int</td><td>1 = online, 0 = offline</td></tr>
                     </table>
                 </div>
-                </div><!-- /section-body -->
             </div>
 
-            <!-- Tab Navigation (single option — hidden) -->
-            <div class="section" id="tab-nav-section" style="padding: 0; box-shadow: none; background: transparent;">
+            <!-- Tab Navigation -->
+            <div class="section" style="padding: 0; box-shadow: none; background: transparent;">
                 <div class="content-tabs">
                     <button class="content-tab active" id="tab-btn-live" onclick="switchTab('live'); this.blur();">Live Video Streaming</button>
                     <!-- COMMENTED OUT: Playback not implemented yet
@@ -845,6 +699,7 @@
             <div id="tab-content-live" class="tab-content active">
                 <div class="section">
                     <h2>3. Live Video Streaming</h2>
+                    <p style="margin: 0 0 15px 0; color: #666;">Select a streaming method and start live video.</p>
 
                     <!-- Viewer Selection Tabs -->
                     <div class="viewer-tabs">
@@ -861,22 +716,8 @@
                         <span style="color: #666;">Best for: Real-time monitoring, low latency requirements.</span>
                     </div>
 
-                    <!-- Player controls: Device · Camera · Profile, inline above the video.
-                         Device/Camera mirror section 2 and stay in sync both ways. -->
-                    <div class="player-controls">
-                        <div>
-                            <label>Device</label>
-                            <select id="player-device-select" disabled onchange="onPlayerDeviceChange()">
-                                <option value="">Connect to Cloud first</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label>Camera</label>
-                            <select id="player-camera-select" disabled onchange="onPlayerCameraChange()">
-                                <option value="">Select device first</option>
-                            </select>
-                        </div>
-                        <div>
+                    <div class="row" style="margin-top: 15px;">
+                        <div style="flex: 2;">
                             <label>Profile</label>
                             <select id="stream-profile" onchange="handleProfileChange()">
                                 <option value="1" selected>Profile 1 (Full Resolution)</option>
@@ -884,7 +725,7 @@
                             </select>
                             <div class="help-text">Lower resolution uses less bandwidth</div>
                         </div>
-                        <div style="display: none;" id="refresh-rate-container">
+                        <div style="flex: 1; visibility: hidden;" id="refresh-rate-container">
                             <label>Refresh Rate</label>
                             <select id="refresh-rate">
                                 <option value="2000">0.5 fps (2 sec)</option>
@@ -896,13 +737,13 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: 8px;">
+                    <div style="margin-top: 15px;">
                         <button onclick="startLiveStream(); this.blur();" id="btn-start-live" disabled>Start Live Video</button>
                         <button onclick="stopStream(); this.blur();" id="btn-stop-live" class="btn-stop" disabled>Stop</button>
                         <span id="live-status" style="margin-left: 10px; color: #666; font-size: 13px;"></span>
                     </div>
 
-                    <div id="live-video-container" style="margin-top: 10px;">
+                    <div id="live-video-container" style="margin-top: 15px;">
                         <span>Select a device and camera, then click Start Live Video</span>
                     </div>
 
@@ -979,7 +820,56 @@
         </div><!-- end left-column -->
 
         <div class="right-column">
-            <div class="section det-panel">
+            <div class="section">
+                <h2>Debug Log</h2>
+                <div id="log"></div>
+                <button onclick="document.getElementById('log').innerHTML=''">Clear Log</button>
+
+                <!-- COMMENTED OUT: Streaming Methods Comparison - only WebSocket supported currently
+                <div class="comparison-section">
+                    <div class="comparison-header" onclick="toggleComparison(this)">
+                        <span>Live Streaming Methods Comparison</span>
+                        <span class="toggle-icon">-</span>
+                    </div>
+                    <div class="comparison-content">
+                        <table class="comparison-table">
+                            <tr>
+                                <th>Method</th>
+                                <th>Bandwidth</th>
+                                <th>Latency</th>
+                                <th>Requires</th>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 600; color: #e65100;">JPEG</td>
+                                <td class="poor">High</td>
+                                <td class="fair">Medium</td>
+                                <td class="good">HTTP/HTTPS</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 600; color: #1565c0;">MJPEG</td>
+                                <td class="fair">Medium</td>
+                                <td class="good">Low</td>
+                                <td class="good">HTTP/HTTPS</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 600; color: #2e7d32;">WebSocket</td>
+                                <td class="good">Low</td>
+                                <td class="good">Low</td>
+                                <td class="fair">HTTPS only</td>
+                            </tr>
+                        </table>
+                        <div style="padding: 10px; font-size: 11px; color: #666; border-top: 1px solid #eee;">
+                            <strong>Quick Guide:</strong><br>
+                            - <strong style="color: #e65100;">JPEG</strong> - Best for compatibility & debugging<br>
+                            - <strong style="color: #1565c0;">MJPEG</strong> - Best for smooth video, simple implementation<br>
+                            - <strong style="color: #2e7d32;">WebSocket</strong> - Best for production (HTTPS required)
+                        </div>
+                    </div>
+                </div>
+                -->
+
+            </div>
+            <div class="section">
                 <h2>Live Detections <span class="analytics-badge">ANALYTICS</span></h2>
                 <p style="margin:0 0 12px 0; color:#666; font-size:12px;">Structured events the player publishes on its <code>MessageQueue</code> as detections arrive. A 3rd-party integration subscribes here for license-plate, object, and POS data &mdash; each event also carries a cropped JPEG.</p>
                 <div class="det-cols">
@@ -1001,19 +891,6 @@
         </div><!-- end right-column -->
     </div><!-- end page-content -->
 
-    <!-- Debug Log drawer: always-available slide-in; does not consume workspace space. -->
-    <button id="debug-toggle" onclick="toggleDebug()" title="Show debug log">&#128027; Debug Log</button>
-    <div id="debug-backdrop" onclick="toggleDebug()"></div>
-    <div id="debug-drawer" aria-label="Debug log">
-        <div class="dd-head">
-            <span>Debug Log</span>
-            <span class="dd-spacer"></span>
-            <button onclick="document.getElementById('log').innerHTML=''">Clear</button>
-            <button onclick="toggleDebug()" title="Close">&times;</button>
-        </div>
-        <div id="log"></div>
-    </div>
-
     <!-- WebSocket H.264 Player + analytics event bus -->
     <script src="messageQueue.js"></script>
     <script src="WSPlayer.js"></script>
@@ -1023,7 +900,7 @@
         const DEBUG = true;
 
         // Detect if running via dev proxy (localhost:3000)
-        const isDevProxy = window.location.hostname === 'localhost' && (window.location.port === '3000' || window.location.port === '3001' || window.location.port === '3007');
+        const isDevProxy = window.location.hostname === 'localhost' && (window.location.port === '3000' || window.location.port === '3001');
         const PROXY_PREFIX = '/api';  // Proxy routes /api/* to cloud API
 
         // ==================== STATE ====================
@@ -1071,13 +948,6 @@
 
         function printApiReference() {
             window.open('cloud-api-reference-v2.html?print=1', '_blank');
-        }
-
-        // Redact the JWT in a stream URL before showing it in the log / Stream Details.
-        function redactToken(u) {
-            return (u || '').replace(/([?&]token=)([^&]+)/i, function (m, p, t) {
-                return p + t.slice(0, 12) + '…[redacted]';
-            });
         }
 
         // ==================== FORM VALIDATION ====================
@@ -1171,10 +1041,6 @@
                 // Populate device dropdown
                 populateDevices();
 
-                // Compact workspace: fold the one-time setup away — the player now
-                // carries the live Device/Camera selectors (kept in sync).
-                collapseConnected(username);
-
             } catch (err) {
                 log('Connection failed: ' + err.message, 'error');
                 document.getElementById('connection-status').textContent = 'Failed';
@@ -1214,7 +1080,7 @@
             devices.forEach(device => {
                 const option = document.createElement('option');
                 option.value = device.sDeviceID;
-                const status = device.fOnline ? '' : ' (Offline)';
+                const status = device.fOnline ? ' (Online)' : ' (Offline)';
                 option.textContent = device.sName + status + ' - ' + device.sDeviceID;
                 option.disabled = !device.fOnline;
                 select.appendChild(option);
@@ -1222,7 +1088,6 @@
 
             select.disabled = false;
             document.getElementById('camera-select').innerHTML = '<option value="">Select device first</option>';
-            mirrorSelectors();
         }
 
         function onDeviceChange() {
@@ -1237,7 +1102,6 @@
                 selectedCamera = null;
                 updateSelectionInfo();
                 updateStartButton();
-                mirrorSelectors();
                 return;
             }
 
@@ -1258,7 +1122,6 @@
             log('Selected device: ' + selectedDevice.sName + ' (' + deviceId + ')');
             updateSelectionInfo();
             updateStartButton();
-            mirrorSelectors();
         }
 
         function onCameraChange() {
@@ -1273,7 +1136,6 @@
 
             updateSelectionInfo();
             updateStartButton();
-            mirrorSelectors();
         }
 
         function updateSelectionInfo() {
@@ -1297,90 +1159,6 @@
             document.getElementById('btn-start-live').disabled = !selectedDevice || !selectedCamera || !token;
         }
 
-        // ===== Compact workspace: player <-> section 2 selector sync =====
-        // The player (section 3) Device/Camera selects mirror the canonical selects
-        // in section 2. Changing either updates both, then the existing handlers run.
-        function mirrorSelectors() {
-            const d = document.getElementById('device-select');
-            const c = document.getElementById('camera-select');
-            const pd = document.getElementById('player-device-select');
-            const pc = document.getElementById('player-camera-select');
-            if (pd && d) { pd.innerHTML = d.innerHTML; pd.value = d.value; pd.disabled = d.disabled; }
-            if (pc && c) { pc.innerHTML = c.innerHTML; pc.value = c.value; pc.disabled = c.disabled; }
-        }
-        function onPlayerDeviceChange() {
-            document.getElementById('device-select').value = document.getElementById('player-device-select').value;
-            onDeviceChange();   // repopulates cameras + calls mirrorSelectors()
-        }
-        function onPlayerCameraChange() {
-            document.getElementById('camera-select').value = document.getElementById('player-camera-select').value;
-            onCameraChange();
-        }
-
-        // ===== Compact workspace: collapsible sections =====
-        function toggleSection(id) {
-            const el = document.getElementById(id);
-            if (el) el.classList.toggle('collapsed');
-        }
-        function toggleDebug() {
-            document.getElementById('debug-drawer').classList.toggle('open');
-            document.getElementById('debug-backdrop').classList.toggle('open');
-        }
-        // After a successful login, fold the one-time Connect step into a status bar
-        // and collapse the (now-reference) device/camera section.
-        function collapseConnected(username) {
-            const cb = document.getElementById('cloud-info-box');
-            if (cb) cb.style.display = 'none';
-            const uniqueCameras = new Set(cameras.map(c => c.sDeviceID + '-' + c.bCamera)).size;
-            const cs = document.getElementById('sec-connect-summary');
-            if (cs) {
-                cs.innerHTML =
-                    '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
-                    '<span style="color:#2e7d32; font-weight:600;">&#10003; Connected</span>' +
-                    '<span style="color:#666;">&middot; ' + username + ' &middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)</span>' +
-                    '<span class="sum-caret">change &#9662;</span>';
-            }
-            const cSec = document.getElementById('sec-connect');
-            if (cSec) cSec.classList.add('collapsed');
-
-            const ds = document.getElementById('sec-device-summary');
-            if (ds) {
-                ds.innerHTML =
-                    '<span class="sum-strong">2. Select Device &amp; Camera</span>' +
-                    '<span>&middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s) &middot; select at the player below</span>' +
-                    '<span class="sum-caret">how it works &#9662;</span>';
-            }
-            const dSec = document.getElementById('sec-device');
-            if (dSec) dSec.classList.add('collapsed');
-            alignDetections();
-            setTimeout(alignDetections, 60);
-        }
-
-        // Size the Debug Log (top of the right column) to fill the space above the
-        // video, so the Live Detections panel lines up beside the live feed — you see
-        // detections populate without scrolling away from the video.
-        // Lock the Live Detections panel to its height at first render, then leave it.
-        // It must NOT follow section 3 (the player) — the player can grow/shrink
-        // independently (e.g. expanding Stream Details). Lists scroll internally so the
-        // panel stays stable while the user watches the video.
-        let fixedDetHeight = null;
-        function alignDetections() {
-            const detSec = document.querySelector('.det-panel');
-            if (!detSec) return;
-            if (window.innerWidth <= 1024) { detSec.style.height = ''; return; }
-            if (fixedDetHeight === null) {
-                // Lock to the controls+video block (player top → video bottom) — a bit
-                // shorter than the full player (excludes the API-ref/stream-details below).
-                const player = document.getElementById('tab-content-live');
-                const video = document.getElementById('live-video-container');
-                if (player && video) {
-                    const h = Math.round(video.getBoundingClientRect().bottom - player.getBoundingClientRect().top);
-                    if (h > 200) fixedDetHeight = h;
-                }
-            }
-            if (fixedDetHeight !== null) detSec.style.height = fixedDetHeight + 'px';
-        }
-
         // ==================== VIEWER SELECTION ====================
         function selectViewer(type) {
             stopAllStreams();
@@ -1398,7 +1176,7 @@
 
             // Show/hide refresh rate selector (only visible for JPEG)
             const refreshRateContainer = document.getElementById('refresh-rate-container');
-            refreshRateContainer.style.display = (type === 'jpeg') ? '' : 'none';
+            refreshRateContainer.style.visibility = (type === 'jpeg') ? 'visible' : 'hidden';
 
             log('Switched to ' + type.toUpperCase() + ' viewer');
         }
@@ -1665,22 +1443,9 @@
 
             // Prepare container for WSPlayer
             const container = document.getElementById('live-video-container');
-            container.innerHTML = '<div id="ws-player-container" style="width: 100%; height: 100%;"></div>';
+            container.innerHTML = '<div id="ws-player-container" style="width: 100%; height: 400px;"></div>';
 
-            log('WebSocket URL: ' + redactToken(wsUrl));
-
-            // Fit the container to the actual stream aspect so the video fills it (this
-            // camera is 4:3; others may differ) — no pillar/letterboxing.
-            (function fitAspect(tries) {
-                const c = document.querySelector('#live-video-container canvas, #live-video-container video');
-                const w = c ? (c.width || c.videoWidth) : 0;
-                const h = c ? (c.height || c.videoHeight) : 0;
-                if (w > 300 && h > 0) {
-                    document.getElementById('live-video-container').style.aspectRatio = w + ' / ' + h;
-                } else if (tries < 40) {
-                    setTimeout(function () { fitAspect(tries + 1); }, 250);
-                }
-            })(0);
+            log('WebSocket URL: ' + wsUrl);
 
             // Create player using WSPlayer.js
             const camName = `${selectedDevice.sName} - Camera ${selectedCamera.bCamera}`;
@@ -1796,7 +1561,7 @@
                 el.innerHTML =
                     '<span class="label">Method:</span> WebSocket H.264/MSE\n\n' +
                     '<span class="label">WebSocket URL:</span>\n' +
-                    '<span class="string">' + redactToken(params.wsUrl) + '</span>\n\n' +
+                    '<span class="string">' + params.wsUrl + '</span>\n\n' +
                     '<span class="label">URL Format:</span>\n' +
                     'wss://{api-host}/{deviceID}-cam{N}-pro{profile}\n\n' +
                     // 'wss://{api-host}/{deviceID}-cam{N}-pro{profile}?token={token}\n\n' +
@@ -1942,13 +1707,39 @@
             mq.subscribe('objectEvent', addObjItem);
             mq.subscribe('posEvent', setPos);
 
-            // Match the Live Detections height to the player (section 3) so video +
-            // detections sit side-by-side at equal height.
+            // Align the Live Detections panel's TOP with the Profile selector in
+            // section 3 (Debug Log grows to fill the gap). The detections HEIGHT is
+            // locked once to its initial render size and never tracks section 3.
+            let fixedDetHeight = null;
+            const alignDetections = () => {
+                const profileSel = document.getElementById('stream-profile');
+                const profileRow = profileSel && profileSel.closest('.row');
+                const sec3 = document.querySelector('#tab-content-live .section');
+                const debugSec = document.querySelector('.right-column .section:first-child');
+                const detSec = document.querySelector('.right-column .section:last-child');
+                if (!profileRow || !sec3 || !debugSec || !detSec) return;
+                // Wide layout only; on narrow screens let everything flow naturally.
+                if (window.innerWidth <= 1100) {
+                    debugSec.style.height = '';
+                    detSec.style.height = '';
+                    detSec.classList.remove('det-fixed');
+                    return;
+                }
+                detSec.classList.add('det-fixed');
+                // Lock the detections height ONCE (initial render) — do not resize with section 3.
+                if (fixedDetHeight === null) {
+                    const h = Math.round(sec3.getBoundingClientRect().bottom - profileRow.getBoundingClientRect().top);
+                    if (h > 200) fixedDetHeight = h;
+                }
+                if (fixedDetHeight !== null) detSec.style.height = fixedDetHeight + 'px';
+                // Keep the top aligned with the Profile row even as the left column grows.
+                const gap = profileRow.getBoundingClientRect().top - debugSec.getBoundingClientRect().top - 20;
+                debugSec.style.height = Math.max(120, gap) + 'px';
+            };
             alignDetections();
             setTimeout(alignDetections, 200);
-            setTimeout(alignDetections, 600);
             window.addEventListener('resize', alignDetections);
-            if (window.ResizeObserver) new ResizeObserver(alignDetections).observe(document.getElementById('tab-content-live'));
+            if (window.ResizeObserver) new ResizeObserver(alignDetections).observe(document.querySelector('.left-column'));
 
             // Esc closes the detection modal.
             document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeDetModal(); });
