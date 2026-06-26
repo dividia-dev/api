@@ -1708,7 +1708,11 @@ class WSPlayer {
     _log(...args) {
         if (this.debug) {
             const prefix = this.cameraName ? `[WSPlayer:${this.cameraName}]` : '[WSPlayer]';
-            console.log(prefix, ...args);
+            // Redact JWT tokens from anything we log (e.g. the wss connect URL).
+            const safe = args.map(a => typeof a === 'string'
+                ? a.replace(/([?&]token=)[^&\s]+/gi, '$1…[redacted]')
+                : a);
+            console.log(prefix, ...safe);
         }
     }
 }
