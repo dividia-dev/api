@@ -1,0 +1,689 @@
+<meta charset="utf-8">
+<title>Command Cloud &rarr; Dividia Webhook &mdash; Integration Guide &amp; Tester</title>
+<style>
+  :root{
+    --bg:#eef1f5;--card:#fff;--ink:#1e293b;--muted:#64748b;--faint:#94a3b8;--line:#e2e8f0;
+    --indigo:#4f46e5;--indigo-soft:#eef2ff;--sky:#0ea5e9;
+    --ok-fg:#15803d;--ok-bg:#dcfce7;--ok-br:#86efac;
+    --warn-fg:#b45309;--warn-bg:#fef3c7;--warn-br:#fcd34d;
+    --stop-fg:#b91c1c;--stop-bg:#fee2e2;--stop-br:#fca5a5;
+    --radius:14px;--mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px 96px}
+  header.page{background:linear-gradient(135deg,#4f46e5 0%,#6366f1 55%,#0ea5e9 130%);color:#fff;padding:11px 0 10px}
+  header.page .wrap{padding-bottom:0}
+  header.page h1{margin:0 0 3px;font-size:20px;line-height:1.2;font-weight:750}
+  header.page .sub{font-size:15px;opacity:.93;margin:0}
+  header.page .meta{margin-top:6px;font-size:12px;opacity:.9}
+  header.page .meta code{background:rgba(255,255,255,.16);padding:2px 7px;border-radius:6px;font-family:var(--mono)}
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  nav.toc .wrap{padding:0 20px;display:flex;gap:4px;overflow-x:auto}
+  nav.toc a{flex:0 0 auto;padding:12px 11px;font-size:12.5px;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}
+  nav.toc a:hover{color:var(--indigo);border-bottom-color:var(--indigo)}
+  section{margin-top:30px}
+  section[id],details.spec{scroll-margin-top:54px}
+  h2{font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:9px;scroll-margin-top:60px}
+  h2 .num{font-size:12px;font-weight:700;color:#fff;background:var(--indigo);width:23px;height:23px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  h2 .tryit-note{font-weight:400;font-size:13px;color:var(--muted);flex:1 1 auto;min-width:0;line-height:1.4}
+  .lede{color:var(--muted);font-size:14px;margin:2px 0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .card+.card{margin-top:14px}
+  h3{font-size:15px;margin:0 0 8px}
+  p{margin:8px 0}
+  code.inline{font-family:var(--mono);font-size:12.5px;background:#f1f5f9;padding:1px 5px;border-radius:5px;color:#0f172a}
+  pre.code{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:15px 17px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.5;margin:10px 0;white-space:pre}
+  pre.code .k{color:#7dd3fc}.pre .s{}
+  pre.code .s{color:#86efac}pre.code .c{color:#64748b}pre.code .h{color:#fca5a5}
+  .callout{border-radius:10px;padding:13px 15px;font-size:13.5px;margin:12px 0;border:1px solid}
+  .callout.why{background:var(--indigo-soft);border-color:#c7d2fe}
+  .callout.why b{color:var(--indigo)}
+  .callout.warn{background:var(--warn-bg);border-color:var(--warn-br);color:#713f12}
+  .callout.note{background:#f1f5f9;border-color:var(--line)}
+  table.data{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  table.data th,table.data td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.data th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;background:#f8fafc}
+  table.data tr:last-child td{border-bottom:0}
+  table.data code{font-family:var(--mono);font-size:12px;color:var(--indigo)}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:999px;border:1px solid;text-transform:uppercase}
+  .badge.ok{color:var(--ok-fg);background:var(--ok-bg);border-color:var(--ok-br)}
+  .badge.warn{color:var(--warn-fg);background:var(--warn-bg);border-color:var(--warn-br)}
+  .badge.stop{color:var(--stop-fg);background:var(--stop-bg);border-color:var(--stop-br)}
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:8px 0}
+  .flow .step{flex:1 1 120px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:12.5px;min-width:120px}
+  .flow .step .n{font-size:10px;font-weight:700;color:var(--indigo)}
+  .flow .step .t{font-weight:650;margin:2px 0;font-size:12.5px}
+  .flow .step .d{color:var(--muted);font-size:11.5px}
+  .flow .step.them{border-color:#bae6fd;background:#f0f9ff}
+  .flow .step.us{border-color:#c7d2fe;background:var(--indigo-soft)}
+  .flow .arrow{align-self:center;color:var(--faint);font-size:18px;flex:0 0 auto}
+  @media(max-width:720px){.flow{flex-direction:column}.flow .arrow{transform:rotate(90deg)}}
+  /* tester */
+  .tester{background:#0f172a;border-radius:var(--radius);padding:14px 16px 16px;color:#e2e8f0}
+  .tester h3{color:#fff;margin:0 0 2px}
+  .tester .grp{font-size:11px;font-weight:700;color:#7dd3fc;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 2px;padding-top:9px;border-top:1px solid #1e293b}
+  .tester .grp:first-of-type{border-top:0;padding-top:0;margin-top:6px}
+  .field{margin:8px 0}
+  .field label{display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:3px;font-family:var(--mono)}
+  .field input,.field textarea{width:100%;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:12.5px}
+  .field textarea{min-height:150px;resize:vertical;line-height:1.45}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row .field{flex:1 1 200px;margin:8px 0 0}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+  button.act{background:var(--indigo);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  button.act:hover{background:#4338ca}
+  button.ghost{background:transparent;color:#cbd5e1;border:1px solid #334155;border-radius:8px;padding:9px 12px;font-size:12.5px;cursor:pointer}
+  button.ghost:hover{border-color:#64748b;color:#fff}
+  .out{background:#020617;border:1px solid #1e293b;border-radius:8px;padding:13px 14px;margin-top:12px;font-family:var(--mono);font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;min-height:40px}
+  .out .pass{color:#4ade80}.out .fail{color:#f87171}.out .dim{color:#64748b}.out .hl{color:#7dd3fc}.out .warnc{color:#fbbf24}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.split{grid-template-columns:1fr}}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13.5px}
+  .kv dt{color:var(--muted);font-weight:600}.kv dd{margin:0}
+  ul.clean{list-style:none;padding:0;margin:0}
+  ul.clean>li{padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;gap:10px;align-items:flex-start}
+  ul.clean>li:last-child{border-bottom:0}
+  .num-badge{font-size:11px;font-weight:700;color:#fff;background:var(--indigo);min-width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px}
+  footer.page{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12px}
+  /* details/reference accordion */
+  details.spec{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:6px 18px;margin-top:12px}
+  details.spec>summary{cursor:pointer;font-weight:650;font-size:15px;padding:10px 0;list-style:none}
+  details.spec>summary::-webkit-details-marker{display:none}
+  details.spec>summary::before{content:"\25B8 ";color:var(--indigo)}
+  details.spec[open]>summary::before{content:"\25BE "}
+</style>
+
+<header class="page">
+  <div class="wrap">
+    <h1>Command Cloud &rarr; Dividia Webhook</h1>
+    <p class="sub">Integration reference and signing tester for Command Cloud ticket-event webhooks.</p>
+    <div class="meta">Endpoint: <code>POST https://api.cloud.dividia.net/sw/webhooks/cc</code> · Identify: <code>Dividia-Customer-Id</code> header · Scheme: HMAC-SHA256 (Standard Webhooks)</div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#tester">Try it &#9889;</a>
+    <a href="#how">How it works</a>
+    <a href="#contract">The payload</a>
+    <a href="#auth">Signing</a>
+    <a href="#responses">Responses</a>
+    <a href="#intake">What we do</a>
+    <a href="#need">What we need</a>
+    <a href="#reference">Reference sender</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- TESTER -->
+  <section id="tester" style="margin-top:12px">
+    <h2><span class="num">&#9889;</span> Try it <span class="tryit-note">&mdash; one signed JSON POST per ticket. Fill the fields, <b>Sign</b>, then <b>Verify</b> to run the same checks our endpoint runs; nothing is sent from this page.</span></h2>
+    <details class="spec" open style="margin:0 0 14px">
+      <summary>Request format</summary>
+      <p style="margin:2px 0 8px;font-size:13px;color:var(--muted)">The full POST — headers and JSON body. Six required fields top-level, extras in <code class="inline">data</code>. We de-duplicate on <code class="inline">guid</code>; the <code class="inline">webhook-*</code> headers are the <a href="#auth" style="color:var(--indigo)">Standard Webhooks signature</a>. Collapse this to bring the sandbox up.</p>
+<pre class="code"><span class="k">POST</span> https://api-staging.cloud.dividia.net/sw/webhooks/cc
+<span class="h">Content-Type</span>: application/json
+<span class="h">Dividia-Customer-Id</span>: <span class="s">c8f7001c-b3a1-4744-bf30-c6296d0edb51</span>
+<span class="h">webhook-id</span>: <span class="s">msg_2f8a9c1b4e</span>
+<span class="h">webhook-timestamp</span>: <span class="s">1786543701</span>
+<span class="h">webhook-signature</span>: <span class="s">v1,g30x9Qz8kR2...</span>   <span class="c">// HMAC-SHA256 of  webhook-id.webhook-timestamp.body</span>
+
+{
+  <span class="k">"guid"</span>:         <span class="s">"fa6f05cb-8876-4920-9624-a459ccc83a6b"</span>,   <span class="c">// unique per delivery — we de-dup on this</span>
+  <span class="k">"ticket"</span>:       <span class="s">"1001"</span>,
+  <span class="k">"locationId"</span>:   <span class="s">"LOC-1"</span>,
+  <span class="k">"locationName"</span>: <span class="s">"North Plant"</span>,
+  <span class="k">"scale"</span>:        <span class="s">"2"</span>,
+  <span class="k">"timestamp"</span>:    <span class="s">"2026-08-12T13:45:13Z"</span>,
+  <span class="k">"data"</span>: { <span class="k">"truck"</span>: <span class="s">"T-14"</span>, <span class="k">"material"</span>: <span class="s">"57 stone"</span>, <span class="k">"netWeight"</span>: <span class="s">42980</span> }
+}</pre>
+    </details>
+
+    <div class="tester">
+      <h3>Signing sandbox</h3>
+
+      <div class="grp">Setup <span style="color:var(--faint);font-weight:400;text-transform:none;letter-spacing:0">— tester only, not sent</span></div>
+      <div class="row">
+        <div class="field"><label>Target base URL</label><input id="baseUrl" value="https://api-staging.cloud.dividia.net" spellcheck="false"></div>
+        <div class="field"><label>Signing secret <span style="text-transform:none;font-weight:400;color:var(--faint)">— the per-customer secret we issue you</span></label><input id="secret" value="" placeholder="whsec_&#8230; (paste the signing secret)" spellcheck="false"></div>
+      </div>
+
+      <div class="grp">Request headers</div>
+      <div class="row">
+        <div class="field"><label>Dividia-Customer-Id <span style="font-weight:400;color:var(--faint)">— the per-customer id we issue you</span></label><input id="customerId" value="c8f7001c-b3a1-4744-bf30-c6296d0edb51" spellcheck="false"></div>
+        <div class="field"><label>webhook-id <span style="text-transform:none;font-weight:400;color:var(--faint)">(delivery id)</span></label><input id="whId" spellcheck="false"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>webhook-timestamp <span style="text-transform:none;font-weight:400;color:var(--faint)">(unix s)</span></label><input id="whTs" spellcheck="false"></div>
+        <div class="field"><label>webhook-signature <a href="#auth" style="font-weight:400;color:var(--indigo)">how it's computed &rarr;</a></label><input value="v1,... (computed on Sign — see preview)" disabled style="opacity:.55"></div>
+      </div>
+
+      <div class="grp">Payload — JSON body</div>
+      <div class="row">
+        <div class="field"><label>ticket</label><input id="fTicket" value="1001" spellcheck="false"></div>
+        <div class="field"><label>scale</label><input id="fScale" value="2" spellcheck="false"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>locationId</label><input id="fLocationId" value="LOC-1" spellcheck="false"></div>
+        <div class="field"><label>locationName</label><input id="fLocationName" value="North Plant" spellcheck="false"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>guid <span style="text-transform:none;font-weight:400;color:var(--faint)">(auto per send)</span></label><input id="fGuid" spellcheck="false"></div>
+        <div class="field"><label>timestamp <span style="text-transform:none;font-weight:400;color:var(--faint)">(ISO-8601, defaults to now)</span></label><input id="fTimestamp" spellcheck="false"></div>
+      </div>
+      <div class="field">
+        <label>data <span style="text-transform:none;font-weight:400;color:var(--faint)">— additional ticket fields, key/value JSON (optional)</span></label>
+        <textarea id="fData" spellcheck="false" style="min-height:52px" placeholder='{ "truck": "T-14", "material": "57 stone", "netWeight": 42980 }'></textarea>
+      </div>
+
+      <div class="btns">
+        <button class="act" onclick="doSign()">1 · Sign &amp; build request</button>
+        <button class="act" onclick="doVerify()">2 · Verify (simulate our endpoint)</button>
+      </div>
+      <div class="btns">
+        <button class="ghost" onclick="tamper()">Tamper with body</button>
+        <button class="ghost" onclick="oldTs()">Set old timestamp (replay)</button>
+        <button class="ghost" onclick="regenGuid()">Regenerate guid</button>
+        <button class="ghost" onclick="resetIds()">New delivery id</button>
+        <button class="ghost" onclick="resetAll()">Reset</button>
+      </div>
+      <div class="split">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin:12px 0 4px;text-transform:uppercase;letter-spacing:.03em">Request preview</label>
+          <div class="out" id="reqOut"><span class="dim">Click "Sign &amp; build request" to generate a signed POST.</span></div>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin:12px 0 4px;text-transform:uppercase;letter-spacing:.03em">Our endpoint's verdict</label>
+          <div class="out" id="verOut"><span class="dim">Then click "Verify" to run our checks.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout note" style="margin-top:14px"><b>Sending for real:</b> browsers block cross-origin POSTs to the API (and real webhooks come from your servers, not a browser), so this page verifies locally. To fire a live request, use the <a href="#quicklive">quick live test</a> just below (or the full <a href="#reference">reference senders</a>) from a terminal, once we've exchanged a customer id and secret.</div>
+  </section>
+
+  <!-- QUICK LIVE TEST -->
+  <details class="spec" id="quicklive">
+    <summary>Fire a real request against staging (curl)</summary>
+    <p class="lede">The sandbox above verifies locally. This actually POSTs to staging and returns our real response. Run it in a terminal (needs <code class="inline">node</code> + <code class="inline">curl</code>) — paste your signing secret first.</p>
+<pre class="code">SECRET='whsec_...'                                  <span class="c"># paste the signing secret</span>
+CUSTOMER_ID='c8f7001c-b3a1-4744-bf30-c6296d0edb51'  <span class="c"># your Dividia-Customer-Id</span>
+BASE='https://api-staging.cloud.dividia.net'
+
+<span class="c"># node signs (same HMAC our endpoint verifies); 4 values -&gt; shell vars</span>
+{ read -r WID; read -r WTS; read -r SIG; read -r BODY; } &lt; &lt;(SECRET="$SECRET" node -e '
+  const crypto = require("crypto");
+  const secret = process.env.SECRET.replace(/^whsec_/, "");
+  const ts = Math.floor(Date.now()/1000).toString();
+  const id = "msg-" + ts;
+  const body = JSON.stringify({ guid: "evt-"+ts, ticket: "1001", locationId: "LOC-1",
+    locationName: "North Plant", scale: "1", timestamp: new Date().toISOString() });
+  const sig = "v1," + crypto.createHmac("sha256", Buffer.from(secret,"base64"))
+    .update(id+"."+ts+"."+body).digest("base64");
+  console.log(id); console.log(ts); console.log(sig); console.log(body);
+')
+
+curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
+  -H 'Content-Type: application/json' \
+  -H "Dividia-Customer-Id: $CUSTOMER_ID" \
+  -H "webhook-id: $WID" -H "webhook-timestamp: $WTS" -H "webhook-signature: $SIG" \
+  --data "$BODY"</pre>
+    <div class="callout note"><b>Expected:</b> <code class="inline">HTTP 200</code> with <code class="inline">{"status":"fallback"}</code> — the ticket is stored as a cloud-only transaction (the test site has no NVR connected). This request has been validated against staging.</div>
+  </details>
+
+  <!-- DETAILS & REFERENCE -->
+  <section id="details">
+    <h2>Details &amp; reference</h2>
+    <p class="lede">Expand any section for the specifics.</p>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <details class="spec" id="how">
+    <summary>How it works</summary>
+    <h2 style="display:none"><span class="num">1</span> How it works</h2>
+    <p class="lede">You POST the ticket JSON to our endpoint on each ticket creation, signed with a shared secret so we can verify origin and integrity.</p>
+    <div class="card">
+      <div class="flow">
+        <div class="step them"><div class="n">YOU</div><div class="t">Ticket created</div><div class="d">A new ticket is created</div></div>
+        <div class="arrow">&rarr;</div>
+        <div class="step them"><div class="n">YOU</div><div class="t">Sign &amp; POST</div><div class="d">HMAC-SHA256 over the body, signature in a header</div></div>
+        <div class="arrow">&rarr;</div>
+        <div class="step us"><div class="n">US</div><div class="t">Verify</div><div class="d">Look up the customer by header, recompute the signature; reject if it doesn't match</div></div>
+        <div class="arrow">&rarr;</div>
+        <div class="step us"><div class="n">US</div><div class="t">Ack + process</div><div class="d">Return 200 immediately, then capture images from the on-site cameras</div></div>
+      </div>
+      <div class="callout why"><b>Why a signature and not a login?</b> A webhook is server-to-server — there's no user session to authenticate. The shared secret proves both <em>origin</em> (only you and we hold it) and <em>integrity</em> (any change to the body breaks the signature), without ever putting a credential on the wire.</div>
+    </div>
+  </details>
+
+  <!-- THE PAYLOAD -->
+  <details class="spec" id="contract">
+    <summary>The payload</summary>
+    <h2 style="display:none"><span class="num">2</span> The payload we expect</h2>
+    <p class="lede">One JSON object per created ticket. The six required fields are top-level; any additional ticket fields go in a <code class="inline">data</code> object (key/value JSON), which we store and return as-is.</p>
+    <div class="card">
+<pre class="code">{
+  <span class="k">"guid"</span>:         <span class="s">"123e4567-e89b-12d3-a456-426614174000"</span>,   <span class="c">// per-delivery id</span>
+  <span class="k">"ticket"</span>:       <span class="s">"1001"</span>,                  <span class="c">// ticket number</span>
+  <span class="k">"locationId"</span>:   <span class="s">"site-123"</span>,               <span class="c">// site / plant — routes to the right location</span>
+  <span class="k">"locationName"</span>: <span class="s">"North Plant"</span>,            <span class="c">// display only</span>
+  <span class="k">"scale"</span>:        <span class="s">"2"</span>,                     <span class="c">// scale / lane</span>
+  <span class="k">"timestamp"</span>:    <span class="s">"2026-08-11T14:03:22Z"</span>,    <span class="c">// when the ticket was created (ISO-8601 UTC)</span>
+  <span class="k">"data"</span>: {                            <span class="c">// optional — additional ticket fields, key/value JSON</span>
+    <span class="k">"truck"</span>: <span class="s">"T-14"</span>, <span class="k">"material"</span>: <span class="s">"57 stone"</span>, <span class="k">"netWeight"</span>: <span class="s">42980</span>
+  }
+}</pre>
+      <table class="data">
+        <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>guid</code></td><td>The per-delivery id — <b>constant across retries</b> of the same delivery. This is what we de-duplicate on, so send the same <code>guid</code> when you retry.</td></tr>
+          <tr><td><code>ticket</code></td><td>The ticket number — indexed for search, and the anchor we key the on-site camera images to.</td></tr>
+          <tr><td><code>locationId</code></td><td>Which site/plant — how we route the event to the right location.</td></tr>
+          <tr><td><code>locationName</code></td><td>Display only.</td></tr>
+          <tr><td><code>scale</code></td><td>Which scale/lane at that site.</td></tr>
+          <tr><td><code>timestamp</code></td><td>When the ticket was created (ISO-8601 UTC).</td></tr>
+          <tr><td><code>data</code></td><td>Optional. Any additional ticket fields, as a key/value JSON object — stored and returned as-is, never parsed. Keeps your custom fields from colliding with the reserved ones.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout note"><b>Create-only.</b> Every delivery represents a newly created ticket, so there is no <code class="inline">type</code> field and no separate update or delete events.</div>
+    </div>
+  </details>
+
+  <!-- AUTH -->
+  <details class="spec" id="auth">
+    <summary>Signing</summary>
+    <h2 style="display:none"><span class="num">3</span> Signing</h2>
+    <p class="lede">Sign each request with HMAC-SHA256 using the <a href="https://www.standardwebhooks.com" target="_blank" rel="noopener" style="color:var(--indigo)">Standard Webhooks</a> scheme. The headers and steps below are what our endpoint verifies.</p>
+
+    <div class="card">
+      <h3>Identifying the customer</h3>
+      <p>Every customer posts to the <b>same URL</b> — <code class="inline">POST /sw/webhooks/cc</code>. You tell us which customer a delivery belongs to with a single request header:</p>
+      <div class="kv">
+        <dt>Header</dt><dd><code>Dividia-Customer-Id: &lt;uuid&gt;</code> — the customer's public id.</dd>
+        <dt>Who mints it</dt><dd>We do — we generate the customer id (and that customer's signing secret) and send them to you securely.</dd>
+        <dt>How we use it</dt><dd>We look up the customer by this header to know which secret to verify the signature with. Nothing customer-specific goes in the URL.</dd>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>The shared secret</h3>
+      <p>A random string both sides hold. It <b>never travels over the wire</b>; only the signature derived from it does. Format is <code class="inline">whsec_</code> followed by a base64 value, e.g. <code class="inline">whsec_c2VjcmV0LWtleS4uLg==</code>.</p>
+      <div class="kv">
+        <dt>Scope</dt><dd>One secret per customer.</dd>
+        <dt>Who mints it</dt><dd>We do — we generate the secret per customer and send it to you securely (along with that customer's <code>Dividia-Customer-Id</code>).</dd>
+        <dt>Rotation</dt><dd>Coordinated out-of-band (an email or a shared secrets vault — there's no auto-notify). During a changeover we accept both your current and new secret, so you can switch your sender over without dropping deliveries.</dd>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>How a request is signed (3 steps)</h3>
+      <p>For each POST you send three signing headers and sign a specific string:</p>
+<pre class="code"><span class="c">// 1. Build the "signed content" string:  id . timestamp . rawBody</span>
+signedContent = <span class="s">"{webhook-id}"</span> + <span class="s">"."</span> + <span class="s">"{webhook-timestamp}"</span> + <span class="s">"."</span> + rawRequestBody
+
+<span class="c">// 2. HMAC-SHA256 it with the base64-decoded secret, then base64 the result</span>
+secretBytes = base64_decode( secret without the <span class="s">"whsec_"</span> prefix )
+signature   = base64( HMAC_SHA256( secretBytes, signedContent ) )
+
+<span class="c">// 3. Send these headers (signature is prefixed with the version "v1,")</span>
+<span class="h">webhook-id</span>:        msg_2f8a...        <span class="c">// your unique delivery id</span>
+<span class="h">webhook-timestamp</span>: 1754838245        <span class="c">// unix seconds</span>
+<span class="h">webhook-signature</span>: v1,g30x... </pre>
+      <div class="callout why"><b>Why sign <code class="inline">id.timestamp.body</code> and not just the body?</b> Binding the <em>timestamp</em> into the signature is what enables replay protection — we reject anything whose timestamp is outside a &plusmn;5&nbsp;minute window, so a captured request can't be replayed later. Binding the <em>id</em> lets us de-duplicate retries safely.</div>
+      <div class="callout note"><b>We verify over the exact raw bytes</b> you sent — so serialize your JSON once and sign that exact string. Re-serializing (different key order or spacing) after signing will change the bytes and break verification.</div>
+    </div>
+  </details>
+
+  <!-- RESPONSES -->
+  <details class="spec" id="responses">
+    <summary>Responses</summary>
+    <h2 style="display:none"><span class="num">5</span> What our responses mean</h2>
+    <div class="card">
+      <table class="data">
+        <thead><tr><th>Status</th><th>Meaning</th><th>Should you retry?</th></tr></thead>
+        <tbody>
+          <tr><td><b>200</b> <code>delivered</code> / <code>accepted</code></td><td>Verified and accepted.</td><td>No</td></tr>
+          <tr><td><b>200</b> <code>duplicate</code></td><td>We've already processed this delivery id — safely ignored.</td><td>No</td></tr>
+          <tr><td><b>401</b></td><td>Missing headers, unknown <code>Dividia-Customer-Id</code>, bad signature, or a timestamp outside the &plusmn;5&nbsp;min window.</td><td>Yes (fix header / signing / clock)</td></tr>
+          <tr><td><b>429</b></td><td>Rate limited.</td><td>Yes, after a short backoff</td></tr>
+          <tr><td><b>5xx</b></td><td>Our side had a problem.</td><td>Yes</td></tr>
+        </tbody>
+      </table>
+      <div class="callout why"><b>Why we ack 200 fast, then process:</b> we verify and immediately return 200 so your delivery queue doesn't back up, then do the heavier work (storage, on-site image capture) afterward. Send <b>at-least-once with retries</b> on any non-2xx — our de-duplication makes the occasional duplicate harmless.</div>
+    </div>
+  </details>
+
+  <!-- INTAKE -->
+  <details class="spec" id="intake">
+    <summary>What we do</summary>
+    <h2 style="display:none"><span class="num">6</span> What happens on our end</h2>
+    <div class="card">
+      <ul class="clean">
+        <li><span class="num-badge">1</span><div><b>Identify</b> the customer from the <code class="inline">Dividia-Customer-Id</code> header, then <b>verify</b> the signature over the raw body with that customer's secret. Anything that fails is rejected with a 401 before we touch a database.</div></li>
+        <li><span class="num-badge">2</span><div><b>De-duplicate</b> on the delivery id, so retries are safe.</div></li>
+        <li><span class="num-badge">3</span><div><b>Store</b> the ticket against the customer and site.</div></li>
+        <li><span class="num-badge">4</span><div><b>Capture</b> images from the configured on-site cameras at that location and scale, keyed to the <code class="inline">ticket</code> number.</div></li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- WHAT WE NEED -->
+  <details class="spec" id="need">
+    <summary>What we need</summary>
+    <h2 style="display:none"><span class="num">7</span> What we need from you to go live</h2>
+    <p class="lede">What we need to configure your integration:</p>
+    <div class="card">
+      <ul class="clean">
+        <li><span class="num-badge">1</span><div><b>Confirm your sender can do the above</b> — POST to the single <code class="inline">/sw/webhooks/cc</code> URL, send the <code class="inline">Dividia-Customer-Id</code> header, and sign with the Standard Webhooks HMAC-SHA256 headers.</div></li>
+        <li><span class="num-badge">2</span><div><b>Delivery &amp; retries</b> — at-least-once with retries on non-2xx is ideal; send the same <code class="inline">guid</code> on retries so our de-duplication works.</div></li>
+        <li><span class="num-badge">3</span><div><b>(Optional)</b> your sender's source IPs, if you'd like us to allowlist them for extra defense.</div></li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- REFERENCE -->
+  <details class="spec" id="reference">
+    <summary>Reference sender</summary>
+    <h2 style="display:none"><span class="num">8</span> Reference sender</h2>
+    <p class="lede">Copy-paste signer you can run from a terminal or your backend once we've exchanged a customer id and secret. This produces the same output as the tester above.</p>
+    <div class="card">
+      <h3>Node.js</h3>
+<pre class="code"><span class="k">const</span> crypto = require(<span class="s">'crypto'</span>);
+
+<span class="k">const</span> SECRET = <span class="s">'whsec_...'</span>;                 <span class="c">// the shared secret we exchanged</span>
+<span class="k">const</span> CUSTOMER_ID = <span class="s">'123e4567-e89b-12d3-a456-426614174000'</span>;   <span class="c">// your Dividia-Customer-Id</span>
+<span class="k">const</span> URL_ = <span class="s">'https://api.cloud.dividia.net/sw/webhooks/cc'</span>;      <span class="c">// same URL for every customer</span>
+
+<span class="k">const</span> body = JSON.stringify({
+  guid: crypto.randomUUID(),
+  ticket: <span class="s">'1001'</span>,
+  locationId: <span class="s">'site-123'</span>,
+  locationName: <span class="s">'North Plant'</span>,
+  scale: <span class="s">'2'</span>,
+  timestamp: <span class="k">new</span> Date().toISOString()
+});
+
+<span class="k">const</span> id = <span class="s">'msg_'</span> + Date.now();
+<span class="k">const</span> ts = Math.floor(Date.now() / <span class="s">1000</span>).toString();
+<span class="k">const</span> secretBytes = Buffer.from(SECRET.replace(<span class="s">'whsec_'</span>, <span class="s">''</span>), <span class="s">'base64'</span>);
+<span class="k">const</span> signature = crypto.createHmac(<span class="s">'sha256'</span>, secretBytes)
+                       .update(<span class="s">`${id}.${ts}.${body}`</span>).digest(<span class="s">'base64'</span>);
+
+fetch(URL_, { method: <span class="s">'POST'</span>, headers: {
+  <span class="s">'Content-Type'</span>: <span class="s">'application/json'</span>,
+  <span class="s">'Dividia-Customer-Id'</span>: CUSTOMER_ID,
+  <span class="s">'webhook-id'</span>: id, <span class="s">'webhook-timestamp'</span>: ts, <span class="s">'webhook-signature'</span>: <span class="s">`v1,${signature}`</span>
+}, body });</pre>
+      <h3 style="margin-top:16px">Python</h3>
+<pre class="code"><span class="k">import</span> hmac, hashlib, base64, time, json, uuid, urllib.request
+
+SECRET = <span class="s">'whsec_...'</span>
+CUSTOMER_ID = <span class="s">'123e4567-e89b-12d3-a456-426614174000'</span>
+URL_ = <span class="s">'https://api.cloud.dividia.net/sw/webhooks/cc'</span>
+
+body = json.dumps({<span class="s">'guid'</span>: str(uuid.uuid4()),
+  <span class="s">'ticket'</span>: <span class="s">'1001'</span>, <span class="s">'locationId'</span>: <span class="s">'site-123'</span>,
+  <span class="s">'locationName'</span>: <span class="s">'North Plant'</span>, <span class="s">'scale'</span>: <span class="s">'2'</span>,
+  <span class="s">'timestamp'</span>: <span class="s">'2026-08-11T14:03:22Z'</span>})
+
+mid = <span class="s">'msg_'</span> + str(int(time.time()*<span class="s">1000</span>))
+ts  = str(int(time.time()))
+secret_bytes = base64.b64decode(SECRET.split(<span class="s">'_'</span>,<span class="s">1</span>)[<span class="s">1</span>])
+sig = base64.b64encode(hmac.new(secret_bytes, <span class="s">f"{mid}.{ts}.{body}"</span>.encode(), hashlib.sha256).digest()).decode()
+
+req = urllib.request.Request(URL_,
+  data=body.encode(), headers={<span class="s">'Content-Type'</span>:<span class="s">'application/json'</span>,
+  <span class="s">'Dividia-Customer-Id'</span>: CUSTOMER_ID,
+  <span class="s">'webhook-id'</span>:mid, <span class="s">'webhook-timestamp'</span>:ts, <span class="s">'webhook-signature'</span>:<span class="s">f'v1,{sig}'</span>})
+urllib.request.urlopen(req)</pre>
+    </div>
+  </details>
+
+  <footer class="page">
+    Command Cloud &rarr; Dividia webhook integration guide &amp; tester · signing scheme: Standard Webhooks HMAC-SHA256 · questions: support@dividia.net
+  </footer>
+</div>
+
+<script>
+(function(){
+  var seenIds = {};              // session dedup memory
+  function $(id){ return document.getElementById(id); }
+  function enc(s){ return new TextEncoder().encode(s); }
+  function b64ToBytes(b64){
+    var bin = atob(b64); var out = new Uint8Array(bin.length);
+    for (var i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+    return out;
+  }
+  function bytesToB64(bytes){
+    var bin=''; for (var i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function secretKeyBytes(){
+    var s = $('secret').value.trim().replace(/^whsec_/, '');
+    return b64ToBytes(s);
+  }
+
+  // --- Signing: SubtleCrypto (Web Crypto) HMAC-SHA256, byte-for-byte identical
+  //     to what the svix library computes on our server over {id}.{ts}.{body}. ---
+  async function hmacSubtle(message){
+    var keyBytes = secretKeyBytes();
+    var key = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+    var sigBuf = await crypto.subtle.sign('HMAC', key, enc(message));
+    return bytesToB64(new Uint8Array(sigBuf));
+  }
+
+  // Pure-JS SHA-256 + HMAC fallback — used only if Web Crypto is unavailable
+  // (e.g. some file:// contexts). Produces the identical signature.
+  function sha256bytes(bytes){
+    var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    var h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    function rotr(x,n){ return (x>>>n)|(x<<(32-n)); }
+    var l=bytes.length, bitLen=l*8, withOne=l+1;
+    var k=(56-(withOne%64)+64)%64, total=withOne+k+8;
+    var m=new Uint8Array(total); m.set(bytes,0); m[l]=0x80;
+    var hi=Math.floor(bitLen/0x100000000), lo=bitLen>>>0;
+    m[total-8]=(hi>>>24)&255;m[total-7]=(hi>>>16)&255;m[total-6]=(hi>>>8)&255;m[total-5]=hi&255;
+    m[total-4]=(lo>>>24)&255;m[total-3]=(lo>>>16)&255;m[total-2]=(lo>>>8)&255;m[total-1]=lo&255;
+    var w=new Array(64);
+    for(var i=0;i<total;i+=64){
+      for(var t=0;t<16;t++) w[t]=(m[i+t*4]<<24)|(m[i+t*4+1]<<16)|(m[i+t*4+2]<<8)|(m[i+t*4+3]);
+      for(t=16;t<64;t++){
+        var s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);
+        var s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);
+        w[t]=(w[t-16]+s0+w[t-7]+s1)|0;
+      }
+      var a=h[0],b=h[1],c=h[2],d=h[3],e=h[4],f=h[5],g=h[6],hh=h[7];
+      for(t=0;t<64;t++){
+        var S1=rotr(e,6)^rotr(e,11)^rotr(e,25), ch=(e&f)^((~e)&g);
+        var t1=(hh+S1+ch+K[t]+w[t])|0;
+        var S0=rotr(a,2)^rotr(a,13)^rotr(a,22), maj=(a&b)^(a&c)^(b&c);
+        var t2=(S0+maj)|0;
+        hh=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+      }
+      h[0]=(h[0]+a)|0;h[1]=(h[1]+b)|0;h[2]=(h[2]+c)|0;h[3]=(h[3]+d)|0;
+      h[4]=(h[4]+e)|0;h[5]=(h[5]+f)|0;h[6]=(h[6]+g)|0;h[7]=(h[7]+hh)|0;
+    }
+    var out=new Uint8Array(32);
+    for(i=0;i<8;i++){ out[i*4]=(h[i]>>>24)&255;out[i*4+1]=(h[i]>>>16)&255;out[i*4+2]=(h[i]>>>8)&255;out[i*4+3]=h[i]&255; }
+    return out;
+  }
+  function concat(a,b){ var o=new Uint8Array(a.length+b.length); o.set(a,0); o.set(b,a.length); return o; }
+  function hmacSha256(keyBytes,msgBytes){
+    var bs=64, key=keyBytes;
+    if(key.length>bs) key=sha256bytes(key);
+    var kp=new Uint8Array(bs); kp.set(key,0);
+    var ip=new Uint8Array(bs), op=new Uint8Array(bs);
+    for(var i=0;i<bs;i++){ ip[i]=kp[i]^0x36; op[i]=kp[i]^0x5c; }
+    return sha256bytes(concat(op, sha256bytes(concat(ip,msgBytes))));
+  }
+  // Sign {id}.{ts}.{body} — prefers Web Crypto, falls back to pure JS.
+  async function hmac(message){
+    if (window.crypto && window.crypto.subtle && window.crypto.subtle.importKey){
+      try { return await hmacSubtle(message); } catch(e){ /* fall through */ }
+    }
+    return bytesToB64(hmacSha256(secretKeyBytes(), enc(message)));
+  }
+
+  function nowTs(){ return Math.floor(Date.now()/1000).toString(); }
+  function nowIso(){ return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'); }
+  function newId(){ return 'msg_' + Math.random().toString(36).slice(2,12); }
+  function newGuid(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+      var r = (Math.random()*16)|0, v = c==='x' ? r : (r&0x3|0x8);
+      return v.toString(16);
+    });
+  }
+  var lastSigned = null;   // { id, ts, body, signature }
+
+  // Build the create-only payload. Required fields are top-level; any Additional
+  // data (valid JSON) rides in a `data` object. JSON.parse throws on invalid
+  // input — callers (doSign/doVerify) catch it and show a clear message.
+  function buildPayload(){
+    var p = {
+      guid: $('fGuid').value,
+      ticket: $('fTicket').value,
+      locationId: $('fLocationId').value,
+      locationName: $('fLocationName').value,
+      scale: $('fScale').value,
+      timestamp: $('fTimestamp').value
+    };
+    var raw = ($('fData').value || '').trim();
+    if (raw) p.data = JSON.parse(raw);
+    return p;
+  }
+
+  window.resetIds = function(){ $('whId').value = newId(); $('whTs').value = nowTs(); };
+  window.regenGuid = function(){ $('fGuid').value = newGuid(); };
+  window.oldTs = function(){ $('whTs').value = (parseInt(nowTs(),10) - 3600).toString(); esc('verOut','<span class="warnc">Timestamp set to 1 hour ago. Re-sign, then Verify to see replay rejection.</span>'); };
+  window.tamper = function(){
+    // Bump the scale AFTER signing without re-signing, to show the signature fail.
+    var v = parseInt($('fScale').value,10); if(isNaN(v)) v=0;
+    $('fScale').value = (v+9).toString();
+    esc('verOut','<span class="warnc">Body changed AFTER signing (scale bumped). Click Verify (do not re-sign) to see the signature fail.</span>');
+  };
+  window.resetAll = function(){ location.reload(); };
+
+  // Any in-page link (#...) — nav OR body prose — opens the section it points at
+  // (when it's a collapsible) and scrolls to it, rather than doing a dead jump.
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var href = a.getAttribute('href');
+      if (!href || href === '#') return;
+      var el = document.querySelector(href);
+      if (!el) return;
+      if (el.tagName === 'DETAILS') el.open = true;
+      var d = el.closest('details'); if (d) d.open = true;   // if the target sits inside one
+      e.preventDefault();
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      history.replaceState(null, '', href);
+    });
+  });
+
+  function esc(id,html){ $(id).innerHTML = html; }
+  function escapeHtml(s){ return s.replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+
+  window.doSign = async function(){
+    try{
+      if(!$('fGuid').value) $('fGuid').value = newGuid();
+      if(!$('fTimestamp').value) $('fTimestamp').value = nowIso();
+      if(!$('whId').value) $('whId').value = newId();
+      if(!$('whTs').value) $('whTs').value = nowTs();
+
+      var id=$('whId').value, ts=$('whTs').value;
+      var body;
+      try{ body = JSON.stringify(buildPayload()); }
+      catch(e){ esc('reqOut','<span class="fail">Additional data is not valid JSON.</span>'); return; }
+      var custId = $('customerId').value;
+      var signature;
+      try{ signature = await hmac(id+'.'+ts+'.'+body); }
+      catch(e){ esc('reqOut','<span class="fail">Secret is not valid base64 after the whsec_ prefix.</span>'); return; }
+      lastSigned = { id:id, ts:ts, body:body, signature:signature };
+
+      var base = ($('baseUrl').value || '').replace(/\/+$/,'');
+      var host = base.replace(/^https?:\/\//,'') || 'api.cloud.dividia.net';
+      var out =
+        '<span class="hl">POST</span> ' + escapeHtml(base) + '/sw/webhooks/cc  HTTP/1.1\n' +
+        'Host: ' + escapeHtml(host) + '\n' +
+        'Content-Type: application/json\n' +
+        '<span class="hl">Dividia-Customer-Id</span>: ' + escapeHtml(custId) + '\n' +
+        '<span class="hl">webhook-id</span>: ' + escapeHtml(id) + '\n' +
+        '<span class="hl">webhook-timestamp</span>: ' + escapeHtml(ts) + '\n' +
+        '<span class="hl">webhook-signature</span>: v1,' + escapeHtml(signature) + '\n\n' +
+        escapeHtml(body);
+      esc('reqOut', out);
+      esc('verOut','<span class="dim">Signed. Now click "Verify (simulate our endpoint)".</span>');
+    }catch(e){ esc('reqOut','<span class="fail">Error: '+escapeHtml(String(e))+'</span>'); }
+  };
+
+  window.doVerify = async function(){
+    var log = [];
+    function step(ok,label){ log.push('<span class="'+(ok?'pass':'fail')+'">'+(ok?'✓':'✗')+'</span> '+label); }
+    var id=$('whId').value, ts=$('whTs').value;
+    var body;
+    try{ body = JSON.stringify(buildPayload()); }   // recompute from CURRENT fields
+    catch(e){ esc('verOut','<span class="fail">Additional data is not valid JSON.</span>'); return; }
+    var custId = $('customerId').value;
+
+    // 1. customer header + signature headers present
+    if(!custId){ esc('verOut','<span class="fail">401</span> Missing Dividia-Customer-Id header — set a customer id.'); return; }
+    if(!id || !ts || !lastSigned){ esc('verOut','<span class="fail">401</span> Missing signature headers — click "Sign & build request" first.'); return; }
+    step(true,'Dividia-Customer-Id present ('+escapeHtml(custId)+')');
+    step(true,'Signature headers present');
+
+    // 2. signature matches CURRENT body (recompute over {id}.{ts}.{body})
+    var expected;
+    try{ expected = await hmac(id+'.'+ts+'.'+body); }
+    catch(e){ esc('verOut','<span class="fail">Secret is not valid base64.</span>'); return; }
+    var sigMatches = (expected === lastSigned.signature) && (body === lastSigned.body) && (id===lastSigned.id) && (ts===lastSigned.ts);
+    step(sigMatches,'HMAC-SHA256 signature valid over the raw body');
+    if(!sigMatches){
+      log.push('<span class="dim">   the body/headers changed after signing, so the recomputed signature no longer matches</span>');
+      finish('401','Invalid webhook signature'); return;
+    }
+
+    // 3. timestamp window (+/- 5 min)
+    var skew = Math.abs(Math.floor(Date.now()/1000) - parseInt(ts,10));
+    var tsOk = skew <= 300;
+    step(tsOk,'Timestamp within ±5 min window ('+skew+'s skew)');
+    if(!tsOk){ finish('401','Timestamp outside tolerance (replay rejected)'); return; }
+
+    // 4. parse the body
+    var obj;
+    try{ obj = JSON.parse(body); }
+    catch(e){ finish('400','Body is not valid JSON'); return; }
+    // create-only integration: no event type to check
+
+    // 5. de-duplicate on the payload guid (constant across retries)
+    var dedupKey = obj.guid || id;
+    if(seenIds[dedupKey]){ step(true,'guid seen before'); finish('200','duplicate (already processed — ignored)'); return; }
+    step(true,'guid is new ('+escapeHtml(String(obj.guid||'(none)'))+')');
+
+    // 6. routing (flat payload)
+    if(!obj.locationId){ finish('200','failed (no locationId / routing target in payload)'); return; }
+    step(true,'Routing target present (locationId '+escapeHtml(String(obj.locationId))+', scale '+escapeHtml(String(obj.scale||''))+')');
+
+    seenIds[dedupKey] = true;
+    finish('200','accepted — stored & queued for on-site image capture (ticket '+escapeHtml(String(obj.ticket||''))+')');
+
+    function finish(code,msg){
+      var cls = code[0]==='2' ? 'pass' : (code[0]==='4' ? 'warnc':'fail');
+      var head = '<span class="'+cls+'">HTTP '+code+'</span>  ' + escapeHtml(msg) + '\n\n';
+      esc('verOut', head + log.join('\n'));
+    }
+  };
+
+  // init
+  regenGuid();
+  $('fTimestamp').value = nowIso();
+  resetIds();
+})();
+</script>
