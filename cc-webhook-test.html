@@ -343,14 +343,16 @@ signature   = base64( HMAC_SHA256( secretBytes, signedContent ) )
       <table class="data">
         <thead><tr><th>Status</th><th>Meaning</th><th>Should you retry?</th></tr></thead>
         <tbody>
-          <tr><td><b>200</b> <code>delivered</code> / <code>accepted</code></td><td>Verified and accepted.</td><td>No</td></tr>
-          <tr><td><b>200</b> <code>duplicate</code></td><td>We've already processed this delivery id — safely ignored.</td><td>No</td></tr>
-          <tr><td><b>401</b></td><td>Missing headers, unknown <code>Dividia-Customer-Id</code>, bad signature, or a timestamp outside the &plusmn;5&nbsp;min window.</td><td>Yes (fix header / signing / clock)</td></tr>
+          <tr><td><b>200</b> <code>delivered</code> / <code>accepted</code></td><td>Verified and accepted; forwarded to the on-site NVR.</td><td>No</td></tr>
+          <tr><td><b>200</b> <code>fallback</code></td><td>Verified and stored. The NVR was offline, so we saved it as a cloud-only transaction.</td><td>No</td></tr>
+          <tr><td><b>200</b> <code>duplicate</code></td><td>We've already processed this <code>guid</code> — safely ignored.</td><td>No</td></tr>
+          <tr><td><b>200</b> <code>failed</code></td><td>Verified, but the <code>locationId</code> didn't match a site we've mapped for you, so nothing was routed.</td><td>No — fix the <code>locationId</code></td></tr>
+          <tr><td><b>401</b></td><td>Missing headers, unknown <code>Dividia-Customer-Id</code>, bad signature, or a timestamp outside the &plusmn;5&nbsp;min window.</td><td>No — fix signing / headers / clock</td></tr>
           <tr><td><b>429</b></td><td>Rate limited.</td><td>Yes, after a short backoff</td></tr>
-          <tr><td><b>5xx</b></td><td>Our side had a problem.</td><td>Yes</td></tr>
+          <tr><td><b>5xx</b></td><td>A transient problem on our side.</td><td>Yes</td></tr>
         </tbody>
       </table>
-      <div class="callout why"><b>Why we ack 200 fast, then process:</b> we verify and immediately return 200 so your delivery queue doesn't back up, then do the heavier work (storage, on-site image capture) afterward. Send <b>at-least-once with retries</b> on any non-2xx — our de-duplication makes the occasional duplicate harmless.</div>
+      <div class="callout why"><b>A 200 means we received and verified your request &mdash; read the <code class="inline">status</code> field for the outcome.</b> <code class="inline">delivered</code> and <code class="inline">fallback</code> are stored; <code class="inline">duplicate</code> is ignored; <code class="inline">failed</code> means we couldn't route it (almost always a <code class="inline">locationId</code> we haven't mapped yet). We ack fast, then do the heavier work (storage, on-site image capture) so your queue doesn't back up. <b>Retry only on 429 and 5xx</b> &mdash; those are the transient ones; our de-duplication on <code class="inline">guid</code> makes an occasional duplicate harmless.</div>
     </div>
   </details>
 
