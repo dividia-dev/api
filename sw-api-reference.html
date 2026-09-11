@@ -178,13 +178,15 @@
                     <li><a href="#auth">POST /sw/api/auth</a> - Authenticate</li>
                     <li><a href="#sites">GET /sw/api/sites</a> - Get Sites</li>
                     <li><a href="#transactions">GET /sw/api/transactions</a> - Get Transactions</li>
-                    <li><a href="#transactions-stats">GET /sw/api/transactions/stats</a> - Get Statistics</li>
+                    <li><a href="#transactions-metrics">GET /sw/api/transactions/metrics</a> - Aggregate Metrics</li>
+                    <li><a href="#transactions-pdf">GET /sw/api/transactions/pdf</a> - Transaction PDFs</li>
                     <li><a href="#events">GET /sw/api/events</a> - Get Events</li>
-                    <li><a href="#events-tickets">GET /sw/api/events/tickets</a> - Get Tickets</li>
+                    <li><a href="#events-types">GET /sw/api/events/types</a> - Distinct Event Types</li>
+                    <li><a href="#events-keys">GET /sw/api/events/keys</a> - Distinct Metadata Keys</li>
                     <li><a href="#alerts">GET /sw/api/alerts</a> - Get Alerts</li>
-                    <!-- <li><a href="#users">GET /sw/api/users</a> - Get Users</li> -->
                 </ul>
             </li>
+            <li><a href="#cc-identifiers">Command Cloud identifiers (scaleId, locationId)</a></li>
             <li><a href="#response-format">Response Format</a></li>
             <li><a href="#error-handling">Error Handling</a></li>
         </ul>
@@ -202,7 +204,7 @@
     <ol>
         <li><strong>Authenticate</strong> - POST to <code>/sw/api/auth</code> with your email and password</li>
         <li><strong>Get your token</strong> - The response includes a JWT token valid for 30 days</li>
-        <li><strong>Select a site</strong> - Use the <code>bSerial</code> from your available sites</li>
+        <li><strong>Select a site</strong> - Use the <code>serial</code> from your available sites</li>
         <li><strong>Make requests</strong> - Include the token in the <code>Authorization</code> header</li>
     </ol>
 
@@ -251,12 +253,14 @@ Content-Type: application/json
     <p>To ensure fair usage and system stability, the following rate limits apply:</p>
 
     <table>
-        <tr><th>Limit Type</th><th>Value</th><th>Description</th></tr>
-        <tr><td>Per IP Address</td><td>60 requests/minute</td><td>Requests from a single IP address</td></tr>
-        <tr><td>Per Site Serial</td><td>60 requests/minute</td><td>Requests for a single site</td></tr>
-        <tr><td>Duplicate Prevention</td><td>10 seconds</td><td>Identical requests blocked within window</td></tr>
-        <tr><td>Query String Length</td><td>2000 characters</td><td>Maximum URL query string length</td></tr>
-        <tr><td>Response Limit</td><td>50,000 rows</td><td>Maximum rows returned per request</td></tr>
+        <tr><th>Limit</th><th>Cap</th><th>Window</th><th>Scope</th></tr>
+        <tr><td>Authentication (<code>POST /sw/api/auth</code>)</td><td>10 requests</td><td>15 min</td><td>per IP</td></tr>
+        <tr><td>General API (authenticated)</td><td>1,000 requests</td><td>15 min</td><td>per IP</td></tr>
+        <tr><td>Per (user, site)</td><td>60 requests</td><td>1 min</td><td>per (user, site) &mdash; each serial in a multi-site request counts independently</td></tr>
+        <tr><td>Per site (all users)</td><td>60 requests</td><td>1 min</td><td>per site &mdash; each serial counts independently</td></tr>
+        <tr><td>Duplicate-request guard</td><td>identical params</td><td>10 sec</td><td>per (user, site) &mdash; returns <code>429</code> "Duplicate request"</td></tr>
+        <tr><td>Query string length</td><td>4,096 chars</td><td>&mdash;</td><td>exceeding returns <code>413 PayloadTooLarge</code></td></tr>
+        <tr><td>Page size</td><td>1,000 rows (max)</td><td>&mdash;</td><td>default 100; a larger <code>pageSize</code> clamps to 1,000</td></tr>
     </table>
 
     <div class="info-box warning">
@@ -316,9 +320,11 @@ Content-Type: application/json
             <table>
                 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
                 <tr><td><code>id</code></td><td>integer</td><td>Internal site ID</td></tr>
-                <tr><td><code>sName</code></td><td>string</td><td>Site name</td></tr>
-                <tr><td><code>bSerial</code></td><td>integer</td><td>Site serial number (use this for API calls)</td></tr>
-                <tr><td><code>sParentName</code></td><td>string</td><td>Parent organization name</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>Site name</td></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td>Site serial number (use this for API calls)</td></tr>
+                <tr><td><code>customerType</code></td><td>string</td><td><code>truck</code>, <code>lpn</code>, or <code>facility</code></td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code>; <code>null</code> for non-Command sites. See <a href="#cc-identifiers">Command Cloud identifiers</a>.</td></tr>
+                <tr><td><code>parentName</code></td><td>string</td><td>Parent organization name</td></tr>
             </table>
 
             <h4>Example</h4>
@@ -345,23 +351,28 @@ Content-Type: application/json
             <h4>Optional Filters</h4>
             <table>
                 <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
-                <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD, site's local timezone)</td></tr>
-                <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD, site's local timezone)</td></tr>
-                <tr><td><code>scale</code></td><td>integer</td><td>Filter by scale number</td></tr>
-                <tr><td><code>lpn</code></td><td>string</td><td>Filter by license plate number</td></tr>
-                <tr><td><code>ticket</code></td><td>integer</td><td>Filter by ticket number</td></tr>
-                <tr><td><code>tag</code></td><td>string</td><td>Filter by vehicle type tag: <code>truck</code>, <code>car</code>, <code>other</code>, <code>pending</code></td></tr>
-                <tr><td><code>incomplete</code></td><td>0|1</td><td>Filter by incomplete/hidden status</td></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Internal transaction id</td></tr>
+                <tr><td><code>date</code></td><td>date</td><td>Exact day (YYYY-MM-DD, site's local timezone)</td></tr>
+                <tr><td><code>startDate</code></td><td>date</td><td>Inclusive lower bound (YYYY-MM-DD, site's local timezone)</td></tr>
+                <tr><td><code>endDate</code></td><td>date</td><td>Inclusive upper bound (YYYY-MM-DD, site's local timezone)</td></tr>
+                <tr><td><code>since</code></td><td>ISO 8601</td><td>Exclusive lower bound on <code>timestamp</code> (incremental polling; needs a timezone designator)</td></tr>
+                <tr><td><code>scale</code></td><td>integer</td><td>Physical lane number</td></tr>
+                <tr><td><code>scaleId</code></td><td>string</td><td>Command Cloud scale id (byte-exact). See <a href="#cc-identifiers">Command Cloud identifiers</a>.</td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code>. See <a href="#cc-identifiers">Command Cloud identifiers</a>.</td></tr>
+                <tr><td><code>lpn</code></td><td>string</td><td>License plate number</td></tr>
+                <tr><td><code>truck</code></td><td>string</td><td>Truck identifier</td></tr>
+                <tr><td><code>ticket</code></td><td>integer</td><td>Ticket number (numeric filter; the field is returned as a string)</td></tr>
                 <tr><td><code>includeEvents</code></td><td>0|1</td><td>Include related events in response</td></tr>
                 <tr><td><code>includeAlerts</code></td><td>0|1</td><td>Include related alerts in response</td></tr>
+                <tr><td><em>any other key</em></td><td>string</td><td>Pass-through filter matched against linked events' metadata (e.g. <code>customer=ACME</code>, <code>product=Sand</code>)</td></tr>
             </table>
 
             <h4>Pagination & Sorting</h4>
             <table>
                 <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
                 <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
-                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 (max) if not specified.</td></tr>
-                <tr><td><code>orderBy</code></td><td>string</td><td>dTimestamp</td><td>Sort field</td></tr>
+                <tr><td><code>pageSize</code></td><td>integer</td><td>100</td><td>Results per page. Default 100; max 1,000 (a larger value clamps to 1,000).</td></tr>
+                <tr><td><code>orderBy</code></td><td>string</td><td>timestamp</td><td>Sort field (use a documented filter name, not a raw column)</td></tr>
                 <tr><td><code>orderDir</code></td><td>ASC|DESC</td><td>ASC</td><td>Sort direction</td></tr>
             </table>
 
@@ -369,19 +380,21 @@ Content-Type: application/json
             <table>
                 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
                 <tr><td><code>id</code></td><td>integer</td><td>Transaction ID</td></tr>
-                <tr><td><code>bSerial</code></td><td>integer</td><td>Site serial</td></tr>
-                <tr><td><code>bScale</code></td><td>integer</td><td>Scale number</td></tr>
-                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Transaction timestamp (local timezone)</td></tr>
-                <tr><td><code>dStart</code></td><td>datetime</td><td>Transaction start time</td></tr>
-                <tr><td><code>dEnd</code></td><td>datetime</td><td>Transaction end time</td></tr>
-                <tr><td><code>sLpn</code></td><td>string</td><td>License plate number</td></tr>
-                <tr><td><code>sTruck</code></td><td>string</td><td>Truck identifier</td></tr>
-                <tr><td><code>bTicket</code></td><td>integer</td><td>Ticket number</td></tr>
-                <tr><td><code>bFacilityDuration</code></td><td>integer</td><td>Total facility time (seconds)</td></tr>
-                <tr><td><code>bLoadDuration</code></td><td>integer</td><td>Loading time (seconds)</td></tr>
-                <tr><td><code>bWaitDuration</code></td><td>integer</td><td>Wait time (seconds)</td></tr>
-                <tr><td><code>fHidden</code></td><td>boolean</td><td>Incomplete/hidden flag</td></tr>
-                <tr><td><code>sTag</code></td><td>string</td><td>Transaction tag</td></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td>Site serial</td></tr>
+                <tr><td><code>scale</code></td><td>integer</td><td>Physical lane number</td></tr>
+                <tr><td><code>scaleId</code></td><td>string</td><td>Command Cloud scale id; <code>null</code> for non-Command. See <a href="#cc-identifiers">Command Cloud identifiers</a>.</td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code>; <code>null</code> for non-Command.</td></tr>
+                <tr><td><code>ticket</code></td><td>string</td><td>Ticket number &mdash; returned as a <strong>string</strong> (e.g. <code>"9999"</code>)</td></tr>
+                <tr><td><code>lpn</code></td><td>string</td><td>License plate number</td></tr>
+                <tr><td><code>truck</code></td><td>string</td><td>Truck identifier</td></tr>
+                <tr><td><code>facilityDuration</code></td><td>integer</td><td>Total facility time (seconds)</td></tr>
+                <tr><td><code>scaleDuration</code></td><td>integer</td><td>On-scale time (seconds) &mdash; formerly "load duration"</td></tr>
+                <tr><td><code>waitDuration</code></td><td>integer</td><td>Wait time (seconds)</td></tr>
+                <tr><td><code>complete</code></td><td>boolean</td><td>Completeness flag (positive predicate; the inverse of the internal hidden flag)</td></tr>
+                <tr><td><code>timestamp</code></td><td>string</td><td>Transaction timestamp, ISO 8601 with the site's offset</td></tr>
+                <tr><td><code>startTime</code></td><td>string</td><td>Transaction start (ISO 8601)</td></tr>
+                <tr><td><code>endTime</code></td><td>string</td><td>Transaction end (ISO 8601)</td></tr>
+                <tr><td><code>tzOffset</code></td><td>integer</td><td>Site UTC offset in hours (e.g. <code>-6</code>)</td></tr>
                 <tr><td><code>events</code></td><td>array</td><td>Related events (if includeEvents=1)</td></tr>
                 <tr><td><code>alerts</code></td><td>array</td><td>Related alerts (if includeAlerts=1)</td></tr>
             </table>
@@ -392,14 +405,18 @@ Content-Type: application/json
         </div>
     </div>
 
-    <!-- GET /sw/api/transactions/stats -->
-    <div class="endpoint-section" id="transactions-stats">
+    <!-- GET /sw/api/transactions/metrics -->
+    <div class="endpoint-section" id="transactions-metrics">
         <div class="endpoint-header">
             <span class="method get">GET</span>
-            <span class="endpoint-path">/sw/api/transactions/stats</span>
+            <span class="endpoint-path">/sw/api/transactions/metrics</span>
         </div>
         <div class="endpoint-body">
-            <p>Get aggregated statistics for transactions including counts, minimum, maximum, and average durations.</p>
+            <p>Aggregate counts and duration statistics (min / max / average) for transactions matching the supplied filters. Accepts every filter <code>/sw/api/transactions</code> accepts (including pass-through kv), plus <code>groupBy</code> to slice by time bucket or dimension.</p>
+
+            <div class="info-box note">
+                <strong>Completed transactions only.</strong> <code>count</code> here excludes in-progress flows, so on an active site it is lower than the raw row count from <code>/sw/api/transactions</code> for the same filters.
+            </div>
 
             <h4>Required Parameters</h4>
             <table>
@@ -410,33 +427,65 @@ Content-Type: application/json
             <h4>Optional Filters</h4>
             <table>
                 <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
-                <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD)</td></tr>
-                <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD)</td></tr>
-                <tr><td><code>scale</code></td><td>integer</td><td>Filter by scale number</td></tr>
-                <tr><td><code>lpn</code></td><td>string</td><td>Filter by license plate</td></tr>
-                <tr><td><code>tag</code></td><td>string</td><td>Filter by vehicle type tag: <code>truck</code>, <code>car</code>, <code>other</code>, <code>pending</code></td></tr>
-                <tr><td><code>interval</code></td><td>daily|hourly</td><td>Group results by time interval</td></tr>
+                <tr><td><code>groupBy</code></td><td>enum</td><td>One of <code>daily</code>, <code>hourly</code>, <code>carrier</code>, <code>customer</code>, <code>product</code>, <code>scale</code>. Omit for a single summary row.</td></tr>
+                <tr><td colspan="3">Plus all filters from <code>/sw/api/transactions</code> (date range, <code>scale</code>, <code>lpn</code>, <code>truck</code>, <code>ticket</code>, pass-through kv) &mdash; <strong>except</strong> <code>scaleId</code>/<code>locationId</code>, which are not accepted here (filter <code>/transactions</code> instead).</td></tr>
             </table>
 
             <h4>Response Fields</h4>
             <table>
                 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-                <tr><td><code>bCount</code></td><td>integer</td><td>Number of transactions</td></tr>
-                <tr><td><code>bFacilityMin</code></td><td>integer</td><td>Minimum facility duration (seconds)</td></tr>
-                <tr><td><code>bFacilityMax</code></td><td>integer</td><td>Maximum facility duration (seconds)</td></tr>
-                <tr><td><code>bFacilityAvg</code></td><td>integer</td><td>Average facility duration (seconds)</td></tr>
-                <tr><td><code>bLoadMin</code></td><td>integer</td><td>Minimum load duration (seconds)</td></tr>
-                <tr><td><code>bLoadMax</code></td><td>integer</td><td>Maximum load duration (seconds)</td></tr>
-                <tr><td><code>bLoadAvg</code></td><td>integer</td><td>Average load duration (seconds)</td></tr>
-                <tr><td><code>bWaitMin</code></td><td>integer</td><td>Minimum wait duration (seconds)</td></tr>
-                <tr><td><code>bWaitMax</code></td><td>integer</td><td>Maximum wait duration (seconds)</td></tr>
-                <tr><td><code>bWaitAvg</code></td><td>integer</td><td>Average wait duration (seconds)</td></tr>
-                <tr><td><code>dDate</code></td><td>date</td><td>Date (when interval=daily)</td></tr>
-                <tr><td><code>dHour</code></td><td>string</td><td>Hour (when interval=hourly)</td></tr>
+                <tr><td><code>count</code></td><td>integer</td><td>Number of completed transactions</td></tr>
+                <tr><td><code>facilityDurationMin/Max/Avg</code></td><td>integer</td><td>Facility duration stats (seconds)</td></tr>
+                <tr><td><code>scaleDurationMin/Max/Avg</code></td><td>integer</td><td>On-scale duration stats (seconds)</td></tr>
+                <tr><td><code>waitDurationMin/Max/Avg</code></td><td>integer</td><td>Wait duration stats (seconds)</td></tr>
+                <tr><td><code>date</code></td><td>date</td><td>Bucket date (when <code>groupBy=daily</code>)</td></tr>
+                <tr><td><code>hour</code></td><td>string</td><td>Bucket hour (when <code>groupBy=hourly</code>)</td></tr>
+                <tr><td><code>carrier</code> / <code>customer</code> / <code>product</code> / <code>scale</code></td><td>varies</td><td>The dimension value (when grouping by that dimension)</td></tr>
             </table>
 
             <h4>Example</h4>
-            <pre>curl "https://api.cloud.dividia.net/sw/api/transactions/stats?serial=248&startDate=2024-01-01&endDate=2024-01-31&interval=daily" \
+            <pre>curl "https://api.cloud.dividia.net/sw/api/transactions/metrics?serial=248&startDate=2024-01-01&endDate=2024-01-31&groupBy=carrier" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/transactions/pdf -->
+    <div class="endpoint-section" id="transactions-pdf">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/transactions/pdf</span>
+        </div>
+        <div class="endpoint-body">
+            <p>Render matching transactions as PDF ticket sheets. Returns a single PDF (exactly one match), a ZIP of PDFs (more than one), or a JSON explanation (zero matches). Accepts the same filters as <code>/sw/api/transactions</code>, plus comma-list shortcuts for <code>id</code> and <code>ticket</code>.</p>
+
+            <h4>Required Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+            </table>
+
+            <h4>Common Filters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer or comma-list</td><td>One id or up to 50 comma-listed (<code>id=12345,12346</code>)</td></tr>
+                <tr><td><code>ticket</code></td><td>integer or comma-list</td><td>One ticket or up to 50 comma-listed</td></tr>
+                <tr><td><code>ticketMin</code> + <code>ticketMax</code></td><td>integer pair</td><td>Inclusive ticket range (supply together)</td></tr>
+                <tr><td><code>date</code> / <code>startDate</code> + <code>endDate</code></td><td>date</td><td>Site-local day or range</td></tr>
+                <tr><td><code>limit</code></td><td>integer</td><td>Per-page transaction count (default 25, max 50)</td></tr>
+                <tr><td><code>excludeImages</code></td><td>0|1</td><td><code>1</code> to skip embedded images</td></tr>
+                <tr><td><em>any other key</em></td><td>string</td><td>Pass-through kv filter</td></tr>
+            </table>
+
+            <h4>Responses</h4>
+            <table>
+                <tr><th>Match count</th><th>Content-Type</th><th>Body</th></tr>
+                <tr><td>1 match</td><td><code>application/pdf</code></td><td>A single PDF</td></tr>
+                <tr><td>&gt;1 match</td><td><code>application/zip</code></td><td>A ZIP of PDFs</td></tr>
+                <tr><td>0 matches</td><td><code>application/json</code></td><td><code>200</code> with <code>matches: 0</code> + <code>keyNeverSeen</code>/<code>valuesDidNotMatch</code> diagnostics</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl -OJ "https://api.cloud.dividia.net/sw/api/transactions/pdf?serial=248&ticket=37237908" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
         </div>
     </div>
@@ -459,11 +508,16 @@ Content-Type: application/json
             <h4>Optional Filters</h4>
             <table>
                 <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>id</code></td><td>integer</td><td>Event id</td></tr>
                 <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD)</td></tr>
                 <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>since</code></td><td>ISO 8601</td><td>Exclusive lower bound on <code>timestamp</code> (incremental polling)</td></tr>
                 <tr><td><code>transactionId</code></td><td>integer</td><td>Filter by specific transaction ID</td></tr>
-                <tr><td><code>name</code></td><td>string</td><td>Filter by event name (e.g., ScaleArrival, TicketReceived)</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>Filter by event name (e.g. <code>LprRead</code>, <code>TicketReceived</code>). Discover names via <code>/sw/api/events/types</code>.</td></tr>
                 <tr><td><code>ticket</code></td><td>integer</td><td>Filter by ticket number</td></tr>
+                <tr><td><code>scaleId</code></td><td>string</td><td>Command Cloud scale id (carried from the parent transaction). See <a href="#cc-identifiers">Command Cloud identifiers</a>.</td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code> (carried from the parent transaction).</td></tr>
+                <tr><td><em>any other key</em></td><td>string</td><td>Pass-through filter matched against event metadata (e.g. <code>customer=ACME</code>)</td></tr>
             </table>
 
             <h4>Pagination</h4>
@@ -476,11 +530,11 @@ Content-Type: application/json
             <h4>Common Event Names</h4>
             <ul>
                 <li><code>FacilityIn</code> - Vehicle entered facility</li>
-                <li><code>ScaleArrival</code> - Vehicle arrived at scale</li>
-                <li><code>ScaleSettled</code> - Scale reading stabilized</li>
-                <li><code>TicketReceived</code> - Ticket data received</li>
-                <li><code>LPRRead</code> - License plate captured</li>
-                <li><code>ScaleDeparture</code> - Vehicle departed scale</li>
+                <li><code>ScaleTruckEntering</code> - Vehicle approaching the scale</li>
+                <li><code>ScaleTruckOn</code> - Vehicle on the scale</li>
+                <li><code>TicketReceived</code> - Ticket data received (Command Cloud / POS)</li>
+                <li><code>LprRead</code> - License plate captured</li>
+                <li><code>ScaleTruckLeaving</code> - Vehicle leaving the scale</li>
                 <li><code>FacilityOut</code> - Vehicle exited facility</li>
             </ul>
 
@@ -488,12 +542,15 @@ Content-Type: application/json
             <table>
                 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
                 <tr><td><code>id</code></td><td>integer</td><td>Event ID</td></tr>
-                <tr><td><code>sName</code></td><td>string</td><td>Event name</td></tr>
-                <tr><td><code>bTransaction</code></td><td>integer</td><td>Associated transaction ID</td></tr>
-                <tr><td><code>bTicket</code></td><td>integer</td><td>Ticket number (if applicable)</td></tr>
-                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Event timestamp</td></tr>
-                <tr><td><code>sData</code></td><td>object</td><td>Event-specific data (JSON)</td></tr>
-                <tr><td><code>sImages</code></td><td>array</td><td>Associated image URLs</td></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td>Site serial (from the parent transaction)</td></tr>
+                <tr><td><code>transactionId</code></td><td>integer</td><td>Associated transaction ID</td></tr>
+                <tr><td><code>ticket</code></td><td>string</td><td>Ticket number (returned as a string)</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>Event name</td></tr>
+                <tr><td><code>data</code></td><td>object</td><td>Event-specific metadata (parsed JSON object)</td></tr>
+                <tr><td><code>images</code></td><td>array</td><td>Signed image URLs (24-hour expiry)</td></tr>
+                <tr><td><code>scaleId</code></td><td>string</td><td>Command Cloud scale id; <code>null</code> for non-Command</td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code>; <code>null</code> for non-Command</td></tr>
+                <tr><td><code>timestamp</code></td><td>string</td><td>Event timestamp (ISO 8601 with the site's offset)</td></tr>
             </table>
 
             <h4>Example</h4>
@@ -502,56 +559,53 @@ Content-Type: application/json
         </div>
     </div>
 
-    <!-- GET /sw/api/events/tickets -->
-    <div class="endpoint-section" id="events-tickets">
+    <!-- GET /sw/api/events/types -->
+    <div class="endpoint-section" id="events-types">
         <div class="endpoint-header">
             <span class="method get">GET</span>
-            <span class="endpoint-path">/sw/api/events/tickets</span>
+            <span class="endpoint-path">/sw/api/events/types</span>
         </div>
         <div class="endpoint-body">
-            <p>Query ticket events by ticket data fields. This endpoint allows searching by customer, product, carrier, and other ticket-specific properties.</p>
+            <p>List the distinct event <code>name</code> values seen at a site within the query window. Use this to discover valid values for the <code>name</code> filter on <code>/sw/api/events</code>. Scans the last 90 days by default (max span 366 days).</p>
 
-            <h4>Required Parameters</h4>
+            <h4>Parameters</h4>
             <table>
                 <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
                 <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
-            </table>
-
-            <h4>Optional Filters (Ticket Fields)</h4>
-            <p>These parameters search within the ticket data:</p>
-            <table>
-                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
-                <tr><td><code>ticket</code></td><td>integer</td><td>Ticket number</td></tr>
-                <tr><td><code>customer</code></td><td>string</td><td>Customer name (partial match)</td></tr>
-                <tr><td><code>product</code></td><td>string</td><td>Product name (partial match)</td></tr>
-                <tr><td><code>carrier</code></td><td>string</td><td>Carrier name (partial match)</td></tr>
-                <tr><td><code>truck</code></td><td>string</td><td>Truck identifier</td></tr>
-                <tr><td><code>plant</code></td><td>string</td><td>Plant name</td></tr>
-                <tr><td><code>scale</code></td><td>string</td><td>Scale identifier</td></tr>
-                <tr><td><code>weight</code></td><td>string</td><td>Weight value</td></tr>
-                <tr><td><code>date</code></td><td>date</td><td>Filter by date (YYYY-MM-DD)</td></tr>
-            </table>
-
-            <h4>Pagination</h4>
-            <table>
-                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
-                <tr><td><code>page</code></td><td>integer</td><td>1</td><td>Page number</td></tr>
-                <tr><td><code>pageSize</code></td><td>integer</td><td>50000</td><td>Results per page. Defaults to 50,000 if not specified.</td></tr>
-            </table>
-
-            <h4>Response Fields</h4>
-            <table>
-                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-                <tr><td><code>id</code></td><td>integer</td><td>Event ID</td></tr>
-                <tr><td><code>bTransaction</code></td><td>integer</td><td>Associated transaction ID</td></tr>
-                <tr><td><code>bTicket</code></td><td>integer</td><td>Ticket number</td></tr>
-                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Event timestamp</td></tr>
-                <tr><td><code>sData</code></td><td>object</td><td>Ticket data including customer, product, weight, etc.</td></tr>
-                <tr><td><code>sImages</code></td><td>array</td><td>Associated image URLs</td></tr>
+                <tr><td><code>category</code></td><td>enum</td><td><code>alert</code> = only Alert-prefixed types; <code>non-alert</code> = the complement. Omit for all.</td></tr>
+                <tr><td><code>date</code> / <code>startDate</code>+<code>endDate</code> / <code>since</code></td><td>date</td><td>Restrict the discovery window.</td></tr>
             </table>
 
             <h4>Example</h4>
-            <pre>curl "https://api.cloud.dividia.net/sw/api/events/tickets?serial=248&customer=Acme&product=Sand" \
+            <pre>curl "https://api.cloud.dividia.net/sw/api/events/types?serial=248" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
+        </div>
+    </div>
+
+    <!-- GET /sw/api/events/keys -->
+    <div class="endpoint-section" id="events-keys">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/sw/api/events/keys</span>
+        </div>
+        <div class="endpoint-body">
+            <p>List the distinct metadata field names seen in event <code>data</code> (and one level under <code>data.ticket</code> for TicketReceived) at a site. Use this to discover valid <strong>pass-through key/value filter keys</strong> (customer, product, carrier, truck, etc.) for <code>/sw/api/events</code>, <code>/transactions</code>, and <code>/transactions/pdf</code>.</p>
+
+            <div class="info-box note">
+                <strong>Searching by ticket fields.</strong> There is no separate "tickets" endpoint. To find records by <code>customer</code>, <code>product</code>, <code>carrier</code>, etc., pass them as pass-through key/value filters on <code>/sw/api/events</code> or <code>/sw/api/transactions</code> (e.g. <code>?name=TicketReceived&amp;customer=ACME</code>). This endpoint tells you which keys exist for a site.
+            </div>
+
+            <h4>Parameters</h4>
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td class="required">Site serial number</td></tr>
+                <tr><td><code>eventName</code></td><td>string</td><td>Narrow to keys seen in specific event types (comma-list, max 20).</td></tr>
+                <tr><td><code>category</code></td><td>enum</td><td><code>alert</code> / <code>non-alert</code> narrowing.</td></tr>
+                <tr><td><code>date</code> / <code>startDate</code>+<code>endDate</code> / <code>since</code></td><td>date</td><td>Restrict the discovery window.</td></tr>
+            </table>
+
+            <h4>Example</h4>
+            <pre>curl "https://api.cloud.dividia.net/sw/api/events/keys?serial=248&eventName=TicketReceived" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</pre>
         </div>
     </div>
@@ -576,13 +630,17 @@ Content-Type: application/json
                 <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
                 <tr><td><code>startDate</code></td><td>date</td><td>Filter by start date (YYYY-MM-DD)</td></tr>
                 <tr><td><code>endDate</code></td><td>date</td><td>Filter by end date (YYYY-MM-DD)</td></tr>
+                <tr><td><code>since</code></td><td>ISO 8601</td><td>Exclusive lower bound on <code>timestamp</code> (incremental polling)</td></tr>
                 <tr><td><code>status</code></td><td>string</td><td>Filter by status (e.g., open, closed)</td></tr>
-                <tr><td><code>priority</code></td><td>low|medium|high</td><td>Filter by priority level</td></tr>
+                <tr><td><code>priority</code></td><td>low|medium|high</td><td>Filter value is <strong>lowercase</strong>; the response field is capitalized (<code>High</code>/<code>Medium</code>/<code>Low</code>).</td></tr>
                 <tr><td><code>flagged</code></td><td>0|1</td><td>Filter by flagged status</td></tr>
-                <tr><td><code>scale</code></td><td>integer</td><td>Filter by scale number</td></tr>
+                <tr><td><code>scale</code></td><td>integer</td><td>Physical lane number</td></tr>
+                <tr><td><code>scaleId</code></td><td>string</td><td>Command Cloud scale id (carried from the parent transaction). See <a href="#cc-identifiers">Command Cloud identifiers</a>.</td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code> (carried from the parent transaction).</td></tr>
                 <tr><td><code>transactionId</code></td><td>integer</td><td>Filter by transaction ID</td></tr>
-                <tr><td><code>assignedId</code></td><td>integer</td><td>Filter by assigned user ID</td></tr>
+                <tr><td><code>assignedUserId</code> / <code>assignee</code></td><td>integer / string</td><td>Filter by assignment (user id, or username substring)</td></tr>
                 <tr><td><code>hasComment</code></td><td>0|1</td><td>Filter alerts with/without comments</td></tr>
+                <tr><td><code>includeHistory</code></td><td>0|1</td><td><code>1</code> to nest the alert's <code>history</code> (comments, assignments, status changes)</td></tr>
             </table>
 
             <h4>Pagination</h4>
@@ -596,17 +654,20 @@ Content-Type: application/json
             <table>
                 <tr><th>Field</th><th>Type</th><th>Description</th></tr>
                 <tr><td><code>id</code></td><td>integer</td><td>Alert ID</td></tr>
-                <tr><td><code>sName</code></td><td>string</td><td>Alert name/type</td></tr>
-                <tr><td><code>bTransaction</code></td><td>integer</td><td>Associated transaction ID</td></tr>
-                <tr><td><code>sStatus</code></td><td>string</td><td>Current status</td></tr>
-                <tr><td><code>sPriority</code></td><td>string</td><td>Priority level (High, Medium, Low)</td></tr>
-                <tr><td><code>fFlagged</code></td><td>boolean</td><td>Flagged for attention</td></tr>
-                <tr><td><code>bAssignedId</code></td><td>integer</td><td>Assigned user ID</td></tr>
-                <tr><td><code>sAssignedUser</code></td><td>string</td><td>Assigned user name</td></tr>
-                <tr><td><code>dTimestamp</code></td><td>datetime</td><td>Alert timestamp</td></tr>
-                <tr><td><code>sData</code></td><td>object</td><td>Alert-specific data</td></tr>
-                <tr><td><code>sImages</code></td><td>array</td><td>Associated image URLs</td></tr>
-                <tr><td><code>activities</code></td><td>array</td><td>Activity history (comments, status changes)</td></tr>
+                <tr><td><code>serial</code></td><td>integer</td><td>Site serial</td></tr>
+                <tr><td><code>transactionId</code></td><td>integer</td><td>Associated transaction ID</td></tr>
+                <tr><td><code>name</code></td><td>string</td><td>Alert name/type</td></tr>
+                <tr><td><code>status</code></td><td>string</td><td>Current status</td></tr>
+                <tr><td><code>priority</code></td><td>string</td><td><code>High</code>/<code>Medium</code>/<code>Low</code> (capitalized; the <code>?priority=</code> filter takes lowercase)</td></tr>
+                <tr><td><code>flagged</code></td><td>integer</td><td>Flagged for attention &mdash; <code>1</code> or <code>0</code> (truthy, not a real boolean)</td></tr>
+                <tr><td><code>assignedUserId</code></td><td>integer</td><td>Assigned user ID</td></tr>
+                <tr><td><code>assignedUser</code></td><td>string</td><td>Assigned user name</td></tr>
+                <tr><td><code>data</code></td><td>object</td><td>Alert-specific metadata (parsed JSON object)</td></tr>
+                <tr><td><code>images</code></td><td>array</td><td>Signed image URLs (24-hour expiry)</td></tr>
+                <tr><td><code>scaleId</code></td><td>string</td><td>Command Cloud scale id; <code>null</code> for non-Command</td></tr>
+                <tr><td><code>locationId</code></td><td>string</td><td>Command Cloud <code>location.id</code>; <code>null</code> for non-Command</td></tr>
+                <tr><td><code>timestamp</code></td><td>string</td><td>Alert timestamp (ISO 8601 with the site's offset)</td></tr>
+                <tr><td><code>history</code></td><td>array</td><td>Activity log (comments, assignments, status changes) &mdash; present when <code>includeHistory=1</code></td></tr>
             </table>
 
             <h4>Example</h4>
@@ -667,12 +728,25 @@ Content-Type: application/json
     </div>
     END Users endpoint -->
 
+    <h2 id="cc-identifiers">Command Cloud identifiers (scaleId, locationId)</h2>
+    <p>If your tickets reach Dividia through a <strong>Command Cloud</strong> webhook integration, every transaction, event, and alert carries the two identifiers you sent &mdash; alongside Dividia's own <code>serial</code> and <code>scale</code> &mdash; so you can read and filter your data in your own terms.</p>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>What it is</th></tr>
+        <tr><td><code>scaleId</code></td><td>string</td><td>Your Command Cloud scale identifier, matched <strong>byte-for-byte</strong> (case- and punctuation-sensitive, e.g. <code>IQ-001:A</code>). Dividia maps it to a physical <code>scale</code> lane internally.</td></tr>
+        <tr><td><code>locationId</code></td><td>string</td><td>Your Command Cloud <code>location.id</code> for the site &mdash; maps to Dividia's <code>serial</code>. Also exposed per-site on <code>/sw/api/sites</code>.</td></tr>
+    </table>
+    <p>Both are <code>null</code> on records that did not originate from Command Cloud. Where present they are accepted as <strong>exact-match filters</strong> on <code>/sw/api/transactions</code>, <code>/sw/api/events</code>, and <code>/sw/api/alerts</code> (<code>?scaleId=…&amp;locationId=…</code>). They are <strong>not</strong> accepted on <code>/sw/api/transactions/metrics</code> &mdash; filter <code>/transactions</code> instead.</p>
+
+    <div class="info-box note">
+        <strong>Sending tickets to Dividia?</strong> The webhook payload, headers, signing, and responses are documented in the <a href="cc-webhook-test.html">Command Cloud webhook guide</a>.
+    </div>
+
     <h2 id="response-format">Response Format</h2>
     <p>All successful responses return JSON with a consistent structure:</p>
 
     <pre>{
   <span class="string">"page"</span>: <span class="number">1</span>,           <span class="comment">// Current page number</span>
-  <span class="string">"pagesize"</span>: <span class="number">25</span>,       <span class="comment">// Results per page</span>
+  <span class="string">"pageSize"</span>: <span class="number">25</span>,       <span class="comment">// Results per page</span>
   <span class="string">"total"</span>: <span class="number">1250</span>,        <span class="comment">// Total results available</span>
   <span class="string">"count"</span>: <span class="number">25</span>,          <span class="comment">// Results in this response</span>
   <span class="string">"data"</span>: [...]         <span class="comment">// Array of result objects</span>
@@ -681,10 +755,10 @@ Content-Type: application/json
     <h3>Date/Time Format &amp; Timezones</h3>
     <p>Date parameters must be specified in <code>YYYY-MM-DD</code> format and are interpreted in the <strong>site's local timezone</strong>.</p>
 
-    <p>All timestamps in responses are returned in the <strong>site's local timezone</strong> (converted from UTC storage):</p>
-    <pre><span class="string">"2024-01-15T14:30:00"</span></pre>
+    <p>All timestamps in responses are ISO 8601 strings with the <strong>site's UTC offset embedded</strong>, so any standard date parser handles them without needing to know the timezone separately:</p>
+    <pre><span class="string">"2024-01-15T14:30:00-06:00"</span></pre>
 
-    <p>Each response includes a <code>tzOffset</code> field indicating the site's timezone offset from UTC (e.g., <code>-6</code> for CST).</p>
+    <p>Each row also includes a <code>tzOffset</code> field indicating the site's offset from UTC in whole hours (e.g., <code>-6</code> for CST, <code>-5</code> for CDT).</p>
 
     <div class="info-box note">
         <strong>Timezone Note</strong><br>
@@ -714,7 +788,7 @@ Content-Type: application/json
         <tr><td><code>401</code></td><td>UnauthorizedAccess</td><td>Missing or invalid authentication token</td></tr>
         <tr><td><code>403</code></td><td>ForbiddenRequest</td><td>User lacks permission for this resource</td></tr>
         <tr><td><code>404</code></td><td>NotFound</td><td>Requested resource not found</td></tr>
-        <tr><td><code>413</code></td><td>PayloadTooLarge</td><td>Query string exceeds 2000 character limit</td></tr>
+        <tr><td><code>413</code></td><td>PayloadTooLarge</td><td>Query string exceeds 4,096 character limit</td></tr>
         <tr><td><code>429</code></td><td>TooManyRequests</td><td>Rate limit exceeded</td></tr>
         <tr><td><code>500</code></td><td>InternalServerError</td><td>Unexpected server error</td></tr>
     </table>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dividia API Documentation</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #24303a; line-height: 1.6; margin: 0;
+    background: #f6f8fa;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 72px; }
+  header.site { border-bottom: 3px solid #00695c; padding-bottom: 20px; margin-bottom: 8px; }
+  .brand { color: #00695c; font-weight: 700; letter-spacing: .6px; font-size: 13px; text-transform: uppercase; }
+  h1 { font-size: 30px; margin: 6px 0 6px; }
+  .lede { color: #5b6b7b; font-size: 16px; max-width: 640px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: #6a737d;
+       margin: 40px 0 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 14px; }
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    background: #fff; border: 1px solid #e1e4e8; border-radius: 10px; padding: 18px 20px;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .05s ease;
+  }
+  a.card:hover { border-color: #00897b; box-shadow: 0 4px 16px rgba(0,105,92,.10); }
+  a.card:active { transform: translateY(1px); }
+  .card .ttl { font-weight: 600; font-size: 16px; color: #00695c; display: flex; align-items: center; gap: 8px; }
+  .card .desc { color: #5b6b7b; font-size: 14px; margin-top: 6px; }
+  .card .path { color: #9aa5b1; font-size: 12px; font-family: 'SF Mono', Consolas, monospace; margin-top: 10px; }
+  .tag { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+         padding: 2px 7px; border-radius: 20px; vertical-align: middle; }
+  .tag.ref { background: #e0f2f1; color: #00695c; }
+  .tag.guide { background: #e8eefc; color: #1a44b8; }
+  .tag.demo { background: #fff2e0; color: #b3630a; }
+  footer { margin-top: 52px; padding-top: 18px; border-top: 1px solid #e1e4e8; color: #6a737d; font-size: 13.5px; }
+  footer a { color: #00695c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="site">
+    <div class="brand">Dividia</div>
+    <h1>API Documentation</h1>
+    <p class="lede">Reference docs, integration guides, and interactive demos for building against the
+    Dividia Cloud platform &mdash; ScaleWatcher, Command Cloud webhooks, and the Cloud NVR / camera API.</p>
+  </header>
+
+  <h2>ScaleWatcher &amp; Command Cloud</h2>
+  <div class="grid">
+    <a class="card" href="sw-api-reference.html">
+      <div class="ttl">ScaleWatcher Cloud API Reference <span class="tag ref">Reference</span></div>
+      <div class="desc">The complete read API: transactions, events, alerts, aggregate metrics, and PDF
+      exports &mdash; with authentication, rate limits, filters, and your own Command Cloud
+      <code>scaleId</code>/<code>locationId</code> on every record.</div>
+      <div class="path">sw-api-reference.html</div>
+    </a>
+    <a class="card" href="cc-webhook-test.html">
+      <div class="ttl">Command Cloud Webhook Guide &amp; Tester <span class="tag guide">Guide</span></div>
+      <div class="desc">Send a signed ticket webhook per weighment: the payload we expect, the Standard
+      Webhooks signature, our responses, and a live in-browser signature tester (nothing is sent).</div>
+      <div class="path">cc-webhook-test.html</div>
+    </a>
+    <a class="card" href="sw-api-demo.html">
+      <div class="ttl">ScaleWatcher Cloud API Demo <span class="tag demo">Demo</span></div>
+      <div class="desc">Interactive walkthrough of the ScaleWatcher API against live-shaped data.</div>
+      <div class="path">sw-api-demo.html</div>
+    </a>
+  </div>
+
+  <h2>Cloud NVR &amp; Camera API</h2>
+  <div class="grid">
+    <a class="card" href="cloud-api-reference.html">
+      <div class="ttl">Cloud NVR API Reference <span class="tag ref">Reference</span></div>
+      <div class="desc">Remote access to Cloud-connected NVRs: devices, cameras, live and recorded
+      streams over the Dividia Cloud API.</div>
+      <div class="path">cloud-api-reference.html</div>
+    </a>
+    <a class="card" href="cloud-api-demo.html">
+      <div class="ttl">Cloud Camera API Demo <span class="tag demo">Demo</span></div>
+      <div class="desc">Interactive demo of the Cloud camera API &mdash; authentication, device listing,
+      and live stream playback.</div>
+      <div class="path">cloud-api-demo.html</div>
+    </a>
+    <a class="card" href="api-reference.html">
+      <div class="ttl">NVR API Reference <span class="tag ref">Reference</span></div>
+      <div class="desc">The on-premise / direct NVR API surface.</div>
+      <div class="path">api-reference.html</div>
+    </a>
+    <a class="card" href="nvr-demo.html">
+      <div class="ttl">NVR API Demo <span class="tag demo">Demo</span></div>
+      <div class="desc">Interactive demo of the direct NVR API.</div>
+      <div class="path">nvr-demo.html</div>
+    </a>
+  </div>
+
+  <footer>
+    Need API access, a signing secret, or integration help? Email
+    <a href="mailto:support@dividia.net">support@dividia.net</a>. API access is enabled per-account by
+    Dividia support.
+  </footer>
+
+</div>
+</body>
+</html>
