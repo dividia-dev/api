@@ -2043,7 +2043,7 @@
             document.getElementById('sec-connect-summary').innerHTML =
                 '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
                 '<span style="color:#2e7d32; font-weight:600;">&#10003; Signed in</span>' +
-                '<span style="color:#666;">&middot; ScaleWatcher API user ' + escapeHtml(email) + ' &middot; ' + sites.length + ' site(s) on the key</span>' +
+                '<span style="color:#666;">&middot; ScaleWatcher API user ' + escapeHtml(email) + ' &middot; <span id="api-site-count">' + sites.length + ' site(s) on the key</span></span>' +
                 '<span class="sum-caret">change &#9662;</span>';
             document.getElementById('sec-connect').classList.add('collapsed');
             document.getElementById('lookup-value').focus();
@@ -2139,6 +2139,9 @@
         }
 
         function renderSiteChips(sites) {
+            // The summary's count follows the key too (it was set once, at sign-in).
+            const count = document.getElementById('api-site-count');
+            if (count) count.textContent = sites.length + ' site(s) on the key';
             const el = document.getElementById('api-sites');
             const withLocation = sites.filter(function (s) { return s.locationId; });
             if (!withLocation.length) { el.innerHTML = ''; return; }
