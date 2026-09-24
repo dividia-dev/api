@@ -1172,7 +1172,9 @@
             const logEl = document.getElementById('log');
             const timestamp = new Date().toLocaleTimeString();
             const className = `log-${type}`;
-            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            // Plain text only: messages carry device, camera and site names and server text, which
+            // tenants and the proxy control (review L4). No caller passes markup.
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${escapeHtml(message)}</span>\n`;
             logEl.scrollTop = logEl.scrollHeight;
             if (DEBUG) console.log(`[${type}] ${message}`);
         }
@@ -1309,10 +1311,10 @@
             const truncateNote = (data.devices?.length > 3 || data.cameras?.length > 5) ? '\n...(showing first entries)' : '';
 
             el.innerHTML =
-                '<span class="label">POST</span> ' + apiUrl + '/ve/auth\n' +
-                '<span class="label">Body:</span> ' + JSON.stringify({ username, password: '***' }, null, 2) + '\n' +
-                '<span class="label">Response:</span> <span class="' + statusClass + '">[' + statusText + ']</span>\n' +
-                JSON.stringify(displayData, null, 2) + truncateNote;
+                '<span class="label">POST</span> ' + escapeHtml(apiUrl) + '/ve/auth\n' +
+                '<span class="label">Body:</span> ' + escapeHtml(JSON.stringify({ username, password: '***' }, null, 2)) + '\n' +
+                '<span class="label">Response:</span> <span class="' + statusClass + '">[' + escapeHtml(statusText) + ']</span>\n' +
+                escapeHtml(JSON.stringify(displayData, null, 2)) + truncateNote;
         }
 
         // ==================== DEVICE & CAMERA SELECTION ====================
@@ -1446,7 +1448,7 @@
                 cs.innerHTML =
                     '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
                     '<span style="color:#2e7d32; font-weight:600;">&#10003; Connected</span>' +
-                    '<span style="color:#666;">&middot; ' + username + ' &middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)</span>' +
+                    '<span style="color:#666;">&middot; ' + escapeHtml(username) + ' &middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)</span>' +
                     '<span class="sum-caret">change &#9662;</span>';
             }
             const cSec = document.getElementById('sec-connect');
@@ -1819,6 +1821,8 @@
                     setLiveStatus('Connected, buffering...', '#ff9800');
                 },
                 onFirstFrame: () => {
+                    // Playing again: a later token_expired (after another drop) may re-mint once more (review L13).
+                    autoRemintUsed = false;
                     log('WebSocket stream active - receiving video', 'success');
                     setLiveStatus('Streaming (WebSocket H.264)', '#2e7d32');
                 },
@@ -1839,7 +1843,7 @@
                             return;
                         }
                         if (authMode === 'api' && handleAccessStop(err.code)) return;
-                        setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + err.code + ')' : ''), '#c62828');
+                        setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + escapeHtml(err.code) + ')' : ''), '#c62828');
                         return;
                     }
                     log('WebSocket error: ' + ((err && err.message) || err), 'error');
@@ -2098,18 +2102,32 @@
             const gone = watching;
             const label = gone ? gone.name + ' (' + gone.value + ')' : 'The location you were watching';
             const sites = await refreshApiSites();
-            const next = (sites || []).find(function (s) { return s.locationId && (!gone || s.locationId !== gone.value); });
-            if (!next) {
-                watching = null;
+            watching = null;
+            if (sites === null) {
                 setLiveStatus('Stopped', '#c62828');
-                showAccessNotice(label + ' is no longer available to this API user, and it has no other location.');
+                showAccessNotice(label + ' is no longer available to this API user. Its other locations could not be loaded; try again.');
                 return;
             }
-            showAccessNotice(label + ' is no longer available to this API user; showing ' + next.name + ' (' + next.locationId + ').');
-            setLookup('locationId');
-            document.getElementById('lookup-value').value = next.locationId;
-            validateLookup();
-            mintAndPlay(false);
+            // The key's next location that plays: /sw/api/sites lists every API site, and one whose NVR
+            // has no cloud video refuses the mint (no_cloud_video), or has no enabled camera, so try the
+            // next one (review L13).
+            const candidates = sites.filter(function (s) { return s.locationId && (!gone || s.locationId !== gone.value); });
+            for (const next of candidates) {
+                setLookup('locationId');
+                document.getElementById('lookup-value').value = next.locationId;
+                validateLookup();
+                const result = await mintAndPlay(false);
+                if (result && result.ok) {
+                    showAccessNotice(label + ' is no longer available to this API user; showing ' + next.name + ' (' + next.locationId + ').');
+                    return;
+                }
+                if (!result || (result.reason !== 'no_cloud_video' && result.reason !== 'no_camera')) {
+                    showAccessNotice(label + ' is no longer available to this API user; ' + next.name + ' (' + next.locationId + ') could not be started.');
+                    return;
+                }
+            }
+            setLiveStatus('Stopped', '#c62828');
+            showAccessNotice(label + ' is no longer available to this API user, and it has no other location with live video.');
         }
 
         // Back to this tab: refresh the key's sites (at most once a minute).
@@ -2169,7 +2187,7 @@
         // click (resets the one automatic re-mint on token_expired).
         async function mintAndPlay(userAction) {
             const value = document.getElementById('lookup-value').value.trim();
-            if (!apiToken || !value) return;
+            if (!apiToken || !value) return { ok: false, reason: null };
             if (userAction) autoRemintUsed = false;
             const body = {};
             body[lookupKind] = value;
@@ -2205,7 +2223,7 @@
                 const msg = (e.message || 'Could not mint a stream') + (e.reason ? ' (' + e.reason + ')' : '');
                 log('Video token refused: ' + msg, 'error');
                 setMintStatus(escapeHtml(msg), '#c62828');
-                return;
+                return { ok: false, reason: e.reason || null };
             }
             lastGrant = data;
             watching = lookupKind === 'locationId' ? { value: value, name: data.site || value } : null;
@@ -2230,10 +2248,11 @@
             const wanted = keepCamera !== null && Array.from(cams.options).some(function (o) { return o.value === String(keepCamera); })
                 ? String(keepCamera) : (Array.from(cams.options).find(function (o) { return o.value && !o.disabled; }) || {}).value;
             if (wanted) { cams.value = wanted; onCameraChange(); }
-            if (!selectedCamera) { setLiveStatus('No enabled camera on this device', '#c62828'); return; }
+            if (!selectedCamera) { setLiveStatus('No enabled camera on this device', '#c62828'); return { ok: false, reason: 'no_camera' }; }
             stopWebsocketStream();
             startLiveStream.fromMint = true;
             try { startLiveStream(); } finally { startLiveStream.fromMint = false; }
+            return { ok: true };
         }
 
         function recordMint(kind, value, data) {
@@ -2299,7 +2318,7 @@
             const item = document.createElement('div');
             item.className = 'det-item';
             item.innerHTML =
-                (e.image ? '<img class="det-thumb lpr" src="' + e.image + '" alt="plate">' : '') +
+                (e.image ? '<img class="det-thumb lpr" src="' + escapeHtml(e.image) + '" alt="plate">' : '') +
                 '<div class="det-meta">' +
                     '<span class="plate">' + escapeHtml(e.plate) + '</span> ' +
                     '<span class="sub">' + escapeHtml(e.state) + (conf ? ' &middot; ' + conf : '') + '</span><br>' +
@@ -2317,7 +2336,7 @@
             const item = document.createElement('div');
             item.className = 'det-item';
             item.innerHTML =
-                (e.image ? '<img class="det-thumb" src="' + e.image + '" alt="object">' : '') +
+                (e.image ? '<img class="det-thumb" src="' + escapeHtml(e.image) + '" alt="object">' : '') +
                 '<div class="det-meta">' +
                     '<span class="label">' + escapeHtml(e.label || 'object') + '</span>' +
                     (e.description ? '<br><span class="sub">' + escapeHtml(e.description) + '</span>' : '') +
