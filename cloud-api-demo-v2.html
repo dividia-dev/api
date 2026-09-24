@@ -692,6 +692,29 @@
         .analytics-badge { font-size: 10px; padding: 1px 6px; }
         .det-item { padding: 5px; }
         #btn-start-live, #btn-stop-live { margin-top: 0; }
+
+        /* ===== ScaleWatcher API user mode (#86bc6dkfa) ===== */
+        /* Sign-in type + lookup switches: two joined buttons that wrap on narrow screens. */
+        .mode-switch { display: flex; flex-wrap: wrap; border: 1px solid #cfd8dc; border-radius: 6px; overflow: hidden; margin: 2px 0 4px; }
+        .mode-switch .mode-btn { flex: 1 1 auto; margin: 0; border-radius: 0; background: #f5f7f9; color: #37474f; font-weight: 500; }
+        .mode-switch .mode-btn + .mode-btn { border-left: 1px solid #cfd8dc; }
+        .mode-switch .mode-btn:hover { background: #e8eef3; }
+        .mode-switch .mode-btn.active { background: #0d47a1; color: #fff; }
+        .mode-switch.compact { display: inline-flex; }
+        #sec-apivideo { grid-area: device; }          /* the device section's slot: API mode replaces it */
+        /* Full-width grid items must not grow the column to fit a long request/response line
+           (the output box scrolls inside itself instead). */
+        #sec-connect, #sec-device, #sec-apivideo { min-width: 0; }
+        #sec-apivideo .api-lookup-row > div { min-width: 0; }
+        .site-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; font-size: 12px; color: #666; }
+        .site-chip { margin: 0; padding: 3px 9px; font-size: 12px; background: #eef4fb; color: #0d47a1; border: 1px solid #d6e4f5; border-radius: 12px; }
+        .site-chip:hover { background: #dce9f8; }
+        .mint-list { margin-top: 10px; font-size: 12px; }
+        .mint-row { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid #eee; align-items: baseline; }
+        .mint-row .mint-input { font-weight: 600; color: #333; }
+        .mint-row code { font-size: 11.5px; word-break: break-all; }
+        .mint-same { color: #2e7d32; font-weight: 600; }
+        .mint-diff { color: #c62828; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -720,6 +743,12 @@
                     <span class="caret">&#9662;</span>
                 </div>
                 <div class="section-body">
+                <label>Sign in as</label>
+                <div class="mode-switch compact" role="tablist" aria-label="Sign in as">
+                    <button type="button" class="mode-btn active" id="mode-btn-ve" role="tab" aria-selected="true" onclick="setMode('ve')">CloudNVR user</button>
+                    <button type="button" class="mode-btn" id="mode-btn-api" role="tab" aria-selected="false" onclick="setMode('api')">ScaleWatcher API user</button>
+                </div>
+                <div class="help-text" id="mode-help">Signs in with <code>POST /ve/auth</code> and lists your devices; you pick a device id and camera.</div>
                 <div class="row">
                     <div style="flex: 2;">
                         <label>Cloud API URL</label>
@@ -751,7 +780,21 @@
                 </div>
 
                 <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
-                <div class="api-ref">
+                <div class="api-ref" id="api-ref-api" style="display:none;">
+                    <h4>Endpoint: POST /sw/api/auth</h4>
+                    <p>Signs in a ScaleWatcher API user (email + password) and returns the long-lived API token plus the sites on its key. Keep this token on your server.</p>
+                    <h4 style="margin-top: 12px;">Endpoint: POST /sw/api/video-token</h4>
+                    <p>With <code>Authorization: Bearer &lt;API token&gt;</code> and exactly one of <code>locationId</code> (your Command <code>location.id</code>), <code>deviceId</code> or <code>serial</code>, returns a view-only stream URL for that site's cloud device. All three give the same device and stream. The URL can start a stream for 10 minutes; a playing stream keeps playing until its access is revoked.</p>
+                    <table>
+                        <tr><th>Status</th><th><code>reason</code></th><th>When</th></tr>
+                        <tr><td>403</td><td>video_not_allowed</td><td>The API user doesn't have Live video (a Dividia user turns it on)</td></tr>
+                        <tr><td>404</td><td>site_not_found</td><td>No site in this key's site list matches</td></tr>
+                        <tr><td>409</td><td>ambiguous_location</td><td>The location.id belongs to more than one customer's site on this key; retry with a listed serial</td></tr>
+                        <tr><td>409</td><td>no_cloud_video</td><td>The site's NVR is not a cloud device with live video</td></tr>
+                    </table>
+                    <p style="margin-top: 8px;">If the stream is stopped, the player shows why: <code>token_expired</code> (mint a new URL), <code>video_access_revoked</code>, <code>site_access_revoked</code>, <code>api_key_revoked</code>.</p>
+                </div>
+                <div class="api-ref" id="api-ref-ve">
                     <h4>Endpoint: POST /ve/auth</h4>
                     <p>Authenticates a user and returns access token plus authorized devices and cameras for streaming.</p>
                     <strong>Request Body (JSON)</strong>
@@ -769,6 +812,34 @@
                     </table>
                 </div>
                 </div><!-- /section-body -->
+            </div>
+
+            <!-- Section 2 (ScaleWatcher API user mode): name the site by location.id or device id -->
+            <div class="section" id="sec-apivideo" style="display:none;">
+                <h2>2. Get a stream by location.id or device id</h2>
+                <p class="help-text" style="margin: 0 0 6px;"><code>POST /sw/api/video-token</code> with the API token and exactly one of these. Both inputs for the same site return the same device and stream path.</p>
+                <div class="row api-lookup-row">
+                    <div>
+                        <label>Look up by</label>
+                        <div class="mode-switch compact" role="tablist" aria-label="Look up by">
+                            <button type="button" class="mode-btn active" id="lookup-btn-locationId" role="tab" aria-selected="true" onclick="setLookup('locationId')">location.id</button>
+                            <button type="button" class="mode-btn" id="lookup-btn-deviceId" role="tab" aria-selected="false" onclick="setLookup('deviceId')">device id</button>
+                        </div>
+                        <label for="lookup-value" id="lookup-label">Command location.id</label>
+                        <input type="text" id="lookup-value" placeholder="e.g. PLANT-7" oninput="validateLookup()">
+                        <div class="help-text" id="lookup-help">Matched exactly, the way your Command Cloud tickets are routed.</div>
+                        <div class="site-chips" id="api-sites"></div>
+                        <button onclick="mintAndPlay(true)" id="btn-mint" disabled>Get stream &amp; play</button>
+                        <span id="mint-status" style="margin-left: 10px; font-size: 13px;"></span>
+                        <div class="mint-list" id="mint-list"></div>
+                    </div>
+                    <div>
+                        <div class="api-output-wrapper" id="mint-api-wrapper" style="display:none; margin-top: 6px;">
+                            <div class="api-output-toggle" onclick="toggleApiOutput(this)">- Request/Response</div>
+                            <div id="mint-api" class="api-output"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Section 2: Select Device & Camera (reference; live selectors live at the player) -->
@@ -1051,6 +1122,15 @@
         // WebSocket streaming state
         let wsPlayer = null;
 
+        // ScaleWatcher API user mode (#86bc6dkfa): the API token stays in this page's memory; every
+        // stream URL is minted on demand (POST /sw/api/video-token) and lives 10 minutes.
+        let authMode = 've';              // 've' = CloudNVR user (/ve/auth) | 'api' = ScaleWatcher API user
+        let apiToken = null;
+        let lookupKind = 'locationId';    // 'locationId' | 'deviceId'
+        let lastGrant = null;             // the last /sw/api/video-token body
+        let mintHistory = [];             // [{ kind, value, deviceId, serial, path }]
+        let autoRemintUsed = false;       // token_expired re-mints once on its own
+
         // ==================== ANALYTICS (v2) ====================
         // One MessageQueue aggregates object / LPR / POS events from the player. A
         // 3rd-party integration would subscribe to it exactly like the panel below does.
@@ -1118,6 +1198,7 @@
 
         // ==================== CONNECT ====================
         async function connect() {
+            if (authMode === 'api') return connectApiUser();
             directApiUrl = document.getElementById('api-url').value.trim().replace(/\/$/, '');
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
@@ -1414,6 +1495,8 @@
 
         // ==================== STREAMING ====================
         function startLiveStream() {
+            // API mode: stream URLs are short-lived, so a (re)start mints a fresh one first.
+            if (authMode === 'api' && !startLiveStream.fromMint) return mintAndPlay(true);
             if (!selectedDevice || !selectedCamera || !token) {
                 alert('Please select a device and camera first');
                 return;
@@ -1637,7 +1720,10 @@
             // Build WebSocket URL with JWT token for authentication
             const wsOverride = document.getElementById('ws-url-override').value.trim();
             let wsUrl;
-            if (wsOverride) {
+            const minted = authMode === 'api' ? mintedStream(selectedCamera.bCamera, profile) : null;
+            if (minted && !wsOverride) {
+                wsUrl = minted.url;              // the URL the server minted for this camera + profile
+            } else if (wsOverride) {
                 // Use override URL (for local testing)
                 const wsBase = wsOverride.replace(/\/$/, '');
                 wsUrl = `${wsBase}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${encodeURIComponent(token)}`;
@@ -1715,10 +1801,28 @@
                     setLiveStatus('Stream stalled - no data', '#ff9800');
                 },
                 onError: (err) => {
+                    // WSPlayer 2.6.0 reports a server stop as {code, message} (code may be null).
+                    if (err && !(err instanceof Error) && typeof err.message === 'string' && (typeof err.code === 'string' || err.code === null)) {
+                        log('Stream stopped by the server: ' + err.message + (err.code ? ' [' + err.code + ']' : ''), 'error');
+                        if (err.code === 'token_expired' && authMode === 'api' && !autoRemintUsed) {
+                            autoRemintUsed = true;
+                            log('Stream link expired - minting a new one');
+                            mintAndPlay(false);
+                            return;
+                        }
+                        setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + err.code + ')' : ''), '#c62828');
+                        return;
+                    }
                     log('WebSocket error: ' + ((err && err.message) || err), 'error');
                     setLiveStatus('Connection error', '#c62828');
                 },
-                onDisconnect: () => {
+                onDisconnect: (code) => {
+                    if (code === 1008) {                 // terminal: keep the stop reason, allow a fresh start
+                        streamActive = false;
+                        document.getElementById('btn-start-live').disabled = !selectedDevice || !selectedCamera;
+                        document.getElementById('btn-stop-live').disabled = true;
+                        return;
+                    }
                     setLiveStatus('Disconnected', '#c62828');
                 },
             });
@@ -1817,6 +1921,231 @@
         // Legacy function for compatibility
         function stopStream() {
             stopAllStreams();
+        }
+
+        // ==================== SCALEWATCHER API USER MODE (#86bc6dkfa) ====================
+        // Sign in with POST /sw/api/auth (email + password -> API token), then name a site by Command
+        // location.id or our device id: POST /sw/api/video-token mints a view-only stream URL that the
+        // shared player below plays. A production page keeps the API token on its server and mints there.
+        function setMode(mode) {
+            if (mode === authMode) return;
+            stopAllStreams();
+            authMode = mode;
+            token = null; apiToken = null; lastGrant = null; devices = []; cameras = [];
+            selectedDevice = null; selectedCamera = null; mintHistory = [];
+            ['ve', 'api'].forEach(function (m) {
+                const b = document.getElementById('mode-btn-' + m);
+                b.classList.toggle('active', m === mode);
+                b.setAttribute('aria-selected', String(m === mode));
+                document.getElementById('api-ref-' + m).style.display = (m === mode) ? '' : 'none';
+            });
+            document.getElementById('mode-help').innerHTML = mode === 'api'
+                ? 'Signs in with <code>POST /sw/api/auth</code>; then name a site by your Command <code>location.id</code> or our device id and <code>POST /sw/api/video-token</code> mints its stream.'
+                : 'Signs in with <code>POST /ve/auth</code> and lists your devices; you pick a device id and camera.';
+            document.getElementById('btn-connect').textContent = mode === 'api' ? 'Sign in' : 'Connect';
+            document.getElementById('sec-apivideo').style.display = 'none';
+            document.getElementById('sec-device').style.display = mode === 'api' ? 'none' : '';
+            document.getElementById('connect-api-wrapper').style.display = 'none';
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').className = 'status status-disconnected';
+            document.getElementById('device-select').innerHTML = '<option value="">Connect to Cloud first</option>';
+            document.getElementById('device-select').disabled = true;
+            document.getElementById('camera-select').innerHTML = '<option value="">Select device first</option>';
+            document.getElementById('camera-select').disabled = true;
+            updateSelectionInfo();
+            updateStartButton();
+            mirrorSelectors();
+            log('Sign-in type: ' + (mode === 'api' ? 'ScaleWatcher API user' : 'CloudNVR user'));
+        }
+
+        function redactJwt(value) {
+            return typeof value === 'string' && value.length > 24 ? value.substring(0, 16) + '...[redacted]' : value;
+        }
+
+        async function connectApiUser() {
+            directApiUrl = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+            apiUrl = isDevProxy ? PROXY_PREFIX : directApiUrl;
+            const email = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            log('Signing in as ScaleWatcher API user at ' + directApiUrl + '...');
+            let status = 0, data = {};
+            try {
+                const response = await fetch(apiUrl + '/sw/api/auth', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                status = response.status;
+                data = await response.json();
+            } catch (err) {
+                data = { error: { message: err.message } };
+            }
+            const ok = status === 200 && data.token;
+            const wrapper = document.getElementById('connect-api-wrapper');
+            wrapper.style.display = 'block';
+            document.getElementById('connect-api').innerHTML =
+                '<span class="label">POST</span> ' + escapeHtml(apiUrl) + '/sw/api/auth\n' +
+                '<span class="label">Body:</span> ' + escapeHtml(JSON.stringify({ email, password: '***' }, null, 2)) + '\n' +
+                '<span class="label">Response:</span> <span class="' + (ok ? 'success' : 'error') + '">[' + (ok ? 'OK' : 'FAILED ' + status) + ']</span>\n' +
+                escapeHtml(JSON.stringify(Object.assign({}, data, { token: redactJwt(data.token) }), null, 2));
+            if (!ok) {
+                const msg = (data.error && data.error.message) || 'Sign-in failed';
+                log('Sign-in failed: ' + msg, 'error');
+                document.getElementById('connection-status').textContent = 'Failed';
+                document.getElementById('connection-status').className = 'status status-disconnected';
+                return;
+            }
+            apiToken = data.token;
+            autoRemintUsed = false;
+            const sites = (data.sites && data.sites.data) || [];
+            log('Signed in: ' + sites.length + ' site(s) on this key', 'success');
+            document.getElementById('connection-status').textContent = 'Signed in';
+            document.getElementById('connection-status').className = 'status status-connected';
+            renderSiteChips(sites);
+            document.getElementById('sec-apivideo').style.display = '';
+            const cb = document.getElementById('cloud-info-box');
+            if (cb) cb.style.display = 'none';
+            document.getElementById('sec-connect-summary').innerHTML =
+                '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
+                '<span style="color:#2e7d32; font-weight:600;">&#10003; Signed in</span>' +
+                '<span style="color:#666;">&middot; ScaleWatcher API user ' + escapeHtml(email) + ' &middot; ' + sites.length + ' site(s) on the key</span>' +
+                '<span class="sum-caret">change &#9662;</span>';
+            document.getElementById('sec-connect').classList.add('collapsed');
+            document.getElementById('lookup-value').focus();
+        }
+
+        function renderSiteChips(sites) {
+            const el = document.getElementById('api-sites');
+            const withLocation = sites.filter(function (s) { return s.locationId; });
+            if (!withLocation.length) { el.innerHTML = ''; return; }
+            el.innerHTML = '<span>Sites on this key:</span>';
+            withLocation.forEach(function (s) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'site-chip';
+                chip.textContent = s.name + ' (' + s.locationId + ')';
+                chip.title = 'serial ' + s.serial;
+                chip.onclick = function () { setLookup('locationId'); document.getElementById('lookup-value').value = s.locationId; validateLookup(); };
+                el.appendChild(chip);
+            });
+        }
+
+        function setLookup(kind) {
+            lookupKind = kind;
+            ['locationId', 'deviceId'].forEach(function (k) {
+                const b = document.getElementById('lookup-btn-' + k);
+                b.classList.toggle('active', k === kind);
+                b.setAttribute('aria-selected', String(k === kind));
+            });
+            document.getElementById('lookup-label').textContent = kind === 'deviceId' ? 'Device id' : 'Command location.id';
+            document.getElementById('lookup-value').placeholder = kind === 'deviceId' ? 'e.g. AC3AE21236F9' : 'e.g. PLANT-7';
+            document.getElementById('lookup-help').textContent = kind === 'deviceId'
+                ? 'The 12-character hex id of the cloud device (any case).'
+                : 'Matched exactly, the way your Command Cloud tickets are routed.';
+            validateLookup();
+        }
+
+        function validateLookup() {
+            document.getElementById('btn-mint').disabled = !apiToken || !document.getElementById('lookup-value').value.trim();
+        }
+
+        function mintedStream(camera, profile) {
+            if (!lastGrant) return null;
+            const cam = (lastGrant.cameras || []).find(function (c) { return String(c.camera) === String(camera); });
+            return cam ? (cam.streams || []).find(function (s) { return String(s.profile) === String(profile); }) || null : null;
+        }
+
+        function setMintStatus(text, color) {
+            document.getElementById('mint-status').innerHTML = '<span style="color: ' + (color || '#666') + ';">' + text + '</span>';
+        }
+
+        // Mint a stream URL for the looked-up site, show the exchange, then play it. userAction = a
+        // click (resets the one automatic re-mint on token_expired).
+        async function mintAndPlay(userAction) {
+            const value = document.getElementById('lookup-value').value.trim();
+            if (!apiToken || !value) return;
+            if (userAction) autoRemintUsed = false;
+            const body = {};
+            body[lookupKind] = value;
+            setMintStatus('Minting...', '#ff9800');
+            let status = 0, data = {};
+            try {
+                const response = await fetch(apiUrl + '/sw/api/video-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiToken },
+                    body: JSON.stringify(body)
+                });
+                status = response.status;
+                data = await response.json();
+            } catch (err) {
+                data = { error: { message: err.message } };
+            }
+            const ok = status === 200 && data.token;
+            const shown = ok ? Object.assign({}, data, {
+                token: redactJwt(data.token),
+                cameras: (data.cameras || []).map(function (c) {
+                    return Object.assign({}, c, { streams: (c.streams || []).map(function (st) { return Object.assign({}, st, { url: redactToken(st.url) }); }) });
+                })
+            }) : data;
+            document.getElementById('mint-api-wrapper').style.display = 'block';
+            document.getElementById('mint-api').innerHTML =
+                '<span class="label">POST</span> ' + escapeHtml(apiUrl) + '/sw/api/video-token\n' +
+                '<span class="label">Authorization:</span> Bearer ' + escapeHtml(redactJwt(apiToken)) + '\n' +
+                '<span class="label">Body:</span> ' + escapeHtml(JSON.stringify(body)) + '\n' +
+                '<span class="label">Response:</span> <span class="' + (ok ? 'success' : 'error') + '">[' + (ok ? 'OK' : 'FAILED ' + status) + ']</span>\n' +
+                escapeHtml(JSON.stringify(shown, null, 2));
+            if (!ok) {
+                const e = data.error || {};
+                const msg = (e.message || 'Could not mint a stream') + (e.reason ? ' (' + e.reason + ')' : '');
+                log('Video token refused: ' + msg, 'error');
+                setMintStatus(escapeHtml(msg), '#c62828');
+                return;
+            }
+            lastGrant = data;
+            recordMint(lookupKind, value, data);
+            setMintStatus('Minted &middot; device ' + escapeHtml(data.deviceId) + ' &middot; link valid until ' + new Date(data.expiresAt).toLocaleTimeString(), '#2e7d32');
+            log('Minted a stream URL by ' + lookupKind + ' ' + JSON.stringify(value) + ' -> device ' + data.deviceId + ', serial ' + data.serial, 'success');
+
+            // Feed the shared player: one device, its cameras, the stream token.
+            const keepCamera = selectedCamera ? selectedCamera.bCamera : null;
+            token = data.token;
+            devices = [{ sDeviceID: data.deviceId, sName: data.deviceName || data.site, fOnline: 1 }];
+            cameras = [];
+            (data.cameras || []).forEach(function (c) {
+                (c.streams || []).forEach(function (st) {
+                    cameras.push({ sDeviceID: data.deviceId, bCamera: c.camera, bProfile: st.profile, sName: c.name, fEnabled: c.enabled === false ? 0 : 1, fOnline: c.online ? 1 : 0 });
+                });
+            });
+            populateDevices();
+            document.getElementById('device-select').value = data.deviceId;
+            onDeviceChange();
+            const cams = document.getElementById('camera-select');
+            const wanted = keepCamera !== null && Array.from(cams.options).some(function (o) { return o.value === String(keepCamera); })
+                ? String(keepCamera) : (Array.from(cams.options).find(function (o) { return o.value && !o.disabled; }) || {}).value;
+            if (wanted) { cams.value = wanted; onCameraChange(); }
+            if (!selectedCamera) { setLiveStatus('No enabled camera on this device', '#c62828'); return; }
+            stopWebsocketStream();
+            startLiveStream.fromMint = true;
+            try { startLiveStream(); } finally { startLiveStream.fromMint = false; }
+        }
+
+        function recordMint(kind, value, data) {
+            const first = (data.cameras || [])[0];
+            const stream = first && (first.streams || [])[0];
+            const entry = { kind: kind, value: value, deviceId: data.deviceId, serial: data.serial, path: stream ? stream.path : '' };
+            const prev = mintHistory[mintHistory.length - 1];
+            mintHistory.push(entry);
+            const row = document.createElement('div');
+            row.className = 'mint-row';
+            const same = prev && prev.kind !== kind ? (prev.deviceId === entry.deviceId && prev.path === entry.path) : null;
+            row.innerHTML =
+                '<span class="mint-input">' + (kind === 'deviceId' ? 'device id' : 'location.id') + ' ' + escapeHtml(JSON.stringify(value)) + '</span>' +
+                '<span>&rarr; device <code>' + escapeHtml(entry.deviceId) + '</code></span>' +
+                '<span>serial ' + escapeHtml(String(entry.serial)) + '</span>' +
+                '<span>stream <code>' + escapeHtml(entry.path) + '</code></span>' +
+                (same === null ? '' : same
+                    ? '<span class="mint-same">&#10003; same device + stream path as the ' + (prev.kind === 'deviceId' ? 'device id' : 'location.id') + ' lookup</span>'
+                    : '<span class="mint-diff">&#10007; differs from the ' + (prev.kind === 'deviceId' ? 'device id' : 'location.id') + ' lookup</span>');
+            document.getElementById('mint-list').appendChild(row);
         }
 
         // ==================== ANALYTICS PANEL (v2) ====================
@@ -1962,6 +2291,9 @@
             log('Enter credentials and connect to start');
 
             // Enter in the username/password fields submits — only when both are non-empty.
+            document.getElementById('lookup-value').addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter' && !document.getElementById('btn-mint').disabled) mintAndPlay(true);
+            });
             ['username', 'password'].forEach(function (id) {
                 document.getElementById(id).addEventListener('keydown', function (ev) {
                     if (ev.key !== 'Enter') return;
