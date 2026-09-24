@@ -1155,7 +1155,9 @@
             const logEl = document.getElementById('log');
             const timestamp = new Date().toLocaleTimeString();
             const className = `log-${type}`;
-            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            // Plain text only: messages carry device, camera and site names and server text, which
+            // tenants and the proxy control (review L4). No caller passes markup.
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${escapeHtml(message)}</span>\n`;
             logEl.scrollTop = logEl.scrollHeight;
             if (DEBUG) console.log(`[${type}] ${message}`);
         }
@@ -1292,10 +1294,10 @@
             const truncateNote = (data.devices?.length > 3 || data.cameras?.length > 5) ? '\n...(showing first entries)' : '';
 
             el.innerHTML =
-                '<span class="label">POST</span> ' + apiUrl + '/ve/auth\n' +
-                '<span class="label">Body:</span> ' + JSON.stringify({ username, password: '***' }, null, 2) + '\n' +
-                '<span class="label">Response:</span> <span class="' + statusClass + '">[' + statusText + ']</span>\n' +
-                JSON.stringify(displayData, null, 2) + truncateNote;
+                '<span class="label">POST</span> ' + escapeHtml(apiUrl) + '/ve/auth\n' +
+                '<span class="label">Body:</span> ' + escapeHtml(JSON.stringify({ username, password: '***' }, null, 2)) + '\n' +
+                '<span class="label">Response:</span> <span class="' + statusClass + '">[' + escapeHtml(statusText) + ']</span>\n' +
+                escapeHtml(JSON.stringify(displayData, null, 2)) + truncateNote;
         }
 
         // ==================== DEVICE & CAMERA SELECTION ====================
@@ -1429,7 +1431,7 @@
                 cs.innerHTML =
                     '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
                     '<span style="color:#2e7d32; font-weight:600;">&#10003; Connected</span>' +
-                    '<span style="color:#666;">&middot; ' + username + ' &middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)</span>' +
+                    '<span style="color:#666;">&middot; ' + escapeHtml(username) + ' &middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)</span>' +
                     '<span class="sum-caret">change &#9662;</span>';
             }
             const cSec = document.getElementById('sec-connect');
@@ -1821,7 +1823,7 @@
                             mintAndPlay(false);
                             return;
                         }
-                        setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + err.code + ')' : ''), '#c62828');
+                        setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + escapeHtml(err.code) + ')' : ''), '#c62828');
                         return;
                     }
                     log('WebSocket error: ' + ((err && err.message) || err), 'error');
@@ -2202,7 +2204,7 @@
             const item = document.createElement('div');
             item.className = 'det-item';
             item.innerHTML =
-                (e.image ? '<img class="det-thumb lpr" src="' + e.image + '" alt="plate">' : '') +
+                (e.image ? '<img class="det-thumb lpr" src="' + escapeHtml(e.image) + '" alt="plate">' : '') +
                 '<div class="det-meta">' +
                     '<span class="plate">' + escapeHtml(e.plate) + '</span> ' +
                     '<span class="sub">' + escapeHtml(e.state) + (conf ? ' &middot; ' + conf : '') + '</span><br>' +
@@ -2220,7 +2222,7 @@
             const item = document.createElement('div');
             item.className = 'det-item';
             item.innerHTML =
-                (e.image ? '<img class="det-thumb" src="' + e.image + '" alt="object">' : '') +
+                (e.image ? '<img class="det-thumb" src="' + escapeHtml(e.image) + '" alt="object">' : '') +
                 '<div class="det-meta">' +
                     '<span class="label">' + escapeHtml(e.label || 'object') + '</span>' +
                     (e.description ? '<br><span class="sub">' + escapeHtml(e.description) + '</span>' : '') +
