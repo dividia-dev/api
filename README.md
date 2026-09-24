@@ -285,7 +285,7 @@ stream codes:
 
 | `code` | Meaning | What your page should do |
 |--------|---------|--------------------------|
-| `token_expired` | The stream URL's 10-minute connect window passed | Mint a new URL server-side and start again |
+| `token_expired` | The token in the stream URL expired: a stream URL's 10-minute connect window passed (`/sw/api/video-token`), or, with a `/ve/auth` or sign-in token, the session itself expired | Stream URL: mint a new one server-side and start again. Session token: authenticate again, then reconnect |
 | `video_access_revoked` | Live video was turned off for the account | Show the message; stop |
 | `site_access_revoked` | The account lost access to the site | Show the message; stop |
 | `api_key_revoked` | The API key behind the stream was changed or removed | Show the message; stop |
