@@ -1,0 +1,2434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dividia Cloud Camera API Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px 30px;
+            background: #f5f5f5;
+            color-scheme: light;   /* render native controls (selects, dropdowns) light, even on dark-mode OS */
+        }
+        .page-title {
+            background: #f5f5f5;
+            padding: 9px 30px;
+            margin: -20px -30px 0 -30px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            gap: 16px;
+        }
+        .page-title h1 { margin: 0; color: #0d47a1; }
+        .page-title .header-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex: 0 0 auto;
+            flex-wrap: nowrap;
+        }
+        .page-title .header-btn {
+            background: #0d47a1;
+            color: white;
+            padding: 0 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #0d47a1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 34px;
+            white-space: nowrap;
+            line-height: 1;
+            box-sizing: border-box;
+            font-family: inherit;
+            margin: 0;
+        }
+        .page-title .header-btn:hover {
+            background: #1565c0;
+            border-color: #1565c0;
+        }
+        .page-title .header-btn.secondary {
+            background: white;
+            color: #0d47a1;
+            border: 1px solid #0d47a1;
+        }
+        .page-title .header-btn.secondary:hover {
+            background: #e3f2fd;
+            border-color: #0d47a1;
+        }
+        .page-description {
+            text-align: center;
+            margin: 15px auto 20px auto;
+        }
+        /* Intro row: demo description (left) + Cloud-API info block (right), side by
+           side to use horizontal space instead of stacking two full-width blocks. */
+        .intro-row {
+            display: flex; gap: 20px; align-items: stretch;
+            max-width: 1100px; margin: 12px auto 18px auto;
+        }
+        .intro-row .intro-col { flex: 1 1 0; min-width: 0; margin: 0; text-align: left; }
+        .intro-row #intro-desc { display: flex; align-items: center; font-size: 13px; color: #444; line-height: 1.5; }
+        @media (max-width: 760px) { .intro-row { flex-direction: column; } }
+        /* Workspace grid: collapsed Connect/Device bars span the full width; the player
+           and the Live Detections panel sit side-by-side in one row so the video and its
+           detections are seen together without scrolling. */
+        .page-content {
+            display: grid;
+            grid-template-columns: 1.55fr 1fr;
+            grid-template-areas:
+                "connect connect"
+                "device  device"
+                "player  detect";
+            gap: 12px 20px;
+            align-items: start;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+        .left-column, .right-column { display: contents; }
+        #sec-connect { grid-area: connect; }
+        #sec-device  { grid-area: device; }
+        #tab-content-live { grid-area: player; min-width: 0; }
+        .det-panel { grid-area: detect; min-width: 0; }
+        .right-column .section { position: static; margin-bottom: 0; }
+        /* Compact layout: Live Detections is the primary right-column panel and fills
+           the column height (columns are equal-height via flex stretch); its lists
+           scroll internally. Debug Log sits below it (order:2), collapsed by default.
+           No JS height-pinning needed. */
+        .right-column .det-panel {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .right-column .det-panel .det-cols { flex: 1 1 auto; min-height: 0; }
+        .right-column .det-panel .det-col { display: flex; flex-direction: column; min-height: 0; }
+        .right-column .det-panel .det-col .det-list { flex: 1 1 auto; max-height: none; min-height: 0; }
+        .right-column .det-panel .det-group { flex: 0 0 auto; }
+        .right-column .det-panel > button { flex: 0 0 auto; }
+        /* Debug Log sits ABOVE detections, JS-sized to fill the space over the video,
+           so the Detections panel lines up beside the live feed (no scrolling to watch
+           detections populate while the video plays). */
+        .right-column .debug-panel { flex: 0 0 auto; display: flex; flex-direction: column; }
+        .right-column .debug-panel #log { flex: 1 1 auto; min-height: 120px; }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #0d47a1; margin-top: 0; }
+        h2 { margin-top: 0; color: #333; }
+        label { display: block; margin: 10px 0 5px; font-weight: 500; }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #0d47a1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background: #1565c0; }
+        button:disabled { background: #9ca3af !important; cursor: not-allowed; }
+        .btn-stop { background: #dc3545; }
+        .btn-stop:hover:not(:disabled) { background: #b02a37; }
+        .btn-stop:disabled { background: #9ca3af !important; }
+        .row { display: flex; gap: 15px; }
+        .row > div { flex: 1; }
+
+        /* Tab Styles */
+        .content-tabs {
+            display: flex;
+            gap: 0;
+            margin: 20px 0 0 0;
+            border-bottom: 2px solid #ddd;
+        }
+        .content-tab {
+            padding: 12px 24px;
+            background: #f5f5f5;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #666;
+            border-radius: 6px 6px 0 0;
+            margin: 0 2px 0 0;
+        }
+        .content-tab:hover { background: #e8e8e8; }
+        .content-tab.active {
+            background: white;
+            color: #0d47a1;
+            font-weight: 600;
+            border-bottom: 3px solid #0d47a1;
+            margin-bottom: -2px;
+        }
+        .content-tab.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .tab-content { display: none; min-height: 620px; }
+        .tab-content.active { display: block; }
+
+        /* Log */
+        #log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 4px;
+            min-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-error { color: #e57373; }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .status-connected { background: #c8e6c9; color: #2e7d32; }
+        .status-disconnected { background: #ffcdd2; color: #c62828; }
+        .help-text { font-size: 12px; color: #666; margin-top: 5px; }
+
+        /* Video container */
+        #video-container, #live-video-container {
+            background: #000;
+            border-radius: 4px;
+            aspect-ratio: 4 / 3;
+            max-height: 72vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            position: relative;
+            overflow: hidden;
+        }
+        #video-container video, #video-container img,
+        #live-video-container video, #live-video-container img, #live-video-container canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* Video overlay styles */
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            line-height: 1.5;
+        }
+        .video-overlay .device-name { color: #90caf9; display: block; font-weight: 600; }
+        .video-overlay .cam-name { color: #4fc3f7; display: block; }
+        .video-overlay .live-indicator { color: #81c784; display: block; font-size: 12px; }
+        .video-overlay-br {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: monospace;
+            font-size: 13px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            text-align: right;
+            line-height: 1.4;
+        }
+        .video-overlay-br .timestamp { color: #81c784; font-weight: 600; }
+
+        /* Live viewer tabs */
+        .viewer-tabs {
+            display: flex;
+            gap: 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            width: fit-content;
+        }
+        .viewer-tab {
+            background: #f5f5f5;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+            border-right: 1px solid #ddd;
+            margin: 0;
+        }
+        .viewer-tab:last-child { border-right: none; }
+        .viewer-tab:hover:not(:disabled) { background: #e8e8e8; }
+        .viewer-tab.active { background: #0d47a1; color: white; }
+        .viewer-tab.active.tab-jpeg { background: #e65100; }
+        .viewer-tab.active.tab-mjpeg { background: #1565c0; }
+        .viewer-tab.active.tab-websocket { background: #2e7d32; }
+        .viewer-tab:disabled { opacity: 0.5; cursor: not-allowed; }
+        .viewer-description {
+            background: #f8f9fa;
+            border-left: 3px solid #0d47a1;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #444;
+        }
+
+        /* API output panels */
+        .api-output-wrapper {
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .api-output-toggle {
+            background: #2d2d2d;
+            color: #9cdcfe;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .api-output-toggle:hover { background: #3d3d3d; }
+        .api-output-toggle.collapsed { color: #888; }
+        .api-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 12px;
+            overflow-x: auto;
+            white-space: pre;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .api-output.collapsed { display: none; }
+        .api-output .label { color: #9cdcfe; }
+        .api-output .string { color: #ce9178; }
+        .api-output .success { color: #81c784; }
+        .api-output .error { color: #e57373; }
+
+        /* API Reference toggles */
+        .api-ref-toggle {
+            background: none;
+            border: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+            padding: 6px 12px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        .api-ref-toggle:hover { background: #f5f5f5; color: #333; }
+        .api-ref-toggle::before { content: '+ '; }
+        .api-ref-toggle.open::before { content: '- '; }
+        .api-ref {
+            display: none;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .api-ref.open { display: block; }
+        .api-ref h4 { margin: 0 0 10px 0; color: #0d47a1; font-size: 14px; }
+        .api-ref table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .api-ref th, .api-ref td {
+            text-align: left;
+            padding: 6px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+        }
+        .api-ref th { background: #e8e8e8; font-weight: 600; }
+        .api-ref code {
+            background: #e8e8e8;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .api-ref .note {
+            background: #e3f2fd;
+            border-left: 3px solid #1565c0;
+            padding: 8px 12px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        /* Stream stats */
+        .stream-stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #81c784;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            color: #fff;
+            font-size: 14px;
+            margin-top: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .loading-subtext {
+            color: #888;
+            font-size: 11px;
+            margin-top: 4px;
+            font-family: monospace;
+        }
+
+        /* Comparison table */
+        .comparison-section {
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .comparison-header {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 13px;
+            color: #333;
+        }
+        .comparison-header:hover { background: #f0f0f0; }
+        .comparison-content { padding: 0; }
+        .comparison-content.collapsed { display: none; }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .comparison-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .comparison-table tr:last-child td { border-bottom: none; }
+        .comparison-table .good { color: #2e7d32; }
+        .comparison-table .fair { color: #f57c00; }
+        .comparison-table .poor { color: #c62828; }
+
+        /* Cloud badge */
+        .cloud-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        /* ===== Analytics additions (v2) ===== */
+        .analytics-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+            color: #fff; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 600; margin-left: 8px; vertical-align: middle;
+        }
+        .overlay-toggles {
+            display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+            margin: 12px 0 0 0; padding: 10px 12px;
+            background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px;
+        }
+        .overlay-toggles label {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin: 0; font-weight: 500; cursor: pointer; white-space: nowrap;
+        }
+        .overlay-toggles input[type=checkbox] { width: auto; margin: 0; cursor: pointer; }
+        .overlay-toggles .ot-hint { color: #666; font-size: 12px; font-weight: 400; }
+        .swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+        .swatch-obj { background: #32cd32; }
+        .swatch-lpr { background: #ff3b30; }
+        .swatch-pos { background: #00bcd4; }
+
+        .det-group { margin-bottom: 14px; }
+        .det-group h3 {
+            margin: 0 0 6px 0; font-size: 13px; color: #0d47a1;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .det-count {
+            background: #e3f2fd; color: #1565c0; border-radius: 10px;
+            padding: 0 7px; font-size: 11px; font-weight: 600;
+        }
+        .det-cols { display: flex; gap: 14px; }
+        .det-col { flex: 1 1 0; min-width: 0; }
+        .det-col h3 { margin: 0 0 6px 0; font-size: 13px; color: #0d47a1; display: flex; align-items: center; gap: 6px; }
+        .det-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+        .det-item {
+            display: flex; gap: 8px; align-items: center;
+            background: #f8f9fa; border: 1px solid #eee; border-radius: 4px; padding: 6px;
+            cursor: pointer;
+        }
+        .det-item:hover { background: #eef3fb; border-color: #90caf9; }
+
+        /* Fixed-height mode (wide layout): the Live Detections box is locked to the
+           "3. Live Video Streaming" height; each column + POS reserve their space and
+           the lists scroll internally, so the box doesn't grow as events arrive. */
+        .section.det-fixed { display: flex; flex-direction: column; }
+        .section.det-fixed .det-cols { flex: 1 1 auto; min-height: 0; }
+        .section.det-fixed .det-col { display: flex; flex-direction: column; min-height: 0; }
+        .section.det-fixed .det-col .det-list { flex: 1 1 auto; max-height: none; min-height: 0; }
+        .section.det-fixed .det-group { flex: 0 0 auto; }
+        .section.det-fixed > button { flex: 0 0 auto; }
+        .det-thumb {
+            width: 56px; height: 42px; object-fit: cover; flex: 0 0 auto;
+            background: #000; border-radius: 3px;
+        }
+        .det-thumb.lpr { object-fit: contain; }
+        .det-meta { font-size: 12px; color: #333; line-height: 1.4; min-width: 0; word-break: break-word; }
+        .det-meta .plate { font-weight: 700; font-family: monospace; font-size: 14px; color: #c62828; }
+        .det-meta .label { font-weight: 600; text-transform: capitalize; }
+        .det-meta .sub { color: #666; font-size: 11px; }
+        .det-empty { color: #999; font-size: 12px; font-style: italic; padding: 4px 0; }
+        .pos-block {
+            background: #1e1e1e; color: #e0e0e0; font-family: monospace; font-size: 12px;
+            padding: 10px; border-radius: 4px; white-space: pre; overflow: auto; min-height: 40px; max-height: 130px;
+        }
+
+        /* Detection detail modal */
+        .det-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;
+            display: none; align-items: center; justify-content: center; padding: 20px; }
+        .det-modal.open { display: flex; }
+        .det-modal-box { background: #fff; border-radius: 8px; max-width: 560px; width: 100%;
+            max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+        .det-modal-img { width: 100%; max-height: 360px; object-fit: contain; background: #000;
+            border-radius: 8px 8px 0 0; display: block; }
+        .det-modal-body { padding: 16px 20px; }
+        .det-modal-body h3 { margin: 0 0 10px; color: #0d47a1; font-family: monospace; }
+        .det-modal-body table { width: 100%; border-collapse: collapse; }
+        .det-modal-body td { padding: 5px 6px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
+        .det-modal-body td.k { color: #666; width: 130px; font-weight: 600; }
+        .det-modal-close { float: right; cursor: pointer; border: none; background: #eee; color: #333;
+            border-radius: 4px; padding: 4px 10px; font-size: 14px; margin: 8px 8px 0 0; }
+        .det-modal-close:hover { background: #ddd; }
+
+        /* Responsive (within reason): stack main columns, then the detection sub-columns */
+        @media (max-width: 1024px) {
+            .page-content {
+                grid-template-columns: 1fr;
+                grid-template-areas: "connect" "device" "player" "detect";
+            }
+            .det-panel { height: auto !important; overflow: visible; }
+            .right-column .det-panel .det-list { max-height: 300px; }
+        }
+        @media (max-width: 640px) {
+            body { padding: 14px; }
+            .det-cols { flex-direction: column; }
+            .row { flex-direction: column; }
+        }
+
+        /* ===== Compact workspace additions ===== */
+        /* Collapsible sections: expanded = clickable header + body; collapsed = a
+           single-line summary bar (click anywhere on it to expand). Used for the
+           one-time Connect step, the device/camera reference, and the Debug Log. */
+        .section.collapsible .section-head {
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; gap: 10px;
+        }
+        .section.collapsible .section-head h2 { margin: 0; }
+        .section.collapsible .section-head .caret { color: #888; font-size: 13px; flex: 0 0 auto; }
+        .section.collapsible .section-head:hover .caret { color: #0d47a1; }
+        .section.collapsible .section-summary { display: none; }
+        .section.collapsible.collapsed { padding: 0; }
+        .section.collapsible.collapsed .section-head,
+        .section.collapsible.collapsed .section-body { display: none; }
+        .section.collapsible.collapsed .section-summary {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 12px 16px; cursor: pointer; font-size: 13px; color: #555;
+        }
+        .section.collapsible.collapsed .section-summary:hover { background: #fafafa; }
+        .section-summary .sum-strong { font-weight: 600; color: #333; }
+        .section-summary .sum-caret { margin-left: auto; color: #1565c0; font-size: 12px; flex: 0 0 auto; white-space: nowrap; }
+        .section-summary.connected { color: #2e7d32; }
+        .section-summary.connected .sum-strong { color: #2e7d32; }
+        .section-summary.connected .check { font-weight: 700; font-size: 15px; color: #2e7d32; }
+
+        /* Player control row: Device · Camera · Profile inline, right above the video. */
+        .player-controls { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .player-controls > div { flex: 1 1 0; min-width: 150px; }
+        .player-controls label { margin-top: 0; }
+        @media (max-width: 640px) { .player-controls { flex-direction: column; } }
+
+        /* ===== Professional polish pass ===== */
+        /* Header: description as a subtitle under the title; nav buttons stay right. */
+        .page-title { align-items: center; }
+        .page-title .title-block { min-width: 0; flex: 1 1 auto; }
+        .page-title h1 { font-size: 23px; line-height: 1.15; }
+        .page-title .title-sub {
+            margin: 4px 0 0; font-size: 12.5px; color: #56616b; font-weight: 400;
+            line-height: 1.45; max-width: 900px;
+        }
+        .page-title .title-sub strong { color: #2b3640; font-weight: 600; }
+
+        /* Slim Cloud-API note (compact, vertical) — hidden once connected. */
+        #cloud-info-box {
+            max-width: 1500px; margin: 10px auto 0; padding: 8px 14px;
+            font-size: 12px; color: #44525e; text-align: left;
+            background: #eef4fb; border: 1px solid #d6e4f5; border-left: 3px solid #1565c0;
+            border-radius: 6px; line-height: 1.5;
+        }
+        #cloud-info-box strong { color: #0d47a1; }
+        #cloud-info-box .ci-sep { color: #9bb4d0; margin: 0 7px; }
+        #cloud-info-box a { color: #317e3a; }
+
+        /* Tighten vertical rhythm so the workspace stays in view. */
+        .section { padding: 16px; margin-bottom: 0; }
+        label { margin: 8px 0 4px; }
+        h2 { font-size: 19px; }
+        .viewer-tabs, #viewer-description, #tab-nav-section { display: none; }
+        .overlay-toggles { margin-top: 10px; padding: 8px 12px; }
+        .det-panel > p { margin: 0 0 8px; font-size: 11.5px; }
+        .det-list { max-height: none; }
+
+        /* Debug Log drawer: a fixed edge tab slides a panel in/out, so the log is always
+           reachable without consuming workspace space. */
+        #debug-toggle {
+            position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 300;
+            background: #263238; color: #cfd8dc; border: none; cursor: pointer;
+            padding: 9px 13px; border-radius: 6px 0 0 6px; font-size: 12px; font-weight: 600;
+            box-shadow: -2px 2px 8px rgba(0,0,0,.2); margin: 0;
+        }
+        #debug-toggle:hover { background: #37474f; }
+        #debug-drawer {
+            position: fixed; top: 0; right: 0; height: 100vh; width: 460px; max-width: 92vw;
+            background: #1e1e1e; z-index: 401; transform: translateX(100%);
+            transition: transform .22s ease; display: flex; flex-direction: column;
+            padding: 14px 16px; box-shadow: -6px 0 24px rgba(0,0,0,.45);
+        }
+        #debug-drawer.open { transform: translateX(0); }
+        #debug-drawer .dd-head {
+            display: flex; align-items: center; gap: 10px; color: #e0e0e0;
+            font-weight: 600; font-size: 14px; margin-bottom: 10px;
+        }
+        #debug-drawer .dd-head .dd-spacer { flex: 1 1 auto; }
+        #debug-drawer .dd-head button { margin: 0; padding: 5px 10px; font-size: 12px; background: #37474f; }
+        #debug-drawer #log { flex: 1 1 auto; min-height: 0; max-height: none; height: auto; margin: 0; }
+        #debug-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 400; display: none; }
+        #debug-backdrop.open { display: block; }
+
+        /* ===== Density pass: trim oversized fonts/padding that waste vertical space ===== */
+        button { padding: 7px 14px; font-size: 13px; margin-top: 8px; }
+        .section { padding: 14px 16px; }
+        label { margin: 6px 0 3px; font-size: 13px; }
+        h2 { font-size: 17px; }
+        input, select { padding: 7px; }
+        .help-text { margin-top: 3px; font-size: 11.5px; }
+        .player-controls { margin-top: 10px; gap: 12px; }
+        .overlay-toggles { margin-top: 8px; padding: 7px 12px; font-size: 12.5px; }
+        .viewer-description { font-size: 12px; }
+        .det-panel > h2 { margin-bottom: 6px; }
+        .det-panel > p { margin: 0 0 6px; }
+        .det-col h3, .det-group h3 { font-size: 12px; }
+        .det-group { margin-bottom: 10px; }
+        .analytics-badge { font-size: 10px; padding: 1px 6px; }
+        .det-item { padding: 5px; }
+        #btn-start-live, #btn-stop-live { margin-top: 0; }
+
+        /* Phone header: the title block and the nav buttons wrap instead of forcing a 505px-wide
+           layout (the non-wrapping button row squeezed the title to one word per line), its side
+           bleed matches the 14px phone body padding, and it scrolls away instead of staying pinned
+           (wrapped, it would cover about a quarter of a phone screen). */
+        @media (max-width: 640px) {
+            .page-title { flex-wrap: wrap; margin: -14px -14px 0; padding: 9px 14px; gap: 8px; position: static; }
+            .page-title .title-block { flex: 1 1 100%; }
+            .page-title .header-buttons { flex: 1 1 100%; flex-wrap: wrap; }
+            .page-title h1 { font-size: 19px; }
+        }
+
+        /* ===== ScaleWatcher API user mode (#86bc6dkfa) ===== */
+        /* Sign-in type + lookup switches: two joined buttons that wrap on narrow screens. */
+        .mode-switch { display: flex; flex-wrap: wrap; border: 1px solid #cfd8dc; border-radius: 6px; overflow: hidden; margin: 2px 0 4px; }
+        .mode-switch .mode-btn { flex: 1 1 auto; margin: 0; border-radius: 0; background: #f5f7f9; color: #37474f; font-weight: 500; }
+        .mode-switch .mode-btn + .mode-btn { border-left: 1px solid #cfd8dc; }
+        .mode-switch .mode-btn:hover { background: #e8eef3; }
+        .mode-switch .mode-btn.active { background: #0d47a1; color: #fff; }
+        .mode-switch.compact { display: inline-flex; }
+        #sec-apivideo { grid-area: device; }          /* the device section's slot: API mode replaces it */
+        /* Full-width grid items must not grow the column to fit a long request/response line
+           (the output box scrolls inside itself instead). */
+        #sec-connect, #sec-device, #sec-apivideo { min-width: 0; }
+        #sec-apivideo .api-lookup-row > div { min-width: 0; }
+        .site-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; font-size: 12px; color: #666; }
+        .site-chip { margin: 0; padding: 3px 9px; font-size: 12px; background: #eef4fb; color: #0d47a1; border: 1px solid #d6e4f5; border-radius: 12px; }
+        .site-chip:hover { background: #dce9f8; }
+        /* v3: a plain notice when access changed while watching */
+        .access-notice { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 10px 12px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; color: #5d4037; font-size: 14px; }
+        .access-notice[hidden] { display: none; }
+        .access-notice span { flex: 1; }
+        .access-notice-close { margin: 0; padding: 0 6px; background: transparent; border: none; color: #5d4037; font-size: 18px; line-height: 1; cursor: pointer; }
+        .mint-list { margin-top: 10px; font-size: 12px; }
+        .mint-row { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid #eee; align-items: baseline; }
+        .mint-row .mint-input { font-weight: 600; color: #333; }
+        .mint-row code { font-size: 11.5px; word-break: break-all; }
+        .mint-same { color: #2e7d32; font-weight: 600; }
+        .mint-diff { color: #c62828; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="page-title">
+        <div class="title-block">
+            <h1>Dividia Cloud Camera API Demo (v3 &mdash; Access refresh)<span class="cloud-badge">CLOUD</span></h1>
+            <p class="title-sub">Live video from cloud-connected devices with live <strong>object detection</strong>, <strong>license-plate recognition</strong>, and <strong>point-of-sale</strong> analytics over one WebSocket.</p>
+        </div>
+        <div class="header-buttons">
+            <a href="cloud-api-demo.html" class="header-btn secondary">&larr; Classic Demo (v1)</a>
+            <a href="cloud-api-reference-v2.html" target="_blank" class="header-btn">View API Reference</a>
+            <button onclick="printApiReference()" class="header-btn secondary">Save / Print API Reference</button>
+        </div>
+    </div>
+    <div id="cloud-info-box">
+        <strong>&#9729;&#65039; Cloud API</strong><span class="ci-sep">|</span>HTTPS required &mdash; all requests use <code>https://api.cloud.dividia.net</code><span class="ci-sep">&middot;</span>WebSocket H.264 via WSPlayer.js<span class="ci-sep">&middot;</span>JWT Bearer auth<span class="ci-sep">|</span>code base: <a href="https://github.com/dividia-dev/api" target="_blank">github.com/dividia-dev/api</a>
+    </div>
+
+    <div class="page-content">
+        <div class="left-column">
+            <!-- Section 1: Connect to Cloud (collapses to a status bar after login) -->
+            <div class="section collapsible" id="sec-connect">
+                <div class="section-summary" id="sec-connect-summary" onclick="toggleSection('sec-connect')"></div>
+                <div class="section-head" onclick="toggleSection('sec-connect')">
+                    <h2>1. Connect to Cloud Backend</h2>
+                    <span class="caret">&#9662;</span>
+                </div>
+                <div class="section-body">
+                <label>Sign in as</label>
+                <div class="mode-switch compact" role="tablist" aria-label="Sign in as">
+                    <button type="button" class="mode-btn active" id="mode-btn-ve" role="tab" aria-selected="true" onclick="setMode('ve')">CloudNVR user</button>
+                    <button type="button" class="mode-btn" id="mode-btn-api" role="tab" aria-selected="false" onclick="setMode('api')">ScaleWatcher API user</button>
+                </div>
+                <div class="help-text" id="mode-help">Signs in with <code>POST /ve/auth</code> and lists your devices; you pick a device id and camera.</div>
+                <div class="row">
+                    <div style="flex: 2;">
+                        <label>Cloud API URL</label>
+                        <input type="text" id="api-url" value="https://api.cloud.dividia.net" placeholder="https://api.cloud.dividia.net">
+                        <div class="help-text">Production: api.cloud.dividia.net | Staging: api-staging.cloud.dividia.net</div>
+                    </div>
+                    <div style="flex: 2;">
+                        <label>WebSocket Override <span style="color:#888">(optional)</span></label>
+                        <input type="text" id="ws-url-override" placeholder="ws://localhost:8081">
+                        <div class="help-text">Leave empty to use API URL. For local testing: ws://localhost:8081</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div>
+                        <label>Username (Email) <span style="color:#c62828">*</span></label>
+                        <input type="text" id="username" placeholder="user@example.com" required oninput="validateConnectForm()">
+                    </div>
+                    <div>
+                        <label>Password <span style="color:#c62828">*</span></label>
+                        <input type="password" id="password" required oninput="validateConnectForm()">
+                    </div>
+                </div>
+                <button onclick="connect()" id="btn-connect" disabled>Connect</button>
+                <span id="connection-status" class="status status-disconnected" style="margin-left: 10px;">Disconnected</span>
+
+                <div class="api-output-wrapper" id="connect-api-wrapper" style="display:none; margin-top: 15px;">
+                    <div class="api-output-toggle" onclick="toggleApiOutput(this)">- Request/Response</div>
+                    <div id="connect-api" class="api-output"></div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref" id="api-ref-api" style="display:none;">
+                    <h4>Endpoint: POST /sw/api/auth</h4>
+                    <p>Signs in a ScaleWatcher API user (email + password) and returns the long-lived API token plus the sites on its key. Keep this token on your server.</p>
+                    <h4 style="margin-top: 12px;">Endpoint: POST /sw/api/video-token</h4>
+                    <p>With <code>Authorization: Bearer &lt;API token&gt;</code> and exactly one of <code>locationId</code> (your Command <code>location.id</code>), <code>deviceId</code> or <code>serial</code>, returns a view-only stream URL for that site's cloud device. All three give the same device and stream. The URL can start a stream for 10 minutes; a playing stream keeps playing until its access is revoked.</p>
+                    <table>
+                        <tr><th>Status</th><th><code>reason</code></th><th>When</th></tr>
+                        <tr><td>403</td><td>video_not_allowed</td><td>The API user doesn't have Live video (a Dividia user turns it on)</td></tr>
+                        <tr><td>404</td><td>site_not_found</td><td>No site in this key's site list matches</td></tr>
+                        <tr><td>409</td><td>ambiguous_location</td><td>The location.id belongs to more than one customer's site on this key; retry with a listed serial</td></tr>
+                        <tr><td>409</td><td>no_cloud_video</td><td>The site's NVR is not a cloud device with live video</td></tr>
+                    </table>
+                    <p style="margin-top: 8px;">If the stream is stopped, the player shows why: <code>token_expired</code> (mint a new URL), <code>video_access_revoked</code>, <code>site_access_revoked</code>, <code>api_key_revoked</code>.</p>
+                </div>
+                <div class="api-ref" id="api-ref-ve">
+                    <h4>Endpoint: POST /ve/auth</h4>
+                    <p>Authenticates a user and returns access token plus authorized devices and cameras for streaming.</p>
+                    <strong>Request Body (JSON)</strong>
+                    <table>
+                        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>username</td><td>string</td><td>User email address</td></tr>
+                        <tr><td>password</td><td>string</td><td>User password</td></tr>
+                    </table>
+                    <strong style="display: block; margin-top: 10px;">Response</strong>
+                    <table>
+                        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>token</td><td>string</td><td>JWT token for authenticated requests (30-day expiry)</td></tr>
+                        <tr><td>devices</td><td>array</td><td>List of devices (sDeviceID, sName, fOnline)</td></tr>
+                        <tr><td>cameras</td><td>array</td><td>List of cameras (sDeviceID, bCamera, bProfile, sName, fEnabled, fOnline)</td></tr>
+                    </table>
+                </div>
+                </div><!-- /section-body -->
+            </div>
+
+            <!-- Section 2 (ScaleWatcher API user mode): name the site by location.id or device id -->
+            <div class="section" id="sec-apivideo" style="display:none;">
+                <h2>2. Get a stream by location.id or device id</h2>
+                <p class="help-text" style="margin: 0 0 6px;"><code>POST /sw/api/video-token</code> with the API token and exactly one of these. Both inputs for the same site return the same device and stream path.</p>
+                <div class="row api-lookup-row">
+                    <div>
+                        <label>Look up by</label>
+                        <div class="mode-switch compact" role="tablist" aria-label="Look up by">
+                            <button type="button" class="mode-btn active" id="lookup-btn-locationId" role="tab" aria-selected="true" onclick="setLookup('locationId')">location.id</button>
+                            <button type="button" class="mode-btn" id="lookup-btn-deviceId" role="tab" aria-selected="false" onclick="setLookup('deviceId')">device id</button>
+                        </div>
+                        <label for="lookup-value" id="lookup-label">Command location.id</label>
+                        <input type="text" id="lookup-value" placeholder="e.g. PLANT-7" oninput="validateLookup()">
+                        <div class="help-text" id="lookup-help">Matched exactly, the way your Command Cloud tickets are routed.</div>
+                        <div class="site-chips" id="api-sites"></div>
+                        <button onclick="mintAndPlay(true)" id="btn-mint" disabled>Get stream &amp; play</button>
+                        <span id="mint-status" style="margin-left: 10px; font-size: 13px;"></span>
+                        <div class="mint-list" id="mint-list"></div>
+                    </div>
+                    <div>
+                        <div class="api-output-wrapper" id="mint-api-wrapper" style="display:none; margin-top: 6px;">
+                            <div class="api-output-toggle" onclick="toggleApiOutput(this)">- Request/Response</div>
+                            <div id="mint-api" class="api-output"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Select Device & Camera (reference; live selectors live at the player) -->
+            <div class="section collapsible collapsed" id="sec-device">
+                <div class="section-summary" id="sec-device-summary" onclick="toggleSection('sec-device')">
+                    <span class="sum-strong">2. Select Device &amp; Camera</span>
+                    <span>&middot; how cameras are discovered from the auth response</span>
+                    <span class="sum-caret">how it works &#9662;</span>
+                </div>
+                <div class="section-head" onclick="toggleSection('sec-device')">
+                    <h2>2. Select Device &amp; Camera</h2>
+                    <span class="caret">&#9662;</span>
+                </div>
+                <div class="section-body">
+                <p style="margin: 0 0 15px 0; color: #666;">Devices and cameras are returned with authentication. Select a device, then a camera. <em>The live selectors are at the player (section 3) &mdash; these stay in sync.</em></p>
+                <div class="row">
+                    <div>
+                        <label>Device</label>
+                        <select id="device-select" disabled onchange="onDeviceChange()">
+                            <option value="">Connect to Cloud first</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Camera</label>
+                        <select id="camera-select" disabled onchange="onCameraChange()">
+                            <option value="">Select device first</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="selection-info" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: none;">
+                    <div style="font-size: 12px; color: #666;">
+                        <strong>Device ID:</strong> <span id="selected-device-id">-</span><br>
+                        <strong>Camera:</strong> <span id="selected-camera-info">-</span><br>
+                        <strong>Stream Path:</strong> <code id="selected-stream-path">-</code>
+                    </div>
+                </div>
+
+                <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                <div class="api-ref">
+                    <h4>Device & Camera Data Structure</h4>
+                    <p>Devices and cameras are returned in the login response. No separate API call needed.</p>
+                    <strong>Device Object</strong>
+                    <table>
+                        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>sDeviceID</td><td>string</td><td>Unique device serial (e.g., "A1B2C3D4E5F6") - used in WebSocket URL</td></tr>
+                        <tr><td>sName</td><td>string</td><td>Device display name</td></tr>
+                        <tr><td>fOnline</td><td>int</td><td>1 = online, 0 = offline</td></tr>
+                    </table>
+                    <strong style="display: block; margin-top: 10px;">Camera Object</strong>
+                    <table>
+                        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                        <tr><td>sDeviceID</td><td>string</td><td>Parent device serial</td></tr>
+                        <tr><td>bCamera</td><td>int</td><td>Camera number (1-16) - used in WebSocket URL as cam{N}</td></tr>
+                        <tr><td>bProfile</td><td>int</td><td>Stream profile (1=full, 2=lower) - used in WebSocket URL as pro{P}</td></tr>
+                        <tr><td>sName</td><td>string</td><td>Camera display name</td></tr>
+                        <tr><td>fEnabled</td><td>int</td><td>1 = enabled, 0 = disabled</td></tr>
+                        <tr><td>fOnline</td><td>int</td><td>1 = online, 0 = offline</td></tr>
+                    </table>
+                </div>
+                </div><!-- /section-body -->
+            </div>
+
+            <!-- Tab Navigation (single option — hidden) -->
+            <div class="section" id="tab-nav-section" style="padding: 0; box-shadow: none; background: transparent;">
+                <div class="content-tabs">
+                    <button class="content-tab active" id="tab-btn-live" onclick="switchTab('live'); this.blur();">Live Video Streaming</button>
+                    <!-- COMMENTED OUT: Playback not implemented yet
+                    <button class="content-tab disabled" id="tab-btn-playback" onclick="switchTab('playback'); this.blur();" disabled title="Coming soon">Playback (Coming Soon)</button>
+                    -->
+                </div>
+            </div>
+
+            <!-- Tab Content: Live Video -->
+            <div id="tab-content-live" class="tab-content active">
+                <div class="section">
+                    <h2>3. Live Video Streaming</h2>
+
+                    <!-- Viewer Selection Tabs -->
+                    <div class="viewer-tabs">
+                        <!-- COMMENTED OUT: JPEG and MJPEG not implemented for cloud yet
+                        <button class="viewer-tab active tab-jpeg" onclick="selectViewer('jpeg'); this.blur();" id="tab-jpeg">JPEG Snapshot</button>
+                        <button class="viewer-tab tab-mjpeg" onclick="selectViewer('mjpeg'); this.blur();" id="tab-mjpeg">MJPEG Stream</button>
+                        -->
+                        <button class="viewer-tab active tab-websocket" onclick="selectViewer('websocket'); this.blur();" id="tab-websocket">WebSocket H.264</button>
+                    </div>
+
+                    <!-- Viewer Description -->
+                    <div id="viewer-description" class="viewer-description">
+                        <strong style="color: #2e7d32;">WebSocket H.264 Stream</strong> - Low-latency streaming via WebSocket with WebCodecs decoding.<br>
+                        <span style="color: #666;">Best for: Real-time monitoring, low latency requirements.</span>
+                    </div>
+
+                    <!-- Player controls: Device · Camera · Profile, inline above the video.
+                         Device/Camera mirror section 2 and stay in sync both ways. -->
+                    <div class="player-controls">
+                        <div>
+                            <label>Device</label>
+                            <select id="player-device-select" disabled onchange="onPlayerDeviceChange()">
+                                <option value="">Connect to Cloud first</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Camera</label>
+                            <select id="player-camera-select" disabled onchange="onPlayerCameraChange()">
+                                <option value="">Select device first</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Profile</label>
+                            <select id="stream-profile" onchange="handleProfileChange()">
+                                <option value="1" selected>Profile 1 (Full Resolution)</option>
+                                <option value="2">Profile 2 (Lower Resolution)</option>
+                            </select>
+                            <div class="help-text">Lower resolution uses less bandwidth</div>
+                        </div>
+                        <div style="display: none;" id="refresh-rate-container">
+                            <label>Refresh Rate</label>
+                            <select id="refresh-rate">
+                                <option value="2000">0.5 fps (2 sec)</option>
+                                <option value="1000" selected>1 fps (1 sec)</option>
+                                <option value="500">2 fps (0.5 sec)</option>
+                                <option value="250">4 fps (0.25 sec)</option>
+                            </select>
+                            <div class="help-text">Faster = more bandwidth</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 8px;">
+                        <button onclick="startLiveStream(); this.blur();" id="btn-start-live" disabled>Start Live Video</button>
+                        <button onclick="stopStream(); this.blur();" id="btn-stop-live" class="btn-stop" disabled>Stop</button>
+                        <span id="live-status" style="margin-left: 10px; color: #666; font-size: 13px;"></span>
+                    </div>
+
+                    <div class="access-notice" id="access-notice" role="status" aria-live="polite" hidden>
+                        <span id="access-notice-text"></span>
+                        <button type="button" class="access-notice-close" aria-label="Dismiss" onclick="hideAccessNotice()">&times;</button>
+                    </div>
+
+                    <div id="live-video-container" style="margin-top: 10px;">
+                        <span>Select a device and camera, then click Start Live Video</span>
+                    </div>
+
+                    <div class="overlay-toggles">
+                        <strong style="font-weight:600;">Overlays:</strong>
+                        <label><input type="checkbox" id="toggle-objects" checked onchange="onOverlayToggle('objects', this.checked)"><span class="swatch swatch-obj"></span>Objects</label>
+                        <label><input type="checkbox" id="toggle-lpr" checked onchange="onOverlayToggle('lpr', this.checked)"><span class="swatch swatch-lpr"></span>License Plates</label>
+                        <label><input type="checkbox" id="toggle-pos" checked onchange="onOverlayToggle('pos', this.checked)"><span class="swatch swatch-pos"></span>POS</label>
+                        <label><input type="checkbox" id="toggle-ptz" onchange="onOverlayToggle('ptz', this.checked)">PTZ controls</label>
+                        <span class="ot-hint">&larr; right-click the video for the same toggles &middot; hiding a box still streams its data</span>
+                    </div>
+
+                    <div class="api-output-wrapper" id="live-api-wrapper" style="display:none; margin-top: 15px;">
+                        <div class="api-output-toggle" onclick="toggleApiOutput(this)">- Stream Details</div>
+                        <div id="live-api" class="api-output"></div>
+                    </div>
+
+                    <button class="api-ref-toggle" onclick="toggleApiRef(this)">API Reference</button>
+                    <div class="api-ref">
+                        <h4>Live Streaming Methods</h4>
+
+                        <!-- COMMENTED OUT: JPEG and MJPEG not implemented for cloud yet
+                        <strong style="color: #e65100;">JPEG Snapshot</strong>
+                        <p>Fetch individual JPEG frames at a configurable refresh rate.</p>
+                        <table>
+                            <tr><th>Endpoint</th><th>Description</th></tr>
+                            <tr><td><code>GET /ve/snapshot</code></td><td>Get single JPEG frame</td></tr>
+                        </table>
+                        <div class="note">
+                            <strong>Parameters:</strong> ?device={deviceID}&amp;cam={cameraNum}&amp;pro={profile}<br>
+                            <strong>Auth:</strong> Bearer token in Authorization header
+                        </div>
+
+                        <strong style="color: #1565c0; display: block; margin-top: 15px;">MJPEG Stream</strong>
+                        <p>Continuous Motion JPEG stream over HTTP.</p>
+                        <table>
+                            <tr><th>Endpoint</th><th>Description</th></tr>
+                            <tr><td><code>GET /ve/mjpeg</code></td><td>Continuous MJPEG stream</td></tr>
+                        </table>
+                        <div class="note">
+                            <strong>Parameters:</strong> ?device={deviceID}&amp;cam={cameraNum}&amp;pro={profile}<br>
+                            <strong>Content-Type:</strong> multipart/x-mixed-replace; boundary=frame
+                        </div>
+                        -->
+
+                        <strong style="color: #2e7d32;">WebSocket H.264</strong>
+                        <p>Direct WebSocket connection for low-latency H.264 streaming.</p>
+                        <table>
+                            <tr><th>Protocol</th><th>URL Format</th></tr>
+                            <!-- <tr><td>WebSocket</td><td><code>wss://api.../{deviceID}-cam{N}-pro{P}?token={token}</code></td></tr> -->
+                            <tr><td>WebSocket</td><td><code>wss://api.../{deviceID}-cam{N}-pro{P}</code></td></tr>
+                        </table>
+                        <div class="note">
+                            <strong>Note:</strong> WebSocket streaming uses WebCodecs API for H.264/H.265 decoding. Requires HTTPS (secure context). See <a href="cloud-api-reference-v2.html#live-streaming">API Reference</a> for WSPlayer.js integration details.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Playback (Stubbed) -->
+            <div id="tab-content-playback" class="tab-content">
+                <div class="section">
+                    <h2>3. Playback (Coming Soon)</h2>
+                    <p style="color: #666; padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;">
+                        Recorded video playback functionality will be available in a future update.<br><br>
+                        <strong>Planned Features:</strong><br>
+                        - Event search by date range<br>
+                        - Video clip playback<br>
+                        - Event export/download
+                    </p>
+                </div>
+            </div>
+
+        </div><!-- end left-column -->
+
+        <div class="right-column">
+            <div class="section det-panel">
+                <h2>Live Detections <span class="analytics-badge">ANALYTICS</span></h2>
+                <p style="margin:0 0 12px 0; color:#666; font-size:12px;">Structured events the player publishes on its <code>MessageQueue</code> as detections arrive. A 3rd-party integration subscribes here for license-plate, object, and POS data &mdash; each event also carries a cropped JPEG.</p>
+                <div class="det-cols">
+                    <div class="det-col">
+                        <h3><span class="swatch swatch-lpr"></span> License Plates <span class="det-count" id="lpr-count">0</span></h3>
+                        <div class="det-list" id="lpr-list"><div class="det-empty">No plate reads yet</div></div>
+                    </div>
+                    <div class="det-col">
+                        <h3><span class="swatch swatch-obj"></span> Objects <span class="det-count" id="obj-count">0</span></h3>
+                        <div class="det-list" id="obj-list"><div class="det-empty">No objects yet</div></div>
+                    </div>
+                </div>
+                <div class="det-group">
+                    <h3><span class="swatch swatch-pos"></span> Point of Sale</h3>
+                    <div class="pos-block" id="pos-block">No POS data</div>
+                </div>
+                <button onclick="clearDetections()">Clear Detections</button>
+            </div>
+        </div><!-- end right-column -->
+    </div><!-- end page-content -->
+
+    <!-- Debug Log drawer: always-available slide-in; does not consume workspace space. -->
+    <button id="debug-toggle" onclick="toggleDebug()" title="Show debug log">&#128027; Debug Log</button>
+    <div id="debug-backdrop" onclick="toggleDebug()"></div>
+    <div id="debug-drawer" aria-label="Debug log">
+        <div class="dd-head">
+            <span>Debug Log</span>
+            <span class="dd-spacer"></span>
+            <button onclick="document.getElementById('log').innerHTML=''">Clear</button>
+            <button onclick="toggleDebug()" title="Close">&times;</button>
+        </div>
+        <div id="log"></div>
+    </div>
+
+    <!-- WebSocket H.264 Player + analytics event bus -->
+    <script src="messageQueue.js"></script>
+    <script src="WSPlayer.js"></script>
+
+    <script>
+        // ==================== CONFIG ====================
+        const DEBUG = true;
+
+        // Detect if running via dev proxy (localhost:3000)
+        const isDevProxy = window.location.hostname === 'localhost' && (window.location.port === '3000' || window.location.port === '3001' || window.location.port === '3007');
+        const PROXY_PREFIX = '/api';  // Proxy routes /api/* to cloud API
+
+        // ==================== STATE ====================
+        let token = null;
+        let apiUrl = null;
+        let directApiUrl = null;  // The actual API URL (for display/WebSocket)
+        let devices = [];
+        let cameras = [];
+        let selectedDevice = null;
+        let selectedCamera = null;
+        let currentViewer = 'websocket';  // Default to WebSocket (JPEG/MJPEG commented out)
+        let streamActive = false;
+
+        // JPEG streaming state
+        let jpegStreamTimer = null;
+        let jpegFrameCount = 0;
+        let jpegStartTime = null;
+
+        // MJPEG streaming state
+        let mjpegActive = false;
+        let mjpegStartTime = null;
+        let mjpegTimestampTimer = null;
+        let mjpegLoaded = false;
+
+        // WebSocket streaming state
+        let wsPlayer = null;
+
+        // ScaleWatcher API user mode (#86bc6dkfa): the API token stays in this page's memory; every
+        // stream URL is minted on demand (POST /sw/api/video-token) and lives 10 minutes.
+        let authMode = 've';              // 've' = CloudNVR user (/ve/auth) | 'api' = ScaleWatcher API user
+        let apiToken = null;
+        let lookupKind = 'locationId';    // 'locationId' | 'deviceId'
+        let lastGrant = null;             // the last /sw/api/video-token body
+        let mintHistory = [];             // [{ kind, value, deviceId, serial, path }]
+        let autoRemintUsed = false;       // token_expired re-mints once on its own
+
+        // v3 (#86bc6dkfa): the key's sites (GET /sw/api/sites), the location on screen, and how often
+        // returning to the tab re-reads the sites.
+        let apiSites = [];
+        let watching = null;              // { value, name } of the location being watched (location.id)
+        let lastAccessRefresh = 0;
+        const ACCESS_REFRESH_MIN_MS = 60 * 1000;
+
+        // ==================== ANALYTICS (v2) ====================
+        // One MessageQueue aggregates object / LPR / POS events from the player. A
+        // 3rd-party integration would subscribe to it exactly like the panel below does.
+        const mq = new MessageQueue();
+        let lprCount = 0, objCount = 0;
+        // Overlay visibility (mirrors the checkboxes); read when (re)starting a stream.
+        const overlayState = { objects: true, lpr: true, pos: true, ptz: false };
+
+        // ==================== UTILITIES ====================
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = `log-${type}`;
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            if (DEBUG) console.log(`[${type}] ${message}`);
+        }
+
+        function printApiReference() {
+            window.open('cloud-api-reference-v2.html?print=1', '_blank');
+        }
+
+        // Redact the JWT in a stream URL before showing it in the log / Stream Details.
+        function redactToken(u) {
+            return (u || '').replace(/([?&]token=)([^&]+)/i, function (m, p, t) {
+                return p + t.slice(0, 12) + '…[redacted]';
+            });
+        }
+
+        // ==================== FORM VALIDATION ====================
+        function validateConnectForm() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value;
+            document.getElementById('btn-connect').disabled = !(user && pass);
+        }
+
+        // ==================== TOGGLE FUNCTIONS ====================
+        function toggleApiRef(btn) {
+            btn.classList.toggle('open');
+            btn.nextElementSibling.classList.toggle('open');
+        }
+
+        function toggleApiOutput(toggle) {
+            const content = toggle.nextElementSibling;
+            const isCollapsed = content.classList.toggle('collapsed');
+            toggle.classList.toggle('collapsed', isCollapsed);
+            toggle.textContent = (isCollapsed ? '+ ' : '- ') + toggle.textContent.substring(2);
+        }
+
+        function toggleComparison(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            const isCollapsed = content.classList.toggle('collapsed');
+            icon.textContent = isCollapsed ? '+' : '-';
+        }
+
+        // ==================== TAB NAVIGATION ====================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.content-tab').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-content-' + tabName).classList.add('active');
+            document.getElementById('tab-btn-' + tabName).classList.add('active');
+            log('Switched to ' + (tabName === 'live' ? 'Live Video' : 'Playback') + ' tab');
+        }
+
+        // ==================== CONNECT ====================
+        async function connect() {
+            if (authMode === 'api') return connectApiUser();
+            directApiUrl = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Use proxy in dev mode to bypass CORS
+            if (isDevProxy) {
+                apiUrl = PROXY_PREFIX;
+                log('Dev mode: Using local proxy for CORS bypass');
+                log('Proxying to ' + directApiUrl + '...');
+            } else {
+                apiUrl = directApiUrl;
+                log('Connecting to ' + apiUrl + '...');
+            }
+
+            try {
+                const response = await fetch(apiUrl + '/ve/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                // Show API output
+                showConnectApiOutput(username, data, response.ok);
+
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Authentication failed');
+                }
+
+                if (data.changePassword) {
+                    log('Password change required', 'error');
+                    alert('You need to change your password. Please use the main application to change it first.');
+                    return;
+                }
+
+                // Store auth data (ve/auth returns minimal structure for streaming)
+                token = data.token;
+                devices = data.devices || [];
+                cameras = data.cameras || [];
+
+                // Count unique cameras (by device+bCamera, not counting each profile separately)
+                const uniqueCameras = new Set(cameras.map(c => `${c.sDeviceID}-${c.bCamera}`)).size;
+
+                log('Authenticated successfully', 'success');
+                log('Found ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)');
+
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status status-connected';
+
+                // Populate device dropdown
+                populateDevices();
+
+                // Compact workspace: fold the one-time setup away — the player now
+                // carries the live Device/Camera selectors (kept in sync).
+                collapseConnected(username);
+
+            } catch (err) {
+                log('Connection failed: ' + err.message, 'error');
+                document.getElementById('connection-status').textContent = 'Failed';
+                document.getElementById('connection-status').className = 'status status-disconnected';
+            }
+        }
+
+        function showConnectApiOutput(username, data, success) {
+            const wrapper = document.getElementById('connect-api-wrapper');
+            const el = document.getElementById('connect-api');
+            wrapper.style.display = 'block';
+
+            const statusClass = success && !data.error ? 'success' : 'error';
+            const statusText = success && !data.error ? 'OK' : 'FAILED';
+
+            // Display response (ve/auth already returns minimal structure)
+            const displayData = {
+                token: data.token ? data.token.substring(0, 20) + '...' : null,
+                devices: (data.devices || []).slice(0, 3),
+                cameras: (data.cameras || []).slice(0, 5)
+            };
+
+            const truncateNote = (data.devices?.length > 3 || data.cameras?.length > 5) ? '\n...(showing first entries)' : '';
+
+            el.innerHTML =
+                '<span class="label">POST</span> ' + apiUrl + '/ve/auth\n' +
+                '<span class="label">Body:</span> ' + JSON.stringify({ username, password: '***' }, null, 2) + '\n' +
+                '<span class="label">Response:</span> <span class="' + statusClass + '">[' + statusText + ']</span>\n' +
+                JSON.stringify(displayData, null, 2) + truncateNote;
+        }
+
+        // ==================== DEVICE & CAMERA SELECTION ====================
+        function populateDevices() {
+            const select = document.getElementById('device-select');
+            select.innerHTML = '<option value="">-- Select Device --</option>';
+
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.sDeviceID;
+                const status = device.fOnline ? '' : ' (Offline)';
+                option.textContent = device.sName + status + ' - ' + device.sDeviceID;
+                option.disabled = !device.fOnline;
+                select.appendChild(option);
+            });
+
+            select.disabled = false;
+            document.getElementById('camera-select').innerHTML = '<option value="">Select device first</option>';
+            mirrorSelectors();
+        }
+
+        function onDeviceChange() {
+            const deviceId = document.getElementById('device-select').value;
+            selectedDevice = devices.find(d => d.sDeviceID === deviceId) || null;
+
+            const cameraSelect = document.getElementById('camera-select');
+            cameraSelect.innerHTML = '<option value="">-- Select Camera --</option>';
+
+            if (!deviceId) {
+                cameraSelect.disabled = true;
+                selectedCamera = null;
+                updateSelectionInfo();
+                updateStartButton();
+                mirrorSelectors();
+                return;
+            }
+
+            // Filter cameras for this device (profile 1 only for simplicity)
+            const deviceCameras = cameras.filter(c => c.sDeviceID === deviceId && c.bProfile === 1);
+
+            deviceCameras.forEach(cam => {
+                const option = document.createElement('option');
+                option.value = cam.bCamera;
+                const status = cam.fOnline ? '' : ' (Offline)';
+                const enabled = cam.fEnabled ? '' : ' [Disabled]';
+                option.textContent = 'Camera ' + cam.bCamera + ': ' + (cam.sName || 'Unnamed') + status + enabled;
+                option.disabled = !cam.fOnline || !cam.fEnabled;
+                cameraSelect.appendChild(option);
+            });
+
+            cameraSelect.disabled = false;
+            log('Selected device: ' + selectedDevice.sName + ' (' + deviceId + ')');
+            updateSelectionInfo();
+            updateStartButton();
+            mirrorSelectors();
+        }
+
+        function onCameraChange() {
+            const deviceId = document.getElementById('device-select').value;
+            const cameraNum = parseInt(document.getElementById('camera-select').value);
+
+            selectedCamera = cameras.find(c => c.sDeviceID === deviceId && c.bCamera === cameraNum && c.bProfile === 1) || null;
+
+            if (selectedCamera) {
+                log('Selected camera: ' + (selectedCamera.sName || 'Camera ' + cameraNum));
+            }
+
+            updateSelectionInfo();
+            updateStartButton();
+            mirrorSelectors();
+        }
+
+        function updateSelectionInfo() {
+            const infoDiv = document.getElementById('selection-info');
+
+            if (!selectedDevice || !selectedCamera) {
+                infoDiv.style.display = 'none';
+                return;
+            }
+
+            infoDiv.style.display = 'block';
+            document.getElementById('selected-device-id').textContent = selectedDevice.sDeviceID;
+            document.getElementById('selected-camera-info').textContent =
+                'Camera ' + selectedCamera.bCamera + ' - ' + (selectedCamera.sName || 'Unnamed');
+            const profile = document.getElementById('stream-profile').value;
+            document.getElementById('selected-stream-path').textContent =
+                selectedDevice.sDeviceID + '-cam' + selectedCamera.bCamera + '-pro' + profile;
+        }
+
+        function updateStartButton() {
+            document.getElementById('btn-start-live').disabled = !selectedDevice || !selectedCamera || !token;
+        }
+
+        // ===== Compact workspace: player <-> section 2 selector sync =====
+        // The player (section 3) Device/Camera selects mirror the canonical selects
+        // in section 2. Changing either updates both, then the existing handlers run.
+        function mirrorSelectors() {
+            const d = document.getElementById('device-select');
+            const c = document.getElementById('camera-select');
+            const pd = document.getElementById('player-device-select');
+            const pc = document.getElementById('player-camera-select');
+            if (pd && d) { pd.innerHTML = d.innerHTML; pd.value = d.value; pd.disabled = d.disabled; }
+            if (pc && c) { pc.innerHTML = c.innerHTML; pc.value = c.value; pc.disabled = c.disabled; }
+        }
+        function onPlayerDeviceChange() {
+            document.getElementById('device-select').value = document.getElementById('player-device-select').value;
+            onDeviceChange();   // repopulates cameras + calls mirrorSelectors()
+        }
+        function onPlayerCameraChange() {
+            document.getElementById('camera-select').value = document.getElementById('player-camera-select').value;
+            onCameraChange();
+        }
+
+        // ===== Compact workspace: collapsible sections =====
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('collapsed');
+        }
+        function toggleDebug() {
+            document.getElementById('debug-drawer').classList.toggle('open');
+            document.getElementById('debug-backdrop').classList.toggle('open');
+        }
+        // After a successful login, fold the one-time Connect step into a status bar
+        // and collapse the (now-reference) device/camera section.
+        function collapseConnected(username) {
+            const cb = document.getElementById('cloud-info-box');
+            if (cb) cb.style.display = 'none';
+            const uniqueCameras = new Set(cameras.map(c => c.sDeviceID + '-' + c.bCamera)).size;
+            const cs = document.getElementById('sec-connect-summary');
+            if (cs) {
+                cs.innerHTML =
+                    '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
+                    '<span style="color:#2e7d32; font-weight:600;">&#10003; Connected</span>' +
+                    '<span style="color:#666;">&middot; ' + username + ' &middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s)</span>' +
+                    '<span class="sum-caret">change &#9662;</span>';
+            }
+            const cSec = document.getElementById('sec-connect');
+            if (cSec) cSec.classList.add('collapsed');
+
+            const ds = document.getElementById('sec-device-summary');
+            if (ds) {
+                ds.innerHTML =
+                    '<span class="sum-strong">2. Select Device &amp; Camera</span>' +
+                    '<span>&middot; ' + devices.length + ' device(s), ' + uniqueCameras + ' camera(s) &middot; select at the player below</span>' +
+                    '<span class="sum-caret">how it works &#9662;</span>';
+            }
+            const dSec = document.getElementById('sec-device');
+            if (dSec) dSec.classList.add('collapsed');
+            alignDetections();
+            setTimeout(alignDetections, 60);
+        }
+
+        // Size the Debug Log (top of the right column) to fill the space above the
+        // video, so the Live Detections panel lines up beside the live feed — you see
+        // detections populate without scrolling away from the video.
+        // Lock the Live Detections panel to its height at first render, then leave it.
+        // It must NOT follow section 3 (the player) — the player can grow/shrink
+        // independently (e.g. expanding Stream Details). Lists scroll internally so the
+        // panel stays stable while the user watches the video.
+        let fixedDetHeight = null;
+        function alignDetections() {
+            const detSec = document.querySelector('.det-panel');
+            if (!detSec) return;
+            if (window.innerWidth <= 1024) { detSec.style.height = ''; return; }
+            if (fixedDetHeight === null) {
+                // Lock to the controls+video block (player top → video bottom) — a bit
+                // shorter than the full player (excludes the API-ref/stream-details below).
+                const player = document.getElementById('tab-content-live');
+                const video = document.getElementById('live-video-container');
+                if (player && video) {
+                    const h = Math.round(video.getBoundingClientRect().bottom - player.getBoundingClientRect().top);
+                    if (h > 200) fixedDetHeight = h;
+                }
+            }
+            if (fixedDetHeight !== null) detSec.style.height = fixedDetHeight + 'px';
+        }
+
+        // ==================== VIEWER SELECTION ====================
+        function selectViewer(type) {
+            stopAllStreams();
+            currentViewer = type;
+
+            document.querySelectorAll('.viewer-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById('tab-' + type).classList.add('active');
+
+            const descriptions = {
+                jpeg: '<strong style="color: #e65100;">JPEG Snapshot Polling</strong> - Simple image refresh at configurable rate.<br><span style="color: #666;">Best for: Low bandwidth, compatibility, debugging.</span>',
+                mjpeg: '<strong style="color: #1565c0;">MJPEG Stream</strong> - Motion JPEG continuous stream.<br><span style="color: #666;">Best for: Smooth video, simple implementation.</span>',
+                websocket: '<strong style="color: #2e7d32;">WebSocket H.264</strong> - Low-latency streaming with MSE decoding.<br><span style="color: #666;">Best for: Real-time monitoring, low latency requirements. Requires HTTPS.</span>'
+            };
+            document.getElementById('viewer-description').innerHTML = descriptions[type];
+
+            // Show/hide refresh rate selector (only visible for JPEG)
+            const refreshRateContainer = document.getElementById('refresh-rate-container');
+            refreshRateContainer.style.display = (type === 'jpeg') ? '' : 'none';
+
+            log('Switched to ' + type.toUpperCase() + ' viewer');
+        }
+
+        function handleProfileChange() {
+            updateSelectionInfo();
+            if (streamActive) {
+                log('Profile changed - restart stream to apply');
+                stopAllStreams();
+                startLiveStream();
+            }
+        }
+
+        // ==================== STREAMING ====================
+        function startLiveStream() {
+            // API mode: stream URLs are short-lived, so a (re)start mints a fresh one first.
+            if (authMode === 'api' && !startLiveStream.fromMint) return mintAndPlay(true);
+            if (!selectedDevice || !selectedCamera || !token) {
+                alert('Please select a device and camera first');
+                return;
+            }
+
+            const profile = document.getElementById('stream-profile').value;
+            log('Starting ' + currentViewer.toUpperCase() + ' stream for ' + selectedDevice.sName + ' - Camera ' + selectedCamera.bCamera);
+
+            if (currentViewer === 'jpeg') {
+                startJpegStream(profile);
+            } else if (currentViewer === 'mjpeg') {
+                startMjpegStream(profile);
+            } else {
+                startWebsocketStream(profile);
+            }
+        }
+
+        // ==================== JPEG STREAM ====================
+        function startJpegStream(profile) {
+            const refreshRate = parseInt(document.getElementById('refresh-rate').value);
+            const profileLabel = (profile === '2') ? 'Profile 2' : 'Profile 1';
+
+            log('Starting JPEG stream @ ' + (1000/refreshRate).toFixed(1) + ' fps (' + profileLabel + ')');
+
+            jpegFrameCount = 0;
+            jpegStartTime = Date.now();
+
+            // Build JPEG snapshot URL
+            // Endpoint: GET /ve/snapshot?device=X&cam=Y&pro=Z&token=JWT
+            const snapshotUrl = `${apiUrl}/ve/snapshot?device=${selectedDevice.sDeviceID}&cam=${selectedCamera.bCamera}&pro=${profile}&token=${token}`;
+
+            showStreamApiOutput('jpeg', {
+                snapshotUrl: snapshotUrl,
+                deviceId: selectedDevice.sDeviceID,
+                camera: selectedCamera.bCamera,
+                profile: profile,
+                refreshRate: refreshRate
+            });
+
+            const container = document.getElementById('live-video-container');
+            container.innerHTML = `
+                <img id="live-image" src="${snapshotUrl}&ts=${Date.now()}" alt="Live camera feed" onerror="handleJpegError()" onload="handleJpegLoad()" style="display:none;" />
+                <div class="video-overlay">
+                    <span class="device-name">${selectedDevice.sName}</span>
+                    <span class="cam-name">Camera ${selectedCamera.bCamera}: ${selectedCamera.sName || 'Unnamed'}</span>
+                    <span class="live-indicator" id="live-indicator" style="color: #e65100;">JPEG</span>
+                </div>
+                <div class="video-overlay-br">
+                    <span class="timestamp" id="live-timestamp">--:--:--</span>
+                </div>
+                <div class="stream-stats" id="stream-stats">Loading...</div>
+                <div class="loading-overlay" id="loading-overlay">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Connecting...</div>
+                    <div class="loading-subtext" id="loading-status">Loading JPEG snapshot</div>
+                </div>
+            `;
+
+            // Start polling for new frames
+            const urlBase = `${apiUrl}/ve/snapshot?device=${selectedDevice.sDeviceID}&cam=${selectedCamera.bCamera}&pro=${profile}&token=${token}&ts=`;
+            jpegStreamTimer = setInterval(function() {
+                const img = document.getElementById('live-image');
+                if (img) img.src = urlBase + Date.now();
+            }, refreshRate);
+
+            streamActive = true;
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = false;
+            document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (JPEG)...</span>';
+            log('JPEG stream started', 'success');
+        }
+
+        function handleJpegLoad() {
+            if (jpegFrameCount === 0) {
+                const img = document.getElementById('live-image');
+                if (img) img.style.display = '';
+                hideLoadingOverlay();
+            }
+            jpegFrameCount++;
+            const elapsed = (Date.now() - jpegStartTime) / 1000;
+            const fps = (jpegFrameCount / elapsed).toFixed(1);
+            const stats = document.getElementById('stream-stats');
+            if (stats) stats.textContent = 'Frames: ' + jpegFrameCount + ' | FPS: ' + fps;
+            const tsEl = document.getElementById('live-timestamp');
+            if (tsEl) tsEl.textContent = new Date().toLocaleTimeString();
+        }
+
+        function handleJpegError() {
+            if (!jpegStreamTimer) return;
+            if (jpegFrameCount === 0) {
+                log('Failed to load JPEG snapshot - check connection or credentials', 'error');
+                const stats = document.getElementById('stream-stats');
+                if (stats) { stats.style.color = '#e57373'; stats.textContent = 'Connection error'; }
+                const indicator = document.getElementById('live-indicator');
+                if (indicator) { indicator.style.color = '#e57373'; indicator.textContent = 'ERROR'; }
+                showLoadingError('Failed to load image');
+            }
+        }
+
+        function stopJpegStream() {
+            if (jpegStreamTimer) {
+                clearInterval(jpegStreamTimer);
+                jpegStreamTimer = null;
+                log('JPEG stream stopped');
+            }
+        }
+
+        // ==================== MJPEG STREAM ====================
+        function startMjpegStream(profile) {
+            const profileLabel = (profile === '2') ? 'Profile 2' : 'Profile 1';
+
+            log('Starting MJPEG stream (' + profileLabel + ')');
+
+            mjpegActive = true;
+            mjpegStartTime = Date.now();
+            mjpegLoaded = false;
+
+            // Build MJPEG stream URL
+            // Endpoint: GET /ve/mjpeg?device=X&cam=Y&pro=Z&fps=N&token=JWT
+            // fps parameter controls frame rate (1-10, default 2)
+            const mjpegUrl = `${apiUrl}/ve/mjpeg?device=${selectedDevice.sDeviceID}&cam=${selectedCamera.bCamera}&pro=${profile}&fps=2&token=${token}`;
+
+            showStreamApiOutput('mjpeg', {
+                mjpegUrl: mjpegUrl,
+                deviceId: selectedDevice.sDeviceID,
+                camera: selectedCamera.bCamera,
+                profile: profile
+            });
+
+            const container = document.getElementById('live-video-container');
+            container.innerHTML = `
+                <img id="live-image" src="${mjpegUrl}" alt="Live MJPEG stream" onerror="handleMjpegError()" onload="handleMjpegLoad()" style="display:none;" />
+                <div class="video-overlay">
+                    <span class="device-name">${selectedDevice.sName}</span>
+                    <span class="cam-name">Camera ${selectedCamera.bCamera}: ${selectedCamera.sName || 'Unnamed'}</span>
+                    <span class="live-indicator" id="live-indicator" style="color: #1565c0;">MJPEG</span>
+                </div>
+                <div class="video-overlay-br">
+                    <span class="timestamp" id="live-timestamp">--:--:--</span>
+                </div>
+                <div class="stream-stats" id="stream-stats">Connecting...</div>
+                <div class="loading-overlay" id="loading-overlay">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Connecting...</div>
+                    <div class="loading-subtext" id="loading-status">Loading MJPEG stream</div>
+                </div>
+            `;
+
+            // Update timestamp periodically
+            mjpegTimestampTimer = setInterval(function() {
+                const tsEl = document.getElementById('live-timestamp');
+                if (tsEl) tsEl.textContent = new Date().toLocaleTimeString();
+                const stats = document.getElementById('stream-stats');
+                if (stats && mjpegActive) {
+                    const elapsed = Math.floor((Date.now() - mjpegStartTime) / 1000);
+                    const mins = Math.floor(elapsed / 60);
+                    const secs = elapsed % 60;
+                    stats.textContent = 'Streaming: ' + mins + ':' + (secs < 10 ? '0' : '') + secs;
+                }
+            }, 1000);
+
+            streamActive = true;
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = false;
+            document.getElementById('live-status').innerHTML = '<span style="color: #2e7d32;">Streaming (MJPEG)...</span>';
+            log('MJPEG stream started', 'success');
+        }
+
+        function handleMjpegLoad() {
+            if (!mjpegLoaded) {
+                mjpegLoaded = true;
+                const img = document.getElementById('live-image');
+                if (img) img.style.display = '';
+                hideLoadingOverlay();
+            }
+        }
+
+        function handleMjpegError() {
+            if (!mjpegActive) return;
+            log('MJPEG stream error - check connection or credentials', 'error');
+            const stats = document.getElementById('stream-stats');
+            if (stats) { stats.style.color = '#e57373'; stats.textContent = 'Stream error'; }
+            const indicator = document.getElementById('live-indicator');
+            if (indicator) { indicator.style.color = '#e57373'; indicator.textContent = 'ERROR'; }
+            if (!mjpegLoaded) {
+                showLoadingError('Stream connection failed');
+            }
+        }
+
+        function stopMjpegStream() {
+            if (mjpegTimestampTimer) {
+                clearInterval(mjpegTimestampTimer);
+                mjpegTimestampTimer = null;
+            }
+            if (mjpegActive) {
+                mjpegActive = false;
+                const img = document.getElementById('live-image');
+                if (img) img.src = '';
+                log('MJPEG stream stopped');
+            }
+        }
+
+        // ==================== WEBSOCKET H.264 STREAM ====================
+        function setLiveStatus(text, color) {
+            const el = document.getElementById('live-status');
+            if (el) el.innerHTML = '<span style="color: ' + (color || '#666') + ';">' + text + '</span>';
+        }
+
+        function startWebsocketStream(profile) {
+            log('Starting WebSocket stream...');
+            clearDetections();
+
+            // Check WebCodecs support first
+            const support = WSPlayer.checkSupport();
+            if (!support.supported) {
+                log('WebCodecs not supported: ' + support.reason, 'error');
+                alert('WebSocket streaming requires WebCodecs API.\n\n' + support.reason);
+                return;
+            }
+
+            // Build WebSocket URL with JWT token for authentication
+            const wsOverride = document.getElementById('ws-url-override').value.trim();
+            let wsUrl;
+            const minted = authMode === 'api' ? mintedStream(selectedCamera.bCamera, profile) : null;
+            if (minted && !wsOverride) {
+                wsUrl = minted.url;              // the URL the server minted for this camera + profile
+            } else if (wsOverride) {
+                // Use override URL (for local testing)
+                const wsBase = wsOverride.replace(/\/$/, '');
+                wsUrl = `${wsBase}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${encodeURIComponent(token)}`;
+                log('Using WebSocket override: ' + wsBase);
+            } else {
+                // Derive from API URL
+                const wsApiUrl = directApiUrl || apiUrl;
+                const wsProtocol = wsApiUrl.startsWith('https') ? 'wss' : 'ws';
+                const wsHost = wsApiUrl.replace(/^https?:\/\//, '');
+                wsUrl = `${wsProtocol}://${wsHost}/${selectedDevice.sDeviceID}-cam${selectedCamera.bCamera}-pro${profile}?token=${encodeURIComponent(token)}`;
+            }
+
+            showStreamApiOutput('websocket', {
+                wsUrl: wsUrl,
+                deviceId: selectedDevice.sDeviceID,
+                camera: selectedCamera.bCamera,
+                profile: profile
+            });
+
+            // Stop existing player if any
+            if (wsPlayer) {
+                wsPlayer.stop();
+                wsPlayer = null;
+            }
+
+            // Prepare container for WSPlayer
+            const container = document.getElementById('live-video-container');
+            container.innerHTML = '<div id="ws-player-container" style="width: 100%; height: 100%;"></div>';
+
+            log('WebSocket URL: ' + redactToken(wsUrl));
+
+            // Fit the container to the actual stream aspect so the video fills it (this
+            // camera is 4:3; others may differ) — no pillar/letterboxing.
+            (function fitAspect(tries) {
+                const c = document.querySelector('#live-video-container canvas, #live-video-container video');
+                const w = c ? (c.width || c.videoWidth) : 0;
+                const h = c ? (c.height || c.videoHeight) : 0;
+                if (w > 300 && h > 0) {
+                    document.getElementById('live-video-container').style.aspectRatio = w + ' / ' + h;
+                } else if (tries < 40) {
+                    setTimeout(function () { fitAspect(tries + 1); }, 250);
+                }
+            })(0);
+
+            // Create player using WSPlayer.js
+            const camName = `${selectedDevice.sName} - Camera ${selectedCamera.bCamera}`;
+            wsPlayer = WSPlayer.create('ws-player-container', {
+                url: wsUrl,
+                camera: [selectedCamera.bCamera, camName],
+                debug: DEBUG,
+                // ---- Analytics (v2): publish events to the bus + draw overlays ----
+                messageQueue: mq,
+                showObjects: overlayState.objects,
+                showLpr: overlayState.lpr,
+                showPos: overlayState.pos,
+                showPtz: overlayState.ptz,
+                onOverlayChange: (type, on) => {            // keep checkboxes in sync with the right-click menu
+                    overlayState[type] = !!on;
+                    const cb = document.getElementById('toggle-' + type);
+                    if (cb) cb.checked = !!on;
+                },
+                onPtz: (cmd) => log('PTZ -> ' + JSON.stringify(cmd)),  // show each command sent upstream
+                // ---- Status callbacks: keep the status text in sync with reality ----
+                onConnect: () => {
+                    setLiveStatus('Connected, buffering...', '#ff9800');
+                },
+                onFirstFrame: () => {
+                    log('WebSocket stream active - receiving video', 'success');
+                    setLiveStatus('Streaming (WebSocket H.264)', '#2e7d32');
+                },
+                onReconnecting: () => {
+                    setLiveStatus('Reconnecting...', '#ff9800');
+                },
+                onStall: () => {
+                    setLiveStatus('Stream stalled - no data', '#ff9800');
+                },
+                onError: (err) => {
+                    // WSPlayer 2.6.0 reports a server stop as {code, message} (code may be null).
+                    if (err && !(err instanceof Error) && typeof err.message === 'string' && (typeof err.code === 'string' || err.code === null)) {
+                        log('Stream stopped by the server: ' + err.message + (err.code ? ' [' + err.code + ']' : ''), 'error');
+                        if (err.code === 'token_expired' && authMode === 'api' && !autoRemintUsed) {
+                            autoRemintUsed = true;
+                            log('Stream link expired - minting a new one');
+                            mintAndPlay(false);
+                            return;
+                        }
+                        if (authMode === 'api' && handleAccessStop(err.code)) return;
+                        setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + err.code + ')' : ''), '#c62828');
+                        return;
+                    }
+                    log('WebSocket error: ' + ((err && err.message) || err), 'error');
+                    setLiveStatus('Connection error', '#c62828');
+                },
+                onDisconnect: (code) => {
+                    if (code === 1008) {                 // terminal: keep the stop reason, allow a fresh start
+                        streamActive = false;
+                        document.getElementById('btn-start-live').disabled = !selectedDevice || !selectedCamera;
+                        document.getElementById('btn-stop-live').disabled = true;
+                        return;
+                    }
+                    setLiveStatus('Disconnected', '#c62828');
+                },
+            });
+
+            streamActive = true;
+            document.getElementById('btn-start-live').disabled = true;
+            document.getElementById('btn-stop-live').disabled = false;
+            setLiveStatus('Connecting...', '#ff9800');
+        }
+
+        function stopWebsocketStream() {
+            if (wsPlayer) {
+                wsPlayer.stop();
+                wsPlayer = null;
+                log('WebSocket stream stopped');
+            }
+        }
+
+        // ==================== STREAM HELPERS ====================
+        function stopAllStreams() {
+            stopJpegStream();
+            stopMjpegStream();
+            stopWebsocketStream();
+            streamActive = false;
+            document.getElementById('btn-start-live').disabled = !selectedDevice || !selectedCamera;
+            document.getElementById('btn-stop-live').disabled = true;
+            document.getElementById('live-status').innerHTML = '';
+            document.getElementById('live-video-container').innerHTML = '<span>Select a device and camera, then click Start Live Video</span>';
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function showLoadingError(text) {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = overlay ? overlay.querySelector('.loading-text') : null;
+            const spinner = overlay ? overlay.querySelector('.loading-spinner') : null;
+            const status = document.getElementById('loading-status');
+            if (loadingText) {
+                loadingText.textContent = 'Error';
+                loadingText.style.color = '#e57373';
+            }
+            if (spinner) spinner.style.display = 'none';
+            if (status) status.textContent = text;
+        }
+
+        function showStreamApiOutput(method, params) {
+            const wrapper = document.getElementById('live-api-wrapper');
+            const el = document.getElementById('live-api');
+            wrapper.style.display = 'block';
+
+            if (method === 'jpeg') {
+                const profileLabel = (params.profile === '2') ? 'Profile 2 (Lower res)' : 'Profile 1 (Full res)';
+                el.innerHTML =
+                    '<span class="label">Method:</span> JPEG Snapshot Polling\n' +
+                    '<span class="label">Endpoint:</span> <span class="string">/ve/snapshot</span>\n' +
+                    '<span class="label">Profile:</span> ' + profileLabel + '\n' +
+                    '<span class="label">Refresh Rate:</span> ' + params.refreshRate + 'ms (' + (1000/params.refreshRate).toFixed(1) + ' fps)\n\n' +
+                    '<span class="label">Full URL:</span>\n' + params.snapshotUrl.replace(/&ts=\d+/, '') + '\n\n' +
+                    '<span class="label">Device:</span> ' + params.deviceId + '\n' +
+                    '<span class="label">Camera:</span> ' + params.camera;
+            } else if (method === 'mjpeg') {
+                const profileLabel = (params.profile === '2') ? 'Profile 2 (Lower res)' : 'Profile 1 (Full res)';
+                el.innerHTML =
+                    '<span class="label">Method:</span> MJPEG Continuous Stream\n' +
+                    '<span class="label">Endpoint:</span> <span class="string">/ve/mjpeg</span>\n' +
+                    '<span class="label">Profile:</span> ' + profileLabel + '\n\n' +
+                    '<span class="label">Full URL:</span>\n' + params.mjpegUrl + '\n\n' +
+                    '<span class="label">Device:</span> ' + params.deviceId + '\n' +
+                    '<span class="label">Camera:</span> ' + params.camera + '\n\n' +
+                    '<span class="label">Content-Type:</span> multipart/x-mixed-replace; boundary=frame';
+            } else {
+                el.innerHTML =
+                    '<span class="label">Method:</span> WebSocket H.264/MSE\n\n' +
+                    '<span class="label">WebSocket URL:</span>\n' +
+                    '<span class="string">' + redactToken(params.wsUrl) + '</span>\n\n' +
+                    '<span class="label">URL Format:</span>\n' +
+                    'wss://{api-host}/{deviceID}-cam{N}-pro{profile}\n\n' +
+                    // 'wss://{api-host}/{deviceID}-cam{N}-pro{profile}?token={token}\n\n' +
+                    '<span class="label">Device:</span> ' + params.deviceId + '\n' +
+                    '<span class="label">Camera:</span> ' + params.camera + '\n' +
+                    '<span class="label">Profile:</span> ' + params.profile + '\n\n' +
+                    // '<span class="label">Token:</span> ' + params.token + '\n\n' +
+                    '<span class="label">Protocol:</span>\n' +
+                    '- Binary frames: H.264/H.265 NAL units (video)\n' +
+                    '- Text frames:   JSON metadata { camname, time, objects[], lpr{}, pos[] }\n\n' +
+                    '<span class="label">Analytics events (via MessageQueue):</span>\n' +
+                    '- objectEvent { id, label, description, image }\n' +
+                    '- lprEvent    { camname, plate, state, confidence, region, coordinates, image }\n' +
+                    '- posEvent    { camname, pos:[{ terminal, name, lines }] }';
+            }
+        }
+
+        // Legacy function for compatibility
+        function stopStream() {
+            stopAllStreams();
+        }
+
+        // ==================== SCALEWATCHER API USER MODE (#86bc6dkfa) ====================
+        // Sign in with POST /sw/api/auth (email + password -> API token), then name a site by Command
+        // location.id or our device id: POST /sw/api/video-token mints a view-only stream URL that the
+        // shared player below plays. A production page keeps the API token on its server and mints there.
+        function setMode(mode) {
+            if (mode === authMode) return;
+            stopAllStreams();
+            authMode = mode;
+            token = null; apiToken = null; lastGrant = null; devices = []; cameras = [];
+            apiSites = []; watching = null; hideAccessNotice();
+            selectedDevice = null; selectedCamera = null; mintHistory = [];
+            ['ve', 'api'].forEach(function (m) {
+                const b = document.getElementById('mode-btn-' + m);
+                b.classList.toggle('active', m === mode);
+                b.setAttribute('aria-selected', String(m === mode));
+                document.getElementById('api-ref-' + m).style.display = (m === mode) ? '' : 'none';
+            });
+            document.getElementById('mode-help').innerHTML = mode === 'api'
+                ? 'Signs in with <code>POST /sw/api/auth</code>; then name a site by your Command <code>location.id</code> or our device id and <code>POST /sw/api/video-token</code> mints its stream.'
+                : 'Signs in with <code>POST /ve/auth</code> and lists your devices; you pick a device id and camera.';
+            document.getElementById('btn-connect').textContent = mode === 'api' ? 'Sign in' : 'Connect';
+            document.getElementById('sec-apivideo').style.display = 'none';
+            document.getElementById('sec-device').style.display = mode === 'api' ? 'none' : '';
+            document.getElementById('connect-api-wrapper').style.display = 'none';
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').className = 'status status-disconnected';
+            document.getElementById('device-select').innerHTML = '<option value="">Connect to Cloud first</option>';
+            document.getElementById('device-select').disabled = true;
+            document.getElementById('camera-select').innerHTML = '<option value="">Select device first</option>';
+            document.getElementById('camera-select').disabled = true;
+            updateSelectionInfo();
+            updateStartButton();
+            mirrorSelectors();
+            log('Sign-in type: ' + (mode === 'api' ? 'ScaleWatcher API user' : 'CloudNVR user'));
+        }
+
+        function redactJwt(value) {
+            return typeof value === 'string' && value.length > 24 ? value.substring(0, 16) + '...[redacted]' : value;
+        }
+
+        async function connectApiUser() {
+            directApiUrl = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+            apiUrl = isDevProxy ? PROXY_PREFIX : directApiUrl;
+            const email = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            log('Signing in as ScaleWatcher API user at ' + directApiUrl + '...');
+            let status = 0, data = {};
+            try {
+                const response = await fetch(apiUrl + '/sw/api/auth', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                status = response.status;
+                data = await response.json();
+            } catch (err) {
+                data = { error: { message: err.message } };
+            }
+            const ok = status === 200 && data.token;
+            const wrapper = document.getElementById('connect-api-wrapper');
+            wrapper.style.display = 'block';
+            document.getElementById('connect-api').innerHTML =
+                '<span class="label">POST</span> ' + escapeHtml(apiUrl) + '/sw/api/auth\n' +
+                '<span class="label">Body:</span> ' + escapeHtml(JSON.stringify({ email, password: '***' }, null, 2)) + '\n' +
+                '<span class="label">Response:</span> <span class="' + (ok ? 'success' : 'error') + '">[' + (ok ? 'OK' : 'FAILED ' + status) + ']</span>\n' +
+                escapeHtml(JSON.stringify(Object.assign({}, data, { token: redactJwt(data.token) }), null, 2));
+            if (!ok) {
+                const msg = (data.error && data.error.message) || 'Sign-in failed';
+                log('Sign-in failed: ' + msg, 'error');
+                document.getElementById('connection-status').textContent = 'Failed';
+                document.getElementById('connection-status').className = 'status status-disconnected';
+                return;
+            }
+            apiToken = data.token;
+            autoRemintUsed = false;
+            const sites = (data.sites && data.sites.data) || [];
+            apiSites = sites;
+            watching = null;
+            log('Signed in: ' + sites.length + ' site(s) on this key', 'success');
+            document.getElementById('connection-status').textContent = 'Signed in';
+            document.getElementById('connection-status').className = 'status status-connected';
+            renderSiteChips(sites);
+            document.getElementById('sec-apivideo').style.display = '';
+            const cb = document.getElementById('cloud-info-box');
+            if (cb) cb.style.display = 'none';
+            document.getElementById('sec-connect-summary').innerHTML =
+                '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
+                '<span style="color:#2e7d32; font-weight:600;">&#10003; Signed in</span>' +
+                '<span style="color:#666;">&middot; ScaleWatcher API user ' + escapeHtml(email) + ' &middot; ' + sites.length + ' site(s) on the key</span>' +
+                '<span class="sum-caret">change &#9662;</span>';
+            document.getElementById('sec-connect').classList.add('collapsed');
+            document.getElementById('lookup-value').focus();
+        }
+
+        // ==================== ACCESS REFRESH (v3) ====================
+        // A location removed from this API user while it plays: the proxy's grant sweep stops the stream
+        // with site_access_revoked. Re-read the key's sites and switch to the next location with a plain
+        // notice, rather than leaving an error on screen. The sites list is not the video scope (it only
+        // lists sites with API access on), so only the server's stop triggers a switch; returning to the
+        // tab just refreshes the chips.
+        function showAccessNotice(text) {
+            document.getElementById('access-notice-text').textContent = text;
+            document.getElementById('access-notice').hidden = false;
+            log(text);
+        }
+
+        function hideAccessNotice() {
+            document.getElementById('access-notice').hidden = true;
+        }
+
+        async function refreshApiSites() {
+            if (!apiToken) return null;
+            try {
+                const response = await fetch(apiUrl + '/sw/api/sites', { headers: { 'Authorization': 'Bearer ' + apiToken } });
+                if (!response.ok) return null;
+                const body = await response.json();
+                apiSites = (body && body.data) || [];
+                renderSiteChips(apiSites);
+                return apiSites;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        // The server stopped the stream: say why in plain words. Returns true when it took over.
+        function handleAccessStop(code) {
+            if (code === 'site_access_revoked') {
+                switchFromRemovedLocation();
+                return true;
+            }
+            if (code === 'video_access_revoked') {
+                setLiveStatus('Stopped', '#c62828');
+                showAccessNotice('Live video was turned off for this API user.');
+                return true;
+            }
+            if (code === 'api_key_revoked') {
+                setLiveStatus('Stopped', '#c62828');
+                showAccessNotice('This API key was replaced or removed. Sign in again with the current key.');
+                return true;
+            }
+            return false;
+        }
+
+        async function switchFromRemovedLocation() {
+            const gone = watching;
+            const label = gone ? gone.name + ' (' + gone.value + ')' : 'The location you were watching';
+            const sites = await refreshApiSites();
+            const next = (sites || []).find(function (s) { return s.locationId && (!gone || s.locationId !== gone.value); });
+            if (!next) {
+                watching = null;
+                setLiveStatus('Stopped', '#c62828');
+                showAccessNotice(label + ' is no longer available to this API user, and it has no other location.');
+                return;
+            }
+            showAccessNotice(label + ' is no longer available to this API user; showing ' + next.name + ' (' + next.locationId + ').');
+            setLookup('locationId');
+            document.getElementById('lookup-value').value = next.locationId;
+            validateLookup();
+            mintAndPlay(false);
+        }
+
+        // Back to this tab: refresh the key's sites (at most once a minute).
+        async function refreshOnReturn() {
+            if (document.visibilityState !== 'visible' || authMode !== 'api' || !apiToken) return;
+            if (Date.now() - lastAccessRefresh < ACCESS_REFRESH_MIN_MS) return;
+            lastAccessRefresh = Date.now();
+            await refreshApiSites();
+        }
+
+        function renderSiteChips(sites) {
+            const el = document.getElementById('api-sites');
+            const withLocation = sites.filter(function (s) { return s.locationId; });
+            if (!withLocation.length) { el.innerHTML = ''; return; }
+            el.innerHTML = '<span>Sites on this key:</span>';
+            withLocation.forEach(function (s) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'site-chip';
+                chip.textContent = s.name + ' (' + s.locationId + ')';
+                chip.title = 'serial ' + s.serial;
+                chip.onclick = function () { setLookup('locationId'); document.getElementById('lookup-value').value = s.locationId; validateLookup(); };
+                el.appendChild(chip);
+            });
+        }
+
+        function setLookup(kind) {
+            lookupKind = kind;
+            ['locationId', 'deviceId'].forEach(function (k) {
+                const b = document.getElementById('lookup-btn-' + k);
+                b.classList.toggle('active', k === kind);
+                b.setAttribute('aria-selected', String(k === kind));
+            });
+            document.getElementById('lookup-label').textContent = kind === 'deviceId' ? 'Device id' : 'Command location.id';
+            document.getElementById('lookup-value').placeholder = kind === 'deviceId' ? 'e.g. AC3AE21236F9' : 'e.g. PLANT-7';
+            document.getElementById('lookup-help').textContent = kind === 'deviceId'
+                ? 'The 12-character hex id of the cloud device (any case).'
+                : 'Matched exactly, the way your Command Cloud tickets are routed.';
+            validateLookup();
+        }
+
+        function validateLookup() {
+            document.getElementById('btn-mint').disabled = !apiToken || !document.getElementById('lookup-value').value.trim();
+        }
+
+        function mintedStream(camera, profile) {
+            if (!lastGrant) return null;
+            const cam = (lastGrant.cameras || []).find(function (c) { return String(c.camera) === String(camera); });
+            return cam ? (cam.streams || []).find(function (s) { return String(s.profile) === String(profile); }) || null : null;
+        }
+
+        function setMintStatus(text, color) {
+            document.getElementById('mint-status').innerHTML = '<span style="color: ' + (color || '#666') + ';">' + text + '</span>';
+        }
+
+        // Mint a stream URL for the looked-up site, show the exchange, then play it. userAction = a
+        // click (resets the one automatic re-mint on token_expired).
+        async function mintAndPlay(userAction) {
+            const value = document.getElementById('lookup-value').value.trim();
+            if (!apiToken || !value) return;
+            if (userAction) autoRemintUsed = false;
+            const body = {};
+            body[lookupKind] = value;
+            setMintStatus('Minting...', '#ff9800');
+            let status = 0, data = {};
+            try {
+                const response = await fetch(apiUrl + '/sw/api/video-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiToken },
+                    body: JSON.stringify(body)
+                });
+                status = response.status;
+                data = await response.json();
+            } catch (err) {
+                data = { error: { message: err.message } };
+            }
+            const ok = status === 200 && data.token;
+            const shown = ok ? Object.assign({}, data, {
+                token: redactJwt(data.token),
+                cameras: (data.cameras || []).map(function (c) {
+                    return Object.assign({}, c, { streams: (c.streams || []).map(function (st) { return Object.assign({}, st, { url: redactToken(st.url) }); }) });
+                })
+            }) : data;
+            document.getElementById('mint-api-wrapper').style.display = 'block';
+            document.getElementById('mint-api').innerHTML =
+                '<span class="label">POST</span> ' + escapeHtml(apiUrl) + '/sw/api/video-token\n' +
+                '<span class="label">Authorization:</span> Bearer ' + escapeHtml(redactJwt(apiToken)) + '\n' +
+                '<span class="label">Body:</span> ' + escapeHtml(JSON.stringify(body)) + '\n' +
+                '<span class="label">Response:</span> <span class="' + (ok ? 'success' : 'error') + '">[' + (ok ? 'OK' : 'FAILED ' + status) + ']</span>\n' +
+                escapeHtml(JSON.stringify(shown, null, 2));
+            if (!ok) {
+                const e = data.error || {};
+                const msg = (e.message || 'Could not mint a stream') + (e.reason ? ' (' + e.reason + ')' : '');
+                log('Video token refused: ' + msg, 'error');
+                setMintStatus(escapeHtml(msg), '#c62828');
+                return;
+            }
+            lastGrant = data;
+            watching = lookupKind === 'locationId' ? { value: value, name: data.site || value } : null;
+            recordMint(lookupKind, value, data);
+            setMintStatus('Minted &middot; device ' + escapeHtml(data.deviceId) + ' &middot; link valid until ' + new Date(data.expiresAt).toLocaleTimeString(), '#2e7d32');
+            log('Minted a stream URL by ' + lookupKind + ' ' + JSON.stringify(value) + ' -> device ' + data.deviceId + ', serial ' + data.serial, 'success');
+
+            // Feed the shared player: one device, its cameras, the stream token.
+            const keepCamera = selectedCamera ? selectedCamera.bCamera : null;
+            token = data.token;
+            devices = [{ sDeviceID: data.deviceId, sName: data.deviceName || data.site, fOnline: 1 }];
+            cameras = [];
+            (data.cameras || []).forEach(function (c) {
+                (c.streams || []).forEach(function (st) {
+                    cameras.push({ sDeviceID: data.deviceId, bCamera: c.camera, bProfile: st.profile, sName: c.name, fEnabled: c.enabled === false ? 0 : 1, fOnline: c.online ? 1 : 0 });
+                });
+            });
+            populateDevices();
+            document.getElementById('device-select').value = data.deviceId;
+            onDeviceChange();
+            const cams = document.getElementById('camera-select');
+            const wanted = keepCamera !== null && Array.from(cams.options).some(function (o) { return o.value === String(keepCamera); })
+                ? String(keepCamera) : (Array.from(cams.options).find(function (o) { return o.value && !o.disabled; }) || {}).value;
+            if (wanted) { cams.value = wanted; onCameraChange(); }
+            if (!selectedCamera) { setLiveStatus('No enabled camera on this device', '#c62828'); return; }
+            stopWebsocketStream();
+            startLiveStream.fromMint = true;
+            try { startLiveStream(); } finally { startLiveStream.fromMint = false; }
+        }
+
+        function recordMint(kind, value, data) {
+            const first = (data.cameras || [])[0];
+            const stream = first && (first.streams || [])[0];
+            const entry = { kind: kind, value: value, deviceId: data.deviceId, serial: data.serial, path: stream ? stream.path : '' };
+            const prev = mintHistory[mintHistory.length - 1];
+            mintHistory.push(entry);
+            const row = document.createElement('div');
+            row.className = 'mint-row';
+            const same = prev && prev.kind !== kind ? (prev.deviceId === entry.deviceId && prev.path === entry.path) : null;
+            row.innerHTML =
+                '<span class="mint-input">' + (kind === 'deviceId' ? 'device id' : 'location.id') + ' ' + escapeHtml(JSON.stringify(value)) + '</span>' +
+                '<span>&rarr; device <code>' + escapeHtml(entry.deviceId) + '</code></span>' +
+                '<span>serial ' + escapeHtml(String(entry.serial)) + '</span>' +
+                '<span>stream <code>' + escapeHtml(entry.path) + '</code></span>' +
+                (same === null ? '' : same
+                    ? '<span class="mint-same">&#10003; same device + stream path as the ' + (prev.kind === 'deviceId' ? 'device id' : 'location.id') + ' lookup</span>'
+                    : '<span class="mint-diff">&#10007; differs from the ' + (prev.kind === 'deviceId' ? 'device id' : 'location.id') + ' lookup</span>');
+            document.getElementById('mint-list').appendChild(row);
+        }
+
+        // ==================== ANALYTICS PANEL (v2) ====================
+        function clearDetections() {
+            lprCount = 0; objCount = 0;
+            document.getElementById('lpr-count').textContent = '0';
+            document.getElementById('obj-count').textContent = '0';
+            document.getElementById('lpr-list').innerHTML = '<div class="det-empty">No plate reads yet</div>';
+            document.getElementById('obj-list').innerHTML = '<div class="det-empty">No objects yet</div>';
+            document.getElementById('pos-block').textContent = 'No POS data';
+        }
+
+        // Toggle a single overlay live. Drawing stops; events keep publishing.
+        function onOverlayToggle(type, checked) {
+            overlayState[type] = checked;
+            if (wsPlayer) wsPlayer.setOverlayVisible(type, checked);
+            log('Overlay "' + type + '" ' + (checked ? 'shown' : 'hidden') + ' (data still streaming to panel)');
+        }
+
+        const MAX_DET_ITEMS = 30;
+        function prependItem(listId, node) {
+            const list = document.getElementById(listId);
+            const empty = list.querySelector('.det-empty');
+            if (empty) empty.remove();
+            list.insertBefore(node, list.firstChild);
+            while (list.children.length > MAX_DET_ITEMS) list.removeChild(list.lastChild);
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+
+        function fmtConfidence(c) {
+            if (typeof c !== 'number') return '';
+            return (c <= 1 ? Math.round(c * 100) : Math.round(c)) + '%';
+        }
+
+        function addLprItem(e) {
+            lprCount++;
+            document.getElementById('lpr-count').textContent = String(lprCount);
+            const t = new Date().toLocaleTimeString();
+            const conf = fmtConfidence(e.confidence);
+            const item = document.createElement('div');
+            item.className = 'det-item';
+            item.innerHTML =
+                (e.image ? '<img class="det-thumb lpr" src="' + e.image + '" alt="plate">' : '') +
+                '<div class="det-meta">' +
+                    '<span class="plate">' + escapeHtml(e.plate) + '</span> ' +
+                    '<span class="sub">' + escapeHtml(e.state) + (conf ? ' &middot; ' + conf : '') + '</span><br>' +
+                    '<span class="sub">' + escapeHtml(e.region || '') + (e.camname ? ' &middot; ' + escapeHtml(e.camname) : '') + ' &middot; ' + t + '</span>' +
+                '</div>';
+            item.onclick = () => openDetModal('lpr', e, t);
+            prependItem('lpr-list', item);
+            log('lprEvent: ' + e.plate + ' (' + e.state + (conf ? ', ' + conf : '') + ')', 'success');
+        }
+
+        function addObjItem(e) {
+            objCount++;
+            document.getElementById('obj-count').textContent = String(objCount);
+            const t = new Date().toLocaleTimeString();
+            const item = document.createElement('div');
+            item.className = 'det-item';
+            item.innerHTML =
+                (e.image ? '<img class="det-thumb" src="' + e.image + '" alt="object">' : '') +
+                '<div class="det-meta">' +
+                    '<span class="label">' + escapeHtml(e.label || 'object') + '</span>' +
+                    (e.description ? '<br><span class="sub">' + escapeHtml(e.description) + '</span>' : '') +
+                    '<br><span class="sub">id ' + escapeHtml(e.id) + ' &middot; ' + t + '</span>' +
+                '</div>';
+            item.onclick = () => openDetModal('obj', e, t);
+            prependItem('obj-list', item);
+            log('objectEvent: ' + (e.label || 'object') + ' #' + e.id, 'info');
+        }
+
+        function setPos(e) {
+            const lines = [];
+            for (const reg of (e.pos || [])) {
+                const term = (reg.terminal != null) ? ' [' + reg.terminal + ']' : '';
+                lines.push((reg.name || 'POS') + term);
+                for (const l of (reg.lines || [])) lines.push('  ' + l);
+                lines.push('');
+            }
+            document.getElementById('pos-block').textContent = lines.join('\n').trim() || 'No POS data';
+            log('posEvent: ' + (e.pos || []).length + ' register(s)', 'info');
+        }
+
+        // Click a detection to enlarge its crop and see the full event data.
+        function openDetModal(type, e, t) {
+            const img = document.getElementById('det-modal-img');
+            if (e.image) { img.src = e.image; img.style.display = 'block'; }
+            else { img.removeAttribute('src'); img.style.display = 'none'; }
+            const rows = [];
+            const row = (k, v) => { if (v !== undefined && v !== null && v !== '') rows.push('<tr><td class="k">' + k + '</td><td>' + escapeHtml(v) + '</td></tr>'); };
+            if (type === 'lpr') {
+                document.getElementById('det-modal-title').textContent = e.plate || 'License plate';
+                row('Plate', e.plate);
+                row('State', e.state);
+                row('Confidence', fmtConfidence(e.confidence));
+                row('Region', e.region);
+                row('Camera', e.camname);
+                row('Time', t);
+            } else {
+                document.getElementById('det-modal-title').textContent = e.label || 'Object';
+                row('Label', e.label);
+                row('Description', e.description);
+                row('Object id', e.id);
+                row('Time', t);
+            }
+            document.getElementById('det-modal-table').innerHTML = rows.join('');
+            document.getElementById('det-modal').classList.add('open');
+        }
+        function closeDetModal() {
+            document.getElementById('det-modal').classList.remove('open');
+        }
+
+        // ==================== INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Cloud Camera API Demo loaded (v3 — Access refresh)');
+
+            // v3: returning to the tab re-reads the API user's sites.
+            window.addEventListener('focus', refreshOnReturn);
+            document.addEventListener('visibilitychange', refreshOnReturn);
+
+            // Subscribe the Detections panel to the player's analytics events.
+            // A 3rd-party integration would subscribe the same way.
+            mq.subscribe('lprEvent', addLprItem);
+            mq.subscribe('objectEvent', addObjItem);
+            mq.subscribe('posEvent', setPos);
+
+            // Match the Live Detections height to the player (section 3) so video +
+            // detections sit side-by-side at equal height.
+            alignDetections();
+            setTimeout(alignDetections, 200);
+            setTimeout(alignDetections, 600);
+            window.addEventListener('resize', alignDetections);
+            if (window.ResizeObserver) new ResizeObserver(alignDetections).observe(document.getElementById('tab-content-live'));
+
+            // Esc closes the detection modal.
+            document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeDetModal(); });
+
+            if (isDevProxy) {
+                log('Running via dev proxy (' + window.location.host + ') - CORS bypass enabled', 'success');
+                log('API requests will be proxied to: ' + document.getElementById('api-url').value);
+            } else {
+                log('Direct mode - ensure CORS is configured on the API server');
+            }
+            log('Enter credentials and connect to start');
+
+            // Enter in the username/password fields submits — only when both are non-empty.
+            document.getElementById('lookup-value').addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter' && !document.getElementById('btn-mint').disabled) mintAndPlay(true);
+            });
+            ['username', 'password'].forEach(function (id) {
+                document.getElementById(id).addEventListener('keydown', function (ev) {
+                    if (ev.key !== 'Enter') return;
+                    const user = document.getElementById('username').value.trim();
+                    const pass = document.getElementById('password').value;
+                    if (user && pass.length > 0) { ev.preventDefault(); connect(); }
+                });
+            });
+
+            validateConnectForm();
+        });
+    </script>
+
+    <!-- Detection detail modal: click any detection to enlarge its crop + see full data -->
+    <div class="det-modal" id="det-modal" onclick="if(event.target===this)closeDetModal()">
+        <div class="det-modal-box">
+            <button class="det-modal-close" onclick="closeDetModal()" title="Close">&times;</button>
+            <img class="det-modal-img" id="det-modal-img" alt="detection crop" style="display:none;">
+            <div class="det-modal-body">
+                <h3 id="det-modal-title"></h3>
+                <table id="det-modal-table"></table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
