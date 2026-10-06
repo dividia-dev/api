@@ -122,7 +122,7 @@
     <h2><span class="num">&#9889;</span> Try it <span class="tryit-note">&mdash; one signed JSON POST per ticket. Fill the fields, <b>Sign</b>, then <b>Verify</b> to run the same checks our endpoint runs; nothing is sent from this page.</span></h2>
     <details class="spec" open style="margin:0 0 14px">
       <summary>Request format</summary>
-      <p style="margin:2px 0 8px;font-size:13px;color:var(--muted)">The full POST — headers and your native ticket JSON. We route on <code class="inline">location.id</code> (&rarr; site) + <code class="inline">scaleId</code> (&rarr; scale lane, matched byte-for-byte), de-duplicate on <code class="inline">uniqueId</code>, and carry the rest onto the ticket. The <code class="inline">webhook-*</code> headers are the <a href="#auth" style="color:var(--indigo)">Standard Webhooks signature</a>. Collapse this to bring the sandbox up.</p>
+      <p style="margin:2px 0 8px;font-size:13px;color:var(--muted)">The full POST — headers and your native ticket JSON. We route on <code class="inline">location.id</code> (&rarr; site) + <code class="inline">scaleId</code> (&rarr; scale, matched exactly, case-sensitive), de-duplicate on <code class="inline">uniqueId</code>, and carry the rest onto the ticket. The <code class="inline">webhook-*</code> headers are the <a href="#auth" style="color:var(--indigo)">Standard Webhooks signature</a>. Collapse this to bring the sandbox up.</p>
 <pre class="code"><span class="k">POST</span> https://api-staging.cloud.dividia.net/sw/webhooks/cc
 <span class="h">Content-Type</span>: application/json
 <span class="h">Dividia-Customer-Id</span>: <span class="s">00000000-0000-0000-0000-000000000000</span>
@@ -325,7 +325,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
   <span class="k">"ticketNumber"</span>:   <span class="s">"1001"</span>,                          <span class="c">// ticket number</span>
   <span class="k">"ticketDateTime"</span>: <span class="s">"2026-08-11T14:03:22Z"</span>,          <span class="c">// when the ticket was created (ISO-8601)</span>
   <span class="k">"location"</span>: { <span class="k">"id"</span>: <span class="s">"LOC-1"</span>, <span class="k">"name"</span>: <span class="s">"North Plant"</span> },  <span class="c">// id routes to the right site's NVR</span>
-  <span class="k">"scaleId"</span>:        <span class="s">"IQ-001:A"</span>,                       <span class="c">// scale / lane</span>
+  <span class="k">"scaleId"</span>:        <span class="s">"IQ-001:A"</span>,                       <span class="c">// which scale</span>
 
   <span class="c">// ── everything below rides onto the ticket as additional data ──</span>
   <span class="k">"vehicle"</span>: {
@@ -347,7 +347,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
           <tr><td><code>ticketNumber</code></td><td>The ticket number — indexed for search, and the anchor we key the on-site camera images to.</td></tr>
           <tr><td><code>ticketDateTime</code></td><td>When the ticket was created (ISO-8601).</td></tr>
           <tr><td><code>location.id</code></td><td>Which site/plant — how we route the event to the right on-site NVR. <code>location.name</code> is display only.</td></tr>
-          <tr><td><code>scaleId</code></td><td>Which scale/lane at that site.</td></tr>
+          <tr><td><code>scaleId</code></td><td>Which scale at that site.</td></tr>
         </tbody>
       </table>
       <p style="margin:16px 0 4px;font-weight:650;font-size:13px">Everything else — carried onto the ticket</p>
