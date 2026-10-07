@@ -66,8 +66,20 @@
  * - Secure context (HTTPS or localhost) for WebCodecs API
  * - Modern browser: Chrome 94+, Edge 94+, Safari 16.4+
  *
+ * Server stop codes (v2.6.0): when the server refuses or stops a stream it sends one text frame
+ * {type: 'error', code, error} and closes with 1008. The player then stops auto-reconnect, shows
+ * `error` on the video, and calls onError({code, message}) (not onMetadata). Dividia cloud codes:
+ * token_expired (mint a new URL and reconnect), invalid_token, device_not_authorized,
+ * video_access_revoked, site_access_revoked, api_key_revoked (all terminal: show and stop).
+ *
+ * Changelog:
+ * - 2.6.0 — Server stop codes: a {type:'error'} text frame stops auto-reconnect, shows the message
+ *   and calls onError({code, message}) instead of onMetadata; a close with code 1008 is terminal
+ *   (no reconnect); onDisconnect and onReconnecting receive (code, reason). Nothing else changed.
+ * - 2.5.0 — Analytics overlays (objects / LPR / POS), MessageQueue events, PTZ controls.
+ *
  * @author Dividia Technologies
- * @version 2.5.0
+ * @version 2.6.0
  */
 
 class WSPlayer {
@@ -92,11 +104,12 @@ class WSPlayer {
      * @param {number} [options.reconnectDelay=5000] - Reconnect delay in ms
      * @param {number} [options.stallTimeout=5000] - Stall detection timeout in ms
      * @param {Function} [options.onConnect] - Called when WebSocket connects
-     * @param {Function} [options.onDisconnect] - Called when WebSocket disconnects
-     * @param {Function} [options.onError] - Called on error
+     * @param {Function} [options.onDisconnect] - Called when WebSocket disconnects, with (closeCode, reason)
+     *        (no arguments for a stop() call)
+     * @param {Function} [options.onError] - Called on error; for a server stop code, with {code, message}
      * @param {Function} [options.onFirstFrame] - Called when first frame is decoded
      * @param {Function} [options.onMetadata] - Called when metadata is received
-     * @param {Function} [options.onReconnecting] - Called when reconnection starts
+     * @param {Function} [options.onReconnecting] - Called when reconnection starts, with (closeCode, reason)
      * @param {Function} [options.onStall] - Called when stream stalls (no data received)
      * @param {MessageQueue} [options.messageQueue] - Optional pub/sub bus. When set, the
      *        player publishes 'objectEvent' / 'lprEvent' / 'posEvent' (each with a cropped
@@ -168,6 +181,8 @@ class WSPlayer {
 
         // Metadata from server
         this.metadata = null;
+        // Set when the server refuses or stops the stream ({type:'error', code, error}); see _serverStop
+        this.serverError = null;
 
         // ---- Analytics metadata layer (objects / LPR / POS) ----
         // Optional pub/sub bus; when present the player publishes structured events.
@@ -509,6 +524,7 @@ class WSPlayer {
 
         this._log('Connecting to', this.wsUrl);
         this.shouldReconnect = this.options.autoReconnect !== false;
+        this.serverError = null;
         this.startTime = Date.now();
         this.frameCount = 0;
         this.firstFrameReceived = false;
@@ -779,6 +795,14 @@ class WSPlayer {
                 this._stopStatsInterval();
                 clearInterval(this.stallInterval);
 
+                // 1008 (policy violation) = the server refused or stopped this stream: never retry it.
+                if (event.code === 1008) {
+                    this.shouldReconnect = false;
+                    if (!this.serverError) {
+                        this._showError('Stream stopped', event.reason || 'The server stopped this stream.');
+                    }
+                }
+
                 if (this.shouldReconnect) {
                     this._log(`Reconnecting in ${this.reconnectDelay / 1000}s...`);
                     // for somereason cloud stuff triggers this and it never goes away - will addres later when there is more time
@@ -789,10 +813,10 @@ class WSPlayer {
                     this.reconnectTimer = setTimeout(() => this._connect(), this.reconnectDelay);
 
                     if (this.onReconnecting) {
-                        this.onReconnecting();
+                        this.onReconnecting(event.code, event.reason);
                     }
                 } else if (this.onDisconnect) {
-                    this.onDisconnect();
+                    this.onDisconnect(event.code, event.reason);
                 }
             };
 
@@ -801,7 +825,12 @@ class WSPlayer {
 
                 try {
                     if (typeof ev.data === 'string') {
-                        this.metadata = JSON.parse(ev.data);
+                        const message = JSON.parse(ev.data);
+                        if (message && message.type === 'error') {
+                            this._serverStop(message);
+                            return;
+                        }
+                        this.metadata = message;
                         if (this.onMetadata) {
                             this.onMetadata(this.metadata);
                         }
@@ -817,6 +846,25 @@ class WSPlayer {
             this._log('Connection error:', e);
             this._showError('Connection Failed', e.message);
             this._error(e);
+        }
+    }
+
+    /**
+     * The server refused or stopped this stream ({type:'error', code, error}): stop auto-reconnect,
+     * show the reason on the video, and report it. token_expired is for the caller to act on (mint a
+     * new URL and start again); the player never retries a refused URL by itself.
+     * @private
+     */
+    _serverStop(message) {
+        const code = typeof message.code === 'string' ? message.code : null;
+        const text = typeof message.error === 'string' && message.error ? message.error : 'The server stopped this stream.';
+        this.serverError = { code, message: text };
+        this.shouldReconnect = false;
+        clearTimeout(this.reconnectTimer);
+        this._log('Server stopped the stream:', code, text);
+        this._showError('Stream stopped', text);
+        if (this.onError) {
+            this.onError({ code, message: text });
         }
     }
 

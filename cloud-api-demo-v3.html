@@ -720,6 +720,11 @@
         .site-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; font-size: 12px; color: #666; }
         .site-chip { margin: 0; padding: 3px 9px; font-size: 12px; background: #eef4fb; color: #0d47a1; border: 1px solid #d6e4f5; border-radius: 12px; }
         .site-chip:hover { background: #dce9f8; }
+        /* v3: a plain notice when access changed while watching */
+        .access-notice { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 10px 12px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; color: #5d4037; font-size: 14px; }
+        .access-notice[hidden] { display: none; }
+        .access-notice span { flex: 1; }
+        .access-notice-close { margin: 0; padding: 0 6px; background: transparent; border: none; color: #5d4037; font-size: 18px; line-height: 1; cursor: pointer; }
         .mint-list { margin-top: 10px; font-size: 12px; }
         .mint-row { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid #eee; align-items: baseline; }
         .mint-row .mint-input { font-weight: 600; color: #333; }
@@ -731,7 +736,7 @@
 <body>
     <div class="page-title">
         <div class="title-block">
-            <h1>Dividia Cloud Camera API Demo (v2 &mdash; Analytics)<span class="cloud-badge">CLOUD</span></h1>
+            <h1>Dividia Cloud Camera API Demo (v3 &mdash; Access refresh)<span class="cloud-badge">CLOUD</span></h1>
             <p class="title-sub">Live video from cloud-connected devices with live <strong>object detection</strong>, <strong>license-plate recognition</strong>, and <strong>point-of-sale</strong> analytics over one WebSocket.</p>
         </div>
         <div class="header-buttons">
@@ -984,6 +989,11 @@
                         <span id="live-status" style="margin-left: 10px; color: #666; font-size: 13px;"></span>
                     </div>
 
+                    <div class="access-notice" id="access-notice" role="status" aria-live="polite" hidden>
+                        <span id="access-notice-text"></span>
+                        <button type="button" class="access-notice-close" aria-label="Dismiss" onclick="hideAccessNotice()">&times;</button>
+                    </div>
+
                     <div id="live-video-container" style="margin-top: 10px;">
                         <span>Select a device and camera, then click Start Live Video</span>
                     </div>
@@ -1141,6 +1151,13 @@
         let lastGrant = null;             // the last /sw/api/video-token body
         let mintHistory = [];             // [{ kind, value, deviceId, serial, path }]
         let autoRemintUsed = false;       // token_expired re-mints once on its own
+
+        // v3 (#86bc6dkfa): the key's sites (GET /sw/api/sites), the location on screen, and how often
+        // returning to the tab re-reads the sites.
+        let apiSites = [];
+        let watching = null;              // { value, name } of the location being watched (location.id)
+        let lastAccessRefresh = 0;
+        const ACCESS_REFRESH_MIN_MS = 60 * 1000;
 
         // ==================== ANALYTICS (v2) ====================
         // One MessageQueue aggregates object / LPR / POS events from the player. A
@@ -1804,6 +1821,8 @@
                     setLiveStatus('Connected, buffering...', '#ff9800');
                 },
                 onFirstFrame: () => {
+                    // Playing again: a later token_expired (after another drop) may re-mint once more (review L13).
+                    autoRemintUsed = false;
                     log('WebSocket stream active - receiving video', 'success');
                     setLiveStatus('Streaming (WebSocket H.264)', '#2e7d32');
                 },
@@ -1823,6 +1842,7 @@
                             mintAndPlay(false);
                             return;
                         }
+                        if (authMode === 'api' && handleAccessStop(err.code)) return;
                         setLiveStatus('Stopped: ' + escapeHtml(err.message) + (err.code ? ' (' + escapeHtml(err.code) + ')' : ''), '#c62828');
                         return;
                     }
@@ -1945,6 +1965,7 @@
             stopAllStreams();
             authMode = mode;
             token = null; apiToken = null; lastGrant = null; devices = []; cameras = [];
+            apiSites = []; watching = null; hideAccessNotice();
             selectedDevice = null; selectedCamera = null; mintHistory = [];
             ['ve', 'api'].forEach(function (m) {
                 const b = document.getElementById('mode-btn-' + m);
@@ -2010,6 +2031,8 @@
             apiToken = data.token;
             autoRemintUsed = false;
             const sites = (data.sites && data.sites.data) || [];
+            apiSites = sites;
+            watching = null;
             log('Signed in: ' + sites.length + ' site(s) on this key', 'success');
             document.getElementById('connection-status').textContent = 'Signed in';
             document.getElementById('connection-status').className = 'status status-connected';
@@ -2020,13 +2043,105 @@
             document.getElementById('sec-connect-summary').innerHTML =
                 '<span class="sum-strong">1. Connect to Cloud Backend</span>' +
                 '<span style="color:#2e7d32; font-weight:600;">&#10003; Signed in</span>' +
-                '<span style="color:#666;">&middot; ScaleWatcher API user ' + escapeHtml(email) + ' &middot; ' + sites.length + ' site(s) on the key</span>' +
+                '<span style="color:#666;">&middot; ScaleWatcher API user ' + escapeHtml(email) + ' &middot; <span id="api-site-count">' + sites.length + ' site(s) on the key</span></span>' +
                 '<span class="sum-caret">change &#9662;</span>';
             document.getElementById('sec-connect').classList.add('collapsed');
             document.getElementById('lookup-value').focus();
         }
 
+        // ==================== ACCESS REFRESH (v3) ====================
+        // A location removed from this API user while it plays: the proxy's grant sweep stops the stream
+        // with site_access_revoked. Re-read the key's sites and switch to the next location with a plain
+        // notice, rather than leaving an error on screen. The sites list is not the video scope (it only
+        // lists sites with API access on), so only the server's stop triggers a switch; returning to the
+        // tab just refreshes the chips.
+        function showAccessNotice(text) {
+            document.getElementById('access-notice-text').textContent = text;
+            document.getElementById('access-notice').hidden = false;
+            log(text);
+        }
+
+        function hideAccessNotice() {
+            document.getElementById('access-notice').hidden = true;
+        }
+
+        async function refreshApiSites() {
+            if (!apiToken) return null;
+            try {
+                const response = await fetch(apiUrl + '/sw/api/sites', { headers: { 'Authorization': 'Bearer ' + apiToken } });
+                if (!response.ok) return null;
+                const body = await response.json();
+                apiSites = (body && body.data) || [];
+                renderSiteChips(apiSites);
+                return apiSites;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        // The server stopped the stream: say why in plain words. Returns true when it took over.
+        function handleAccessStop(code) {
+            if (code === 'site_access_revoked') {
+                switchFromRemovedLocation();
+                return true;
+            }
+            if (code === 'video_access_revoked') {
+                setLiveStatus('Stopped', '#c62828');
+                showAccessNotice('Live video was turned off for this API user.');
+                return true;
+            }
+            if (code === 'api_key_revoked') {
+                setLiveStatus('Stopped', '#c62828');
+                showAccessNotice('This API key was replaced or removed. Sign in again with the current key.');
+                return true;
+            }
+            return false;
+        }
+
+        async function switchFromRemovedLocation() {
+            const gone = watching;
+            const label = gone ? gone.name + ' (' + gone.value + ')' : 'The location you were watching';
+            const sites = await refreshApiSites();
+            watching = null;
+            if (sites === null) {
+                setLiveStatus('Stopped', '#c62828');
+                showAccessNotice(label + ' is no longer available to this API user. Its other locations could not be loaded; try again.');
+                return;
+            }
+            // The key's next location that plays: /sw/api/sites lists every API site, and one whose NVR
+            // has no cloud video refuses the mint (no_cloud_video), or has no enabled camera, so try the
+            // next one (review L13).
+            const candidates = sites.filter(function (s) { return s.locationId && (!gone || s.locationId !== gone.value); });
+            for (const next of candidates) {
+                setLookup('locationId');
+                document.getElementById('lookup-value').value = next.locationId;
+                validateLookup();
+                const result = await mintAndPlay(false);
+                if (result && result.ok) {
+                    showAccessNotice(label + ' is no longer available to this API user; showing ' + next.name + ' (' + next.locationId + ').');
+                    return;
+                }
+                if (!result || (result.reason !== 'no_cloud_video' && result.reason !== 'no_camera')) {
+                    showAccessNotice(label + ' is no longer available to this API user; ' + next.name + ' (' + next.locationId + ') could not be started.');
+                    return;
+                }
+            }
+            setLiveStatus('Stopped', '#c62828');
+            showAccessNotice(label + ' is no longer available to this API user, and it has no other location with live video.');
+        }
+
+        // Back to this tab: refresh the key's sites (at most once a minute).
+        async function refreshOnReturn() {
+            if (document.visibilityState !== 'visible' || authMode !== 'api' || !apiToken) return;
+            if (Date.now() - lastAccessRefresh < ACCESS_REFRESH_MIN_MS) return;
+            lastAccessRefresh = Date.now();
+            await refreshApiSites();
+        }
+
         function renderSiteChips(sites) {
+            // The summary's count follows the key too (it was set once, at sign-in).
+            const count = document.getElementById('api-site-count');
+            if (count) count.textContent = sites.length + ' site(s) on the key';
             const el = document.getElementById('api-sites');
             const withLocation = sites.filter(function (s) { return s.locationId; });
             if (!withLocation.length) { el.innerHTML = ''; return; }
@@ -2075,7 +2190,7 @@
         // click (resets the one automatic re-mint on token_expired).
         async function mintAndPlay(userAction) {
             const value = document.getElementById('lookup-value').value.trim();
-            if (!apiToken || !value) return;
+            if (!apiToken || !value) return { ok: false, reason: null };
             if (userAction) autoRemintUsed = false;
             const body = {};
             body[lookupKind] = value;
@@ -2111,9 +2226,10 @@
                 const msg = (e.message || 'Could not mint a stream') + (e.reason ? ' (' + e.reason + ')' : '');
                 log('Video token refused: ' + msg, 'error');
                 setMintStatus(escapeHtml(msg), '#c62828');
-                return;
+                return { ok: false, reason: e.reason || null };
             }
             lastGrant = data;
+            watching = lookupKind === 'locationId' ? { value: value, name: data.site || value } : null;
             recordMint(lookupKind, value, data);
             setMintStatus('Minted &middot; device ' + escapeHtml(data.deviceId) + ' &middot; link valid until ' + new Date(data.expiresAt).toLocaleTimeString(), '#2e7d32');
             log('Minted a stream URL by ' + lookupKind + ' ' + JSON.stringify(value) + ' -> device ' + data.deviceId + ', serial ' + data.serial, 'success');
@@ -2135,10 +2251,11 @@
             const wanted = keepCamera !== null && Array.from(cams.options).some(function (o) { return o.value === String(keepCamera); })
                 ? String(keepCamera) : (Array.from(cams.options).find(function (o) { return o.value && !o.disabled; }) || {}).value;
             if (wanted) { cams.value = wanted; onCameraChange(); }
-            if (!selectedCamera) { setLiveStatus('No enabled camera on this device', '#c62828'); return; }
+            if (!selectedCamera) { setLiveStatus('No enabled camera on this device', '#c62828'); return { ok: false, reason: 'no_camera' }; }
             stopWebsocketStream();
             startLiveStream.fromMint = true;
             try { startLiveStream(); } finally { startLiveStream.fromMint = false; }
+            return { ok: true };
         }
 
         function recordMint(kind, value, data) {
@@ -2276,7 +2393,11 @@
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function() {
-            log('Cloud Camera API Demo loaded (v2 — Analytics)');
+            log('Cloud Camera API Demo loaded (v3 — Access refresh)');
+
+            // v3: returning to the tab re-reads the API user's sites.
+            window.addEventListener('focus', refreshOnReturn);
+            document.addEventListener('visibilitychange', refreshOnReturn);
 
             // Subscribe the Detections panel to the player's analytics events.
             // A 3rd-party integration would subscribe the same way.

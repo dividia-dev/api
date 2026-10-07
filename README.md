@@ -264,11 +264,40 @@ player.restart();   // Restart streaming
 |----------|-------------|
 | `onConnect` | WebSocket connected |
 | `onFirstFrame` | First video frame displayed |
-| `onError` | Connection or decode error |
-| `onDisconnect` | Connection closed |
-| `onReconnecting` | Auto-reconnect started |
+| `onError` | Connection or decode error; for a server stop code, called with `{ code, message }` |
+| `onDisconnect` | Connection closed, called with `(closeCode, reason)` (no arguments after `stop()`) |
+| `onReconnecting` | Auto-reconnect started, called with `(closeCode, reason)` |
 | `onStall` | No data received (stalled) |
 | `onMetadata` | Server metadata received |
+
+### Server stop codes (v2.6.0)
+
+When the server refuses or stops a stream, it sends one text frame and then closes the socket with
+code `1008`:
+
+```json
+{ "type": "error", "code": "video_access_revoked", "error": "Live video access was turned off for this account." }
+```
+
+The player stops auto-reconnecting, shows `error` on the video, and calls `onError({ code, message })`
+(this frame never reaches `onMetadata`). A close with code `1008` is always terminal. Dividia cloud
+stream codes:
+
+| `code` | Meaning | What your page should do |
+|--------|---------|--------------------------|
+| `token_expired` | The token in the stream URL expired: a stream URL's 10-minute connect window passed (`/sw/api/video-token`), or, with a `/ve/auth` or sign-in token, the session itself expired | Stream URL: mint a new one server-side and start again. Session token: authenticate again, then reconnect |
+| `video_access_revoked` | Live video was turned off for the account | Show the message; stop |
+| `site_access_revoked` | The account lost access to the site | Show the message; stop |
+| `api_key_revoked` | The API key behind the stream was changed or removed | Show the message; stop |
+| `invalid_token` | The stream URL is not valid | Show the message; stop |
+| `device_not_authorized` | The stream URL is for a different device | Show the message; stop |
+
+### WSPlayer changelog
+
+- **2.6.0** — Server stop codes: a `{type:'error'}` text frame stops auto-reconnect, shows the message,
+  and calls `onError({code, message})` instead of `onMetadata`; a close with code `1008` is terminal;
+  `onDisconnect` and `onReconnecting` receive `(code, reason)`. Nothing else changed.
+- **2.5.0** — Analytics overlays (objects / LPR / POS), MessageQueue events, PTZ controls.
 
 ### Browser Support Check
 
