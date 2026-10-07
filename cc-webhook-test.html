@@ -122,7 +122,7 @@
     <h2><span class="num">&#9889;</span> Try it <span class="tryit-note">&mdash; one signed JSON POST per ticket. Fill the fields, <b>Sign</b>, then <b>Verify</b> to run the same checks our endpoint runs; nothing is sent from this page.</span></h2>
     <details class="spec" open style="margin:0 0 14px">
       <summary>Request format</summary>
-      <p style="margin:2px 0 8px;font-size:13px;color:var(--muted)">The full POST — headers and your native ticket JSON. We route on <code class="inline">location.id</code> (&rarr; site) + <code class="inline">scaleId</code> (&rarr; scale lane, matched byte-for-byte), de-duplicate on <code class="inline">uniqueId</code>, and carry the rest onto the ticket. The <code class="inline">webhook-*</code> headers are the <a href="#auth" style="color:var(--indigo)">Standard Webhooks signature</a>. Collapse this to bring the sandbox up.</p>
+      <p style="margin:2px 0 8px;font-size:13px;color:var(--muted)">The full POST — headers and your native ticket JSON. We route on <code class="inline">location.id</code> (&rarr; site) + <code class="inline">scaleId</code> (&rarr; scale, matched exactly, case-sensitive), de-duplicate on <code class="inline">uniqueId</code>, and carry the rest onto the ticket. The <code class="inline">webhook-*</code> headers are the <a href="#auth" style="color:var(--indigo)">Standard Webhooks signature</a>. Collapse this to bring the sandbox up.</p>
 <pre class="code"><span class="k">POST</span> https://api-staging.cloud.dividia.net/sw/webhooks/cc
 <span class="h">Content-Type</span>: application/json
 <span class="h">Dividia-Customer-Id</span>: <span class="s">00000000-0000-0000-0000-000000000000</span>
@@ -286,7 +286,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
   -H "Dividia-Customer-Id: $CUSTOMER_ID" \
   -H "webhook-id: $WID" -H "webhook-timestamp: $WTS" -H "webhook-signature: $SIG" \
   --data "$BODY"</pre>
-    <div class="callout note"><b>Expected:</b> <code class="inline">HTTP 200</code> with <code class="inline">{"status":"fallback"}</code> — the ticket is stored as a cloud-only transaction (the test site has no NVR connected). This request has been validated against staging.</div>
+    <div class="callout note"><b>Expected:</b> <code class="inline">HTTP 200</code> with <code class="inline">{"status":"fallback","reason":"NVR not connected to Dividia"}</code> — the ticket is stored without images (the test site has no NVR connected). This request has been validated against staging.</div>
   </details>
 
   <!-- DETAILS & REFERENCE -->
@@ -308,7 +308,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
         <div class="arrow">&rarr;</div>
         <div class="step us"><div class="n">US</div><div class="t">Verify</div><div class="d">Look up the customer by header, recompute the signature; reject if it doesn't match</div></div>
         <div class="arrow">&rarr;</div>
-        <div class="step us"><div class="n">US</div><div class="t">Ack + process</div><div class="d">Return 200 immediately, then capture images from the on-site cameras</div></div>
+        <div class="step us"><div class="n">US</div><div class="t">Store + send</div><div class="d">Store the ticket, send it to the site&rsquo;s NVR (which captures the camera images), and answer with what happened</div></div>
       </div>
       <div class="callout why"><b>Why a signature and not a login?</b> A webhook is server-to-server — there's no user session to authenticate. The shared secret proves both <em>origin</em> (only you and we hold it) and <em>integrity</em> (any change to the body breaks the signature), without ever putting a credential on the wire.</div>
     </div>
@@ -325,7 +325,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
   <span class="k">"ticketNumber"</span>:   <span class="s">"1001"</span>,                          <span class="c">// ticket number</span>
   <span class="k">"ticketDateTime"</span>: <span class="s">"2026-08-11T14:03:22Z"</span>,          <span class="c">// when the ticket was created (ISO-8601)</span>
   <span class="k">"location"</span>: { <span class="k">"id"</span>: <span class="s">"LOC-1"</span>, <span class="k">"name"</span>: <span class="s">"North Plant"</span> },  <span class="c">// id routes to the right site's NVR</span>
-  <span class="k">"scaleId"</span>:        <span class="s">"IQ-001:A"</span>,                       <span class="c">// scale / lane</span>
+  <span class="k">"scaleId"</span>:        <span class="s">"IQ-001:A"</span>,                       <span class="c">// which scale</span>
 
   <span class="c">// ── everything below rides onto the ticket as additional data ──</span>
   <span class="k">"vehicle"</span>: {
@@ -347,7 +347,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/sw/webhooks/cc" \
           <tr><td><code>ticketNumber</code></td><td>The ticket number — indexed for search, and the anchor we key the on-site camera images to.</td></tr>
           <tr><td><code>ticketDateTime</code></td><td>When the ticket was created (ISO-8601).</td></tr>
           <tr><td><code>location.id</code></td><td>Which site/plant — how we route the event to the right on-site NVR. <code>location.name</code> is display only.</td></tr>
-          <tr><td><code>scaleId</code></td><td>Which scale/lane at that site.</td></tr>
+          <tr><td><code>scaleId</code></td><td>Which scale at that site.</td></tr>
         </tbody>
       </table>
       <p style="margin:16px 0 4px;font-weight:650;font-size:13px">Everything else — carried onto the ticket</p>
@@ -414,16 +414,17 @@ signature   = base64( HMAC_SHA256( secretBytes, signedContent ) )
       <table class="data">
         <thead><tr><th>Status</th><th>Meaning</th><th>Should you retry?</th></tr></thead>
         <tbody>
-          <tr><td><b>200</b> <code>delivered</code> / <code>accepted</code></td><td>Verified and accepted; forwarded to the on-site NVR.</td><td>No</td></tr>
-          <tr><td><b>200</b> <code>fallback</code></td><td>Verified and stored. The NVR was offline, so we saved it as a cloud-only transaction.</td><td>No</td></tr>
+          <tr><td><b>200</b> <code>delivered</code></td><td>Verified, stored, and sent to the site&rsquo;s NVR. We wait up to 3&nbsp;s for the NVR&rsquo;s answer; if it refuses the ticket in that time, the answer is <code>fallback</code> instead.</td><td>No</td></tr>
+          <tr><td><b>200</b> <code>fallback</code></td><td>Verified and stored, but not delivered to the NVR when we answered. <code>reason</code> says why: <code>NVR not connected to Dividia</code> or <code>ticket not yet sent to the NVR</code> (we still send it if the NVR connects within 2&nbsp;minutes of its arrival; after that it is not sent, because the NVR photographs the scale when a ticket arrives), <code>NVR has no Scale Watcher POS source on port N</code>, or <code>scaleId not in the site&rsquo;s scale map</code>.</td><td>No</td></tr>
           <tr><td><b>200</b> <code>duplicate</code></td><td>We've already processed this <code>uniqueId</code> — safely ignored.</td><td>No</td></tr>
           <tr><td><b>200</b> <code>failed</code></td><td>Verified, but the <code>location.id</code> didn't match a site we've mapped for you, so nothing was routed.</td><td>No — fix the <code>location.id</code></td></tr>
+          <tr><td><b>400</b></td><td>The payload failed validation, e.g. a missing <code>uniqueId</code> or a field over its length. The <code>error</code> field names the problem.</td><td>No — fix the payload</td></tr>
           <tr><td><b>401</b></td><td>Missing headers, unknown <code>Dividia-Customer-Id</code>, bad signature, or a timestamp outside the &plusmn;5&nbsp;min window.</td><td>No — fix signing / headers / clock</td></tr>
           <tr><td><b>429</b></td><td>Rate limited.</td><td>Yes, after a short backoff</td></tr>
           <tr><td><b>5xx</b></td><td>A transient problem on our side.</td><td>Yes</td></tr>
         </tbody>
       </table>
-      <div class="callout why"><b>A 200 means we received and verified your request &mdash; read the <code class="inline">status</code> field for the outcome.</b> <code class="inline">delivered</code> and <code class="inline">fallback</code> are stored; <code class="inline">duplicate</code> is ignored; <code class="inline">failed</code> means we couldn't route it (almost always a <code class="inline">location.id</code> we haven't mapped yet). We ack fast, then do the heavier work (storage, on-site image capture) so your queue doesn't back up. <b>Retry only on 429 and 5xx</b> &mdash; those are the transient ones; our de-duplication on <code class="inline">uniqueId</code> makes an occasional duplicate harmless.</div>
+      <div class="callout why"><b>A 200 means we received and verified your request &mdash; read the <code class="inline">status</code> field for the outcome.</b> <code class="inline">delivered</code> and <code class="inline">fallback</code> are stored; <code class="inline">duplicate</code> is ignored; <code class="inline">failed</code> means we couldn't route it (almost always a <code class="inline">location.id</code> we haven't mapped yet). We store the ticket before answering, then wait up to 3&nbsp;seconds for the NVR&rsquo;s answer, so the status says what happened. <b>Retry only on 429 and 5xx</b> &mdash; those are the transient ones; our de-duplication on <code class="inline">uniqueId</code> makes an occasional duplicate harmless.</div>
     </div>
   </details>
 
@@ -433,10 +434,10 @@ signature   = base64( HMAC_SHA256( secretBytes, signedContent ) )
     <h2 style="display:none"><span class="num">6</span> What happens on our end</h2>
     <div class="card">
       <ul class="clean">
-        <li><span class="num-badge">1</span><div><b>Identify</b> the customer from the <code class="inline">Dividia-Customer-Id</code> header, then <b>verify</b> the signature over the raw body with that customer's secret. Anything that fails is rejected with a 401 before we touch a database.</div></li>
+        <li><span class="num-badge">1</span><div><b>Identify</b> the customer from the <code class="inline">Dividia-Customer-Id</code> header, then <b>verify</b> the signature over the raw body with that customer's secret. Anything that fails is rejected with a 401 before we store anything.</div></li>
         <li><span class="num-badge">2</span><div><b>De-duplicate</b> on the ticket's <code class="inline">uniqueId</code>, so retries are safe.</div></li>
         <li><span class="num-badge">3</span><div><b>Store</b> the ticket against the customer and site.</div></li>
-        <li><span class="num-badge">4</span><div><b>Capture</b> images from the configured on-site cameras at that location and scale, keyed to the <code class="inline">ticketNumber</code>.</div></li>
+        <li><span class="num-badge">4</span><div><b>Send</b> the ticket to the site&rsquo;s NVR on the port its <code class="inline">scaleId</code> is mapped to, within 2 minutes of its arrival; the NVR captures images from that scale&rsquo;s cameras.</div></li>
       </ul>
     </div>
   </details>
@@ -449,7 +450,7 @@ signature   = base64( HMAC_SHA256( secretBytes, signedContent ) )
     <div class="card">
       <ul class="clean">
         <li><span class="num-badge">1</span><div><b>Confirm your sender can do the above</b> — POST to the single <code class="inline">/sw/webhooks/cc</code> URL, send the <code class="inline">Dividia-Customer-Id</code> header, and sign with the Standard Webhooks HMAC-SHA256 headers.</div></li>
-        <li><span class="num-badge">2</span><div><b>Delivery &amp; retries</b> — at-least-once with retries on non-2xx is ideal; send the same <code class="inline">uniqueId</code> on retries so our de-duplication works.</div></li>
+        <li><span class="num-badge">2</span><div><b>Delivery &amp; retries</b> — at-least-once, retrying on 429, 5xx and network errors, is ideal; send the same <code class="inline">uniqueId</code> on retries so our de-duplication works.</div></li>
         <li><span class="num-badge">3</span><div><b>(Optional)</b> your sender's source IPs, if you'd like us to allowlist them for extra defense.</div></li>
       </ul>
     </div>
@@ -754,7 +755,7 @@ urllib.request.urlopen(req)</pre>
     step(true,'Routing target present (location.id '+escapeHtml(String(locId))+', scaleId '+escapeHtml(String(obj.scaleId||''))+')');
 
     seenIds[dedupKey] = true;
-    finish('200','accepted — stored & queued for on-site image capture (ticket '+escapeHtml(String(obj.ticketNumber||''))+')');
+    finish('200','checks passed — Dividia would store this ticket and route it by location.id (ticket '+escapeHtml(String(obj.ticketNumber||''))+')');
 
     function finish(code,msg){
       var cls = code[0]==='2' ? 'pass' : (code[0]==='4' ? 'warnc':'fail');
