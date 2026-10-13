@@ -47,6 +47,7 @@
   .verdict.info{background:#f1f5f9;border-color:#94a3b8}
   .out{font-family:var(--mono);font-size:12px;line-height:1.5;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;margin-top:8px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
   details{margin-top:10px}
+  .sub-h{font-size:13px;font-weight:600;color:#334155;margin-top:12px}
   summary{cursor:pointer;font-size:13px;font-weight:600;color:#334155}
   a{color:var(--indigo)}
   .foot{color:var(--muted);font-size:12.5px;margin-top:18px}
@@ -100,6 +101,10 @@
       <button class="ghost" id="newDataBtn" type="button">New ticket data</button>
     </div>
     <div id="sendVerdict"></div>
+    <div id="resWrap" hidden>
+      <div class="sub-h">The HTTP response: exactly what the server returned</div>
+      <div class="out" id="resOut"></div>
+    </div>
     <details id="reqDetails" open><summary>The HTTP request: exactly what goes to the server</summary><div class="out" id="reqOut"></div></details>
   </div>
 
@@ -118,7 +123,7 @@
       <button class="act" id="pdfBtn" type="button">Get the PDF (GET /sw/api/tickets/pdf)</button>
     </div>
     <div id="readVerdict"></div>
-    <details id="readDetails"><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
+    <details id="readDetails" open><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
   </div>
 
   <div class="card">
@@ -307,9 +312,15 @@
     try { obj = JSON.parse(text); } catch (_) {}
     var a = answerFor(res.status, obj);
     verdict('sendVerdict', a.level, a.title, a.detail,
-      'HTTP ' + res.status + ' in ' + (Date.now() - started) + ' ms' + (isRetry ? ' (retry)' : '') +
-      ' · ticket ' + ticket.ticketNumber + ' · location.id ' + ticket.location.id + ' · scaleId ' + ticket.scaleId +
-      '\nuniqueId ' + ticket.uniqueId + '\n' + (text || '(empty body)'));
+      'Ticket ' + ticket.ticketNumber + ' · uniqueId ' + ticket.uniqueId + ' · location.id ' + ticket.location.id + ' · scaleId ' + ticket.scaleId);
+    // The response exactly as returned, then the ticket it answers for (cloudapi does not echo the ticket back).
+    $('resWrap').hidden = false;
+    $('resOut').textContent = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + '   (' + (Date.now() - started) + ' ms' + (isRetry ? ', a retry' : '') + ')\n' +
+      ['content-type', 'x-cloudapi-version'].map(function(h){ var v = res.headers.get(h); return v ? h + ': ' + v : null; }).filter(Boolean).join('\n') + '\n\n' +
+      (obj ? JSON.stringify(obj, null, 2) : (text || '(empty body)')) +
+      '\n\n# Dividia answers with the status only (and a reason when the ticket is held).\n' +
+      '# The ticket this answer is about is the one in the request below:\n' +
+      '#   ticketNumber  ' + ticket.ticketNumber + '\n#   uniqueId      ' + ticket.uniqueId + '\n#   location.id   ' + ticket.location.id + '\n#   scaleId       ' + ticket.scaleId;
   }
 
   function send(){ return guarded('sendVerdict', async function(){
