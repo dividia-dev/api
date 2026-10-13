@@ -105,7 +105,7 @@
 
   <div class="card">
     <h2>2 &middot; Read it back (public API)</h2>
-    <p class="lede">Paste the public-API token of an API user that can see the site: the long value in three parts separated by dots, not the shorter API key. It goes only to Dividia, as the Bearer token. The public API returns real tickets only, so read back a ticket sent from this page, not one from Dividia's internal test console.</p>
+    <p class="lede">Paste the public-API token of an API user that can see the site: the long value in three parts separated by dots that was emailed with the API key. It goes only to Dividia, as the Bearer token. The public API returns real tickets only, so read back a ticket sent from this page, not one from Dividia's internal test console.</p>
     <div class="row">
       <div class="field"><label for="apiToken">Public-API token</label><input id="apiToken" type="password" autocomplete="off" spellcheck="false"></div>
     </div>
@@ -333,14 +333,21 @@
   function token(){
     var t = $('apiToken').value.trim().replace(/^Bearer\s+/i, '');
     if (!t) throw new Error('Paste the public-API token.');
-    // The token is a JWT (three dot-separated parts) that carries the API key; the bare key is not accepted.
-    if (t.split('.').length !== 3) throw new Error('That is the API key, not the API token. The public API takes only the token, a long value in three parts separated by dots that carries the key; it answers 401 to the key alone. The token was emailed to the API user when API access was turned on (dividia.net/api, Authentication). It does not expire: save it and reuse it.');
     return t;
   }
   function readQuery(){
     var loc = $('rbLocationId').value.trim(), t = $('rbTicket').value.trim();
     if (!loc || !t) throw new Error('Fill in locationId and ticket (each send fills them in).');
     return 'locationId=' + encodeURIComponent(loc) + '&ticket=' + encodeURIComponent(t);
+  }
+  // Production's 401 for a bare API key or an expired token, in plain words.
+  function explain401(tok){
+    if (tok.split('.').length !== 3) return 'Production does not accept the bare API key (the 32-character value the portal shows). It accepts only the API token: a longer value in three parts separated by dots, which cloudapi signs around the key and emails to the API user when the key is generated.';
+    try {
+      var exp = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp;
+      if (exp && exp * 1000 < Date.now()) return 'This token expired on ' + new Date(exp * 1000).toISOString().slice(0, 10) + '. Tokens emailed before cloudapi stopped setting an expiry lasted 30 days; a new one comes with a newly generated API key.';
+    } catch (_) {}
+    return 'Production did not accept this token. Check that it is the whole value from the email, and that the API key has not been regenerated since.';
   }
   function errorOf(j, text){ return j && j.error ? String(j.error.message || j.error.type || JSON.stringify(j.error)) : (text || '').slice(0, 300); }
 
@@ -352,6 +359,7 @@
     var text = await res.text(), j = null;
     try { j = JSON.parse(text); } catch (_) {}
     $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
+    if (res.status === 401) return verdict('readVerdict', 'fail', 'Production answered 401: ' + errorOf(j, text), explain401(tok));
     if (!res.ok) return verdict('readVerdict', 'fail', 'HTTP ' + res.status, errorOf(j, text));
     if (j && j.count > 0) return verdict('readVerdict', 'warn', 'Waiting on the NVR', 'Dividia has the ticket; the NVR has not uploaded its images yet. Ask again in a minute, or get the PDF now (no images yet).');
     verdict('readVerdict', 'pass', 'Not waiting on the NVR', 'This ticket is not held: the NVR has recorded it (or it was never received). Get the PDF to see it.');
@@ -378,6 +386,7 @@
     $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
     if (res.ok && j && j.matches === 0) return verdict('readVerdict', 'warn', 'No ticket ' + $('rbTicket').value.trim() + ' at ' + $('rbLocationId').value.trim() + ' in the public API',
       "The public API returns real tickets only: tickets from Dividia's internal test console are left out. Send a ticket from this page, then get its PDF.");
+    if (res.status === 401) return verdict('readVerdict', 'fail', 'Production answered 401: ' + errorOf(j, text), explain401(tok));
     verdict('readVerdict', 'fail', 'No PDF: HTTP ' + res.status, errorOf(j, text));
   }); }
 
