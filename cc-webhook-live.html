@@ -75,7 +75,7 @@
         <br><b>Why <code>v1,</code> comes first:</b> it is the version label of the signing method in the Standard Webhooks format, and <code>v1</code> means HMAC-SHA256 with your shared secret. The header can carry several signatures separated by spaces, each written as <code>version,signature</code>. We check every <code>v1</code> signature and accept the ticket if one matches. A signature without <code>v1,</code> in front is ignored, so the request gets a 401.</li>
       <li><b>The body is your ticket JSON,</b> signed byte for byte as sent. <code>location.id</code> picks the site and its NVR. <code>scaleId</code> picks the scale (an exact, case-sensitive match). <code>uniqueId</code> must be new for every ticket: we de-duplicate on it, so a retry of the same ticket is harmless. <code>ticketNumber</code> is required. Everything else (vehicle, carrier, customer, project, product, orderId) rides along on the ticket.</li>
       <li><b>Our answer is HTTP 200 with a <code>status</code>:</b> <code>delivered</code> (the NVR has the ticket and photographs the scale), <code>fallback</code> (stored without images; <code>reason</code> says why), <code>failed</code> (the <code>location.id</code> is not set up) or <code>duplicate</code> (this <code>uniqueId</code> was already received). A 400 or 401 means fix the request. On a 429 or 5xx, retry with the same <code>uniqueId</code>.</li>
-      <li><b>Read it back with the public API:</b> your public-API token as <code>Authorization: Bearer &lt;token&gt;</code> (it is emailed to the API user when API access is turned on; it does not expire, so save it and reuse it) on <code>GET /sw/api/tickets?locationId=&hellip;&amp;ticket=&hellip;</code>, which lists the ticket while it waits on the NVR, and <code>GET /sw/api/tickets/pdf?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's PDF, with images once the NVR has uploaded them (within about two minutes).</li>
+      <li><b>Read it back with the public API:</b> your public-API token as <code>Authorization: Bearer &lt;token&gt;</code> (it is emailed to the API user when API access is turned on; it does not expire, so save it and reuse it) on <code>GET /sw/api/transactions?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's transaction (truck, scale, times, <code>complete</code> once the NVR has recorded it), and <code>GET /sw/api/tickets/pdf?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's PDF, with images once the NVR has uploaded them (within about two minutes).</li>
     </ol>
   </div>
 
@@ -119,7 +119,7 @@
       <div class="field"><label for="rbTicket">ticket <span>(each send fills this in)</span></label><input id="rbTicket" spellcheck="false"></div>
     </div>
     <div class="btns">
-      <button class="act" id="pendingBtn" type="button">Is it waiting on the NVR? (GET /sw/api/tickets)</button>
+      <button class="act" id="dataBtn" type="button">Get the ticket's data (GET /sw/api/transactions)</button>
       <button class="act" id="pdfBtn" type="button">Get the PDF (GET /sw/api/tickets/pdf)</button>
     </div>
     <div id="readVerdict"></div>
@@ -263,10 +263,10 @@
   async function guarded(el, fn){
     if (busy) return;
     busy = true;
-    ['sendBtn', 'retryBtn', 'pendingBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = true; });
+    ['sendBtn', 'retryBtn', 'dataBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = true; });
     try { await fn(); }
     catch (e) { verdict(el, 'fail', (e && e.message) || String(e), ''); }
-    finally { busy = false; ['sendBtn', 'retryBtn', 'pendingBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = false; }); }
+    finally { busy = false; ['sendBtn', 'retryBtn', 'dataBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = false; }); }
   }
 
   // The headers for one ticket: your customer id plus the Standard Webhooks signature over the exact body.
@@ -362,18 +362,23 @@
   }
   function errorOf(j, text){ return j && j.error ? String(j.error.message || j.error.type || JSON.stringify(j.error)) : (text || '').slice(0, 300); }
 
-  function waiting(){ return guarded('readVerdict', async function(){
+  // The ticket's transaction record, as the public API returns it.
+  function readTicket(){ return guarded('readVerdict', async function(){
     var q = readQuery(), tok = token();
-    verdict('readVerdict', 'info', 'Asking Dividia about ticket ' + $('rbTicket').value.trim() + '...', '');
-    var url = baseUrl() + '/sw/api/tickets?' + q;
+    verdict('readVerdict', 'info', 'Getting the data for ticket ' + $('rbTicket').value.trim() + '...', '');
+    var url = baseUrl() + '/sw/api/transactions?' + q;
     var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
     var text = await res.text(), j = null;
     try { j = JSON.parse(text); } catch (_) {}
     $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
     if (res.status === 401) return verdict('readVerdict', 'fail', 'Production answered 401: ' + errorOf(j, text), explain401(tok));
     if (!res.ok) return verdict('readVerdict', 'fail', 'HTTP ' + res.status, errorOf(j, text));
-    if (j && j.count > 0) return verdict('readVerdict', 'warn', 'Waiting on the NVR', 'Dividia has the ticket; the NVR has not uploaded its images yet. Ask again in a minute, or get the PDF now (no images yet).');
-    verdict('readVerdict', 'pass', 'Not waiting on the NVR', 'This ticket is not held: the NVR has recorded it (or it was never received). Get the PDF to see it.');
+    var t = j && j.data && j.data[0];
+    if (!t) return verdict('readVerdict', 'warn', 'No ticket ' + $('rbTicket').value.trim() + ' at ' + $('rbLocationId').value.trim() + ' in the public API',
+      "The public API returns real tickets only: tickets from Dividia's internal test console are left out. Send a ticket from this page, then read it back.");
+    verdict('readVerdict', t.complete ? 'pass' : 'warn',
+      'Ticket ' + t.ticket + ': transaction ' + t.id + (t.complete ? ', complete (the NVR recorded it)' : ', pending (the NVR has not uploaded it yet)'),
+      'Truck ' + (t.truck || '-') + ' · scaleId ' + (t.scaleId || '-') + ' · scale ' + t.scale + ' · ' + (t.timestamp || '') + '. The full record is below.');
   }); }
 
   function pdf(){ return guarded('readVerdict', async function(){
@@ -384,11 +389,8 @@
     var type = res.headers.get('Content-Type') || '';
     if (res.ok && type.indexOf('application/pdf') === 0) {
       var blob = await res.blob(), href = URL.createObjectURL(blob);
-      var name = $('rbLocationId').value.trim() + '-ticket_' + $('rbTicket').value.trim() + '.pdf';
       $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + ' · ' + type + ' · ' + blob.size + ' bytes';
-      $('readVerdict').innerHTML = '<div class="verdict pass"><b>PDF received</b><div class="d">' +
-        '<a href="' + href + '" target="_blank" rel="noopener">Open the PDF</a> · <a href="' + href + '" download="' + escapeHtml(name) + '">Download ' + escapeHtml(name) + '</a>' +
-        '</div></div><iframe title="Ticket PDF" src="' + href + '" style="width:100%;height:640px;border:1px solid var(--line);border-radius:8px;margin-top:10px;background:#fff"></iframe>';
+      $('readVerdict').innerHTML = '<div class="verdict pass"><b>PDF received</b></div><iframe title="Ticket PDF" src="' + href + '" style="width:100%;height:640px;border:1px solid var(--line);border-radius:8px;margin-top:10px;background:#fff"></iframe>';
       $('readVerdict').scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
@@ -462,7 +464,7 @@
   $('sendBtn').addEventListener('click', send);
   $('retryBtn').addEventListener('click', retry);
   $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); renderCode(); renderPreview(); });
-  $('pendingBtn').addEventListener('click', waiting);
+  $('dataBtn').addEventListener('click', readTicket);
   $('pdfBtn').addEventListener('click', pdf);
   $('copyBtn').addEventListener('click', copyCode);
   ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', function(){ renderCode(); renderPreview(); }); });
