@@ -47,6 +47,7 @@
   .verdict.info{background:#f1f5f9;border-color:#94a3b8}
   .out{font-family:var(--mono);font-size:12px;line-height:1.5;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;margin-top:8px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
   details{margin-top:10px}
+  .sub-h{font-size:13px;font-weight:600;color:#334155;margin-top:12px}
   summary{cursor:pointer;font-size:13px;font-weight:600;color:#334155}
   a{color:var(--indigo)}
   .foot{color:var(--muted);font-size:12.5px;margin-top:18px}
@@ -100,12 +101,16 @@
       <button class="ghost" id="newDataBtn" type="button">New ticket data</button>
     </div>
     <div id="sendVerdict"></div>
+    <div id="resWrap" hidden>
+      <div class="sub-h">The HTTP response: exactly what the server returned</div>
+      <div class="out" id="resOut"></div>
+    </div>
     <details id="reqDetails" open><summary>The HTTP request: exactly what goes to the server</summary><div class="out" id="reqOut"></div></details>
   </div>
 
   <div class="card">
     <h2>2 &middot; Read it back (public API)</h2>
-    <p class="lede">Paste the public-API token of an API user that can see the site. It goes only to Dividia, as the Bearer token.</p>
+    <p class="lede">Paste the public-API token of an API user that can see the site: the long value in three parts separated by dots that was emailed with the API key. It goes only to Dividia, as the Bearer token. The public API returns real tickets only, so read back a ticket sent from this page, not one from Dividia's internal test console.</p>
     <div class="row">
       <div class="field"><label for="apiToken">Public-API token</label><input id="apiToken" type="password" autocomplete="off" spellcheck="false"></div>
     </div>
@@ -118,7 +123,7 @@
       <button class="act" id="pdfBtn" type="button">Get the PDF (GET /sw/api/tickets/pdf)</button>
     </div>
     <div id="readVerdict"></div>
-    <details id="readDetails"><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
+    <details id="readDetails" open><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
   </div>
 
   <div class="card">
@@ -202,6 +207,7 @@
     $(el).innerHTML = '<div class="verdict ' + level + '"><b>' + escapeHtml(title) + '</b>' +
       (detail ? '<div class="d">' + escapeHtml(detail) + '</div>' : '') +
       (mono ? '<div class="d mono">' + escapeHtml(mono) + '</div>' : '') + '</div>';
+    $(el).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   // What our answer means. It states only what the API reported.
@@ -306,9 +312,15 @@
     try { obj = JSON.parse(text); } catch (_) {}
     var a = answerFor(res.status, obj);
     verdict('sendVerdict', a.level, a.title, a.detail,
-      'HTTP ' + res.status + ' in ' + (Date.now() - started) + ' ms' + (isRetry ? ' (retry)' : '') +
-      ' · ticket ' + ticket.ticketNumber + ' · location.id ' + ticket.location.id + ' · scaleId ' + ticket.scaleId +
-      '\nuniqueId ' + ticket.uniqueId + '\n' + (text || '(empty body)'));
+      'Ticket ' + ticket.ticketNumber + ' · uniqueId ' + ticket.uniqueId + ' · location.id ' + ticket.location.id + ' · scaleId ' + ticket.scaleId);
+    // The response exactly as returned, then the ticket it answers for (cloudapi does not echo the ticket back).
+    $('resWrap').hidden = false;
+    $('resOut').textContent = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + '   (' + (Date.now() - started) + ' ms' + (isRetry ? ', a retry' : '') + ')\n' +
+      ['content-type', 'x-cloudapi-version'].map(function(h){ var v = res.headers.get(h); return v ? h + ': ' + v : null; }).filter(Boolean).join('\n') + '\n\n' +
+      (obj ? JSON.stringify(obj, null, 2) : (text || '(empty body)')) +
+      '\n\n# Dividia answers with the status only (and a reason when the ticket is held).\n' +
+      '# The ticket this answer is about is the one in the request below:\n' +
+      '#   ticketNumber  ' + ticket.ticketNumber + '\n#   uniqueId      ' + ticket.uniqueId + '\n#   location.id   ' + ticket.location.id + '\n#   scaleId       ' + ticket.scaleId;
   }
 
   function send(){ return guarded('sendVerdict', async function(){
@@ -332,8 +344,6 @@
   function token(){
     var t = $('apiToken').value.trim().replace(/^Bearer\s+/i, '');
     if (!t) throw new Error('Paste the public-API token.');
-    // The token is a JWT (three dot-separated parts) that carries the API key; the bare key is not accepted.
-    if (t.split('.').length !== 3) throw new Error('That is an API key, not the public-API token. Use the token emailed to the API user when API access was turned on. It does not expire: save it and reuse it.');
     return t;
   }
   function readQuery(){
@@ -341,15 +351,26 @@
     if (!loc || !t) throw new Error('Fill in locationId and ticket (each send fills them in).');
     return 'locationId=' + encodeURIComponent(loc) + '&ticket=' + encodeURIComponent(t);
   }
+  // Production's 401 for a bare API key or an expired token, in plain words.
+  function explain401(tok){
+    if (tok.split('.').length !== 3) return 'Production does not accept the bare API key (the 32-character value the portal shows). It accepts only the API token: a longer value in three parts separated by dots, which cloudapi signs around the key and emails to the API user when the key is generated.';
+    try {
+      var exp = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp;
+      if (exp && exp * 1000 < Date.now()) return 'This token expired on ' + new Date(exp * 1000).toISOString().slice(0, 10) + '. Tokens emailed before cloudapi stopped setting an expiry lasted 30 days; a new one comes with a newly generated API key.';
+    } catch (_) {}
+    return 'Production did not accept this token. Check that it is the whole value from the email, and that the API key has not been regenerated since.';
+  }
   function errorOf(j, text){ return j && j.error ? String(j.error.message || j.error.type || JSON.stringify(j.error)) : (text || '').slice(0, 300); }
 
   function waiting(){ return guarded('readVerdict', async function(){
     var q = readQuery(), tok = token();
+    verdict('readVerdict', 'info', 'Asking Dividia about ticket ' + $('rbTicket').value.trim() + '...', '');
     var url = baseUrl() + '/sw/api/tickets?' + q;
     var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
     var text = await res.text(), j = null;
     try { j = JSON.parse(text); } catch (_) {}
     $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
+    if (res.status === 401) return verdict('readVerdict', 'fail', 'Production answered 401: ' + errorOf(j, text), explain401(tok));
     if (!res.ok) return verdict('readVerdict', 'fail', 'HTTP ' + res.status, errorOf(j, text));
     if (j && j.count > 0) return verdict('readVerdict', 'warn', 'Waiting on the NVR', 'Dividia has the ticket; the NVR has not uploaded its images yet. Ask again in a minute, or get the PDF now (no images yet).');
     verdict('readVerdict', 'pass', 'Not waiting on the NVR', 'This ticket is not held: the NVR has recorded it (or it was never received). Get the PDF to see it.');
@@ -357,6 +378,7 @@
 
   function pdf(){ return guarded('readVerdict', async function(){
     var q = readQuery(), tok = token();
+    verdict('readVerdict', 'info', 'Getting the PDF for ticket ' + $('rbTicket').value.trim() + '... (a PDF with images can take several seconds)', '');
     var url = baseUrl() + '/sw/api/tickets/pdf?' + q;
     var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
     var type = res.headers.get('Content-Type') || '';
@@ -366,12 +388,16 @@
       $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + ' · ' + type + ' · ' + blob.size + ' bytes';
       $('readVerdict').innerHTML = '<div class="verdict pass"><b>PDF received</b><div class="d">' +
         '<a href="' + href + '" target="_blank" rel="noopener">Open the PDF</a> · <a href="' + href + '" download="' + escapeHtml(name) + '">Download ' + escapeHtml(name) + '</a>' +
-        '</div></div>';
+        '</div></div><iframe title="Ticket PDF" src="' + href + '" style="width:100%;height:640px;border:1px solid var(--line);border-radius:8px;margin-top:10px;background:#fff"></iframe>';
+      $('readVerdict').scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
     var text = await res.text(), j = null;
     try { j = JSON.parse(text); } catch (_) {}
     $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
+    if (res.ok && j && j.matches === 0) return verdict('readVerdict', 'warn', 'No ticket ' + $('rbTicket').value.trim() + ' at ' + $('rbLocationId').value.trim() + ' in the public API',
+      "The public API returns real tickets only: tickets from Dividia's internal test console are left out. Send a ticket from this page, then get its PDF.");
+    if (res.status === 401) return verdict('readVerdict', 'fail', 'Production answered 401: ' + errorOf(j, text), explain401(tok));
     verdict('readVerdict', 'fail', 'No PDF: HTTP ' + res.status, errorOf(j, text));
   }); }
 
