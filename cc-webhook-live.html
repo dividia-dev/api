@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command Cloud Webhook &mdash; Live Tester</title>
+<style>
+  :root{
+    --bg:#eef1f5;--card:#fff;--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;--indigo:#4f46e5;
+    --ok:#15803d;--mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:0 16px 48px}
+  header.page{background:linear-gradient(135deg,#4f46e5 0%,#6366f1 55%,#0ea5e9 130%);color:#fff;padding:14px 0 12px}
+  header.page .wrap{padding-bottom:0}
+  header.page h1{margin:0;font-size:20px;line-height:1.25}
+  header.page p{margin:4px 0 0;font-size:14px;opacity:.93}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  h2{font-size:16px;margin:0 0 4px}
+  .lede{color:var(--muted);font-size:13.5px;margin:0 0 8px}
+  ol.how{margin:4px 0 0 20px;padding:0;font-size:13.5px}
+  ol.how li{margin:5px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px;word-break:break-word}
+  .row{display:flex;flex-wrap:wrap;gap:0 12px}
+  .field{flex:1 1 260px;display:flex;flex-direction:column;margin:5px 0;min-width:0}
+  label{font-size:12px;font-weight:600;color:#334155;margin-bottom:3px}
+  label span{font-weight:400;color:var(--muted)}
+  input,textarea{font-family:var(--mono);font-size:13px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:var(--ink);width:100%}
+  textarea{min-height:130px;resize:vertical;line-height:1.45}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  button{font-size:13.5px;font-weight:600;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid transparent}
+  button.go{background:var(--ok);color:#fff}
+  button.go:hover{background:#166534}
+  button.act{background:var(--indigo);color:#fff}
+  button.act:hover{background:#4338ca}
+  button.ghost{background:#fff;color:#334155;border-color:#cbd5e1}
+  button.ghost:hover{border-color:#64748b}
+  button:disabled{opacity:.6;cursor:wait}
+  .verdict{border-left:4px solid;border-radius:0 8px 8px 0;padding:10px 12px;margin-top:12px;font-size:13.5px}
+  .verdict b{display:block;font-size:15px;margin-bottom:2px}
+  .verdict .d{white-space:pre-wrap;word-break:break-word}
+  .verdict .d.mono{font-family:var(--mono);font-size:12px;color:#334155;margin-top:6px}
+  .verdict.pass{background:#dcfce7;border-color:#16a34a}
+  .verdict.warn{background:#fef3c7;border-color:#f59e0b}
+  .verdict.fail{background:#fee2e2;border-color:#dc2626}
+  .verdict.info{background:#f1f5f9;border-color:#94a3b8}
+  .out{font-family:var(--mono);font-size:12px;line-height:1.5;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;margin-top:8px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
+  details{margin-top:10px}
+  summary{cursor:pointer;font-size:13px;font-weight:600;color:#334155}
+  a{color:var(--indigo)}
+  .foot{color:var(--muted);font-size:12.5px;margin-top:18px}
+</style>
+</head>
+<body>
+<header class="page">
+  <div class="wrap">
+    <h1>Command Cloud &rarr; Dividia: live webhook tester</h1>
+    <p>Sends a real, signed ticket to Dividia the same way your Command Cloud sender will, then reads it back through the public API.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="card" id="how">
+    <h2>How it works</h2>
+    <ol class="how">
+      <li><b>One HTTPS POST per ticket</b> to <code>https://api.cloud.dividia.net/sw/webhooks/cc</code>, the same URL for every customer. There is no login, session or token: the signature is the authentication.</li>
+      <li><b>Four headers.</b> <code>Dividia-Customer-Id</code> is your customer id. The other three are the <a href="https://www.standardwebhooks.com/" target="_blank" rel="noopener">Standard Webhooks</a> signature:
+        <code>webhook-id</code> is any unique string (this page uses the ticket's <code>uniqueId</code>; it is required because it is part of what is signed),
+        <code>webhook-timestamp</code> is Unix seconds and must be within 5 minutes of our clock, and
+        <code>webhook-signature</code> is <code>v1,</code> + Base64( HMAC-SHA256( key, webhook-id + "." + webhook-timestamp + "." + body ) ).
+        The key is the Base64 value after <code>whsec_</code> in your secret, decoded. The secret itself is never sent.</li>
+      <li><b>The body is your ticket JSON,</b> signed byte for byte as sent. <code>location.id</code> picks the site and its NVR. <code>scaleId</code> picks the scale (an exact, case-sensitive match). <code>uniqueId</code> must be new for every ticket: we de-duplicate on it, so a retry of the same ticket is harmless. <code>ticketNumber</code> is required. Everything else (vehicle, carrier, customer, project, product, orderId) rides along on the ticket.</li>
+      <li><b>Our answer is HTTP 200 with a <code>status</code>:</b> <code>delivered</code> (the NVR has the ticket and photographs the scale), <code>fallback</code> (stored without images; <code>reason</code> says why), <code>failed</code> (the <code>location.id</code> is not set up) or <code>duplicate</code> (this <code>uniqueId</code> was already received). A 400 or 401 means fix the request. On a 429 or 5xx, retry with the same <code>uniqueId</code>.</li>
+      <li><b>Read it back with the public API:</b> your public-API token as <code>Authorization: Bearer &lt;token&gt;</code> (it is emailed to the API user when API access is turned on; it does not expire, so save it and reuse it) on <code>GET /sw/api/tickets?locationId=&hellip;&amp;ticket=&hellip;</code>, which lists the ticket while it waits on the NVR, and <code>GET /sw/api/tickets/pdf?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's PDF, with images once the NVR has uploaded them (within about two minutes).</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>1 &middot; Send a ticket</h2>
+    <p class="lede">Every send is a real ticket for that site. The secret stays in this page; only the signature is sent.</p>
+    <div class="row">
+      <div class="field"><label for="base">Target</label><input id="base" value="https://api.cloud.dividia.net" spellcheck="false"></div>
+      <div class="field"><label for="customerId">Dividia-Customer-Id</label><input id="customerId" placeholder="your customer id (a GUID)" spellcheck="false"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="secret">Signing secret</label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="locationId">location.id <span>(picks the site)</span></label><input id="locationId" spellcheck="false"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="locationName">location.name <span>(display only)</span></label><input id="locationName" spellcheck="false"></div>
+      <div class="field"><label for="scaleId">scaleId <span>(picks the scale)</span></label><input id="scaleId" spellcheck="false"></div>
+    </div>
+    <div class="field"><label for="ticketData">Ticket data <span>(uniqueId, ticketNumber, ticketDateTime, location and scaleId are added on each send)</span></label><textarea id="ticketData" spellcheck="false"></textarea></div>
+    <div class="btns">
+      <button class="go" id="sendBtn" type="button">Send ticket</button>
+      <button class="ghost" id="retryBtn" type="button">Resend the last ticket (a retry)</button>
+      <button class="ghost" id="newDataBtn" type="button">New ticket data</button>
+    </div>
+    <div id="sendVerdict"></div>
+    <details id="reqDetails"><summary>The exact request sent</summary><div class="out" id="reqOut">Nothing sent yet.</div></details>
+  </div>
+
+  <div class="card">
+    <h2>2 &middot; Read it back (public API)</h2>
+    <p class="lede">Paste the public-API token of an API user that can see the site. It goes only to Dividia, as the Bearer token.</p>
+    <div class="row">
+      <div class="field"><label for="apiToken">Public-API token</label><input id="apiToken" type="password" autocomplete="off" spellcheck="false"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="rbLocationId">locationId</label><input id="rbLocationId" spellcheck="false"></div>
+      <div class="field"><label for="rbTicket">ticket <span>(each send fills this in)</span></label><input id="rbTicket" spellcheck="false"></div>
+    </div>
+    <div class="btns">
+      <button class="act" id="pendingBtn" type="button">Is it waiting on the NVR? (GET /sw/api/tickets)</button>
+      <button class="act" id="pdfBtn" type="button">Get the PDF (GET /sw/api/tickets/pdf)</button>
+    </div>
+    <div id="readVerdict"></div>
+    <details id="readDetails"><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
+  </div>
+
+  <div class="card">
+    <h2>3 &middot; Copy the code</h2>
+    <p class="lede">The same send as a stand-alone Node.js 18+ script with no packages, filled in with the values above. Save it as <code>send-ticket.js</code> and run <code>DIVIDIA_SECRET='whsec_...' node send-ticket.js</code>.</p>
+    <div class="btns"><button class="ghost" id="copyBtn" type="button">Copy the script</button></div>
+    <div class="out" id="codeOut" style="max-height:none"></div>
+  </div>
+
+  <p class="foot">The full integration guide (payload, signing, every response): <a href="cc-webhook-test.html">cc-webhook-test.html</a>. Our API accepts browser calls only from this hosted page; a copy saved to disk is blocked, and your servers have no such limit. Questions: support@dividia.net</p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function baseUrl(){ return ($('base').value || '').trim().replace(/\/+$/, ''); }
+
+  // Standard Webhooks signing: "v1," + base64(HMAC-SHA256(key, id + "." + ts + "." + body)), where the
+  // key is the base64 after "whsec_", decoded. The same bytes the svix verifier on our server computes.
+  async function sign(secret, message){
+    var raw = secret.trim().replace(/^whsec_/, '');
+    var keyBytes = Uint8Array.from(atob(raw), function(c){ return c.charCodeAt(0); });
+    var key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    var sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message)));
+    var bin = '';
+    for (var i = 0; i < sig.length; i++) bin += String.fromCharCode(sig[i]);
+    return 'v1,' + btoa(bin);
+  }
+
+  function newGuid(){
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+      var r = Math.floor(Math.random() * 16), v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  // Sample ticket data in Command's shape (the same generator as Dividia's internal test console).
+  var TRUCKS = ['Peterbilt 579', 'Kenworth T880', 'Mack Granite', 'Freightliner Cascadia', 'Western Star 4900', 'International HX', 'Volvo VNL 860'];
+  var PRODUCTS = ['#57 stone', '#8 gravel', 'Mason sand', 'Concrete sand', 'Rip rap', 'Crusher run', 'Fill dirt', '3/4in clean'];
+  var CARRIERS = ['Acme Hauling', 'BlueLine Transport', 'Rockhard Logistics', 'Summit Carriers', 'Ironclad Freight'];
+  var CUSTOMERS = ['Vulcan Materials', 'Martin Marietta', 'Cemex USA', 'Lehigh Hanson', 'Argos Ready Mix'];
+  var PROJECTS = ['I-75 Widening', 'Downtown Redevelopment', 'Airport Runway 9', 'River Bridge Ph.2', 'Hwy 20 Resurface'];
+  function rInt(a, b){ return Math.floor(a + Math.random() * (b - a + 1)); }
+  function rPick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+  function genTicketData(){
+    var tare = rInt(12, 30) * 1000 + rInt(0, 999);
+    var gross = tare + rInt(18, 52) * 1000 + rInt(0, 999);
+    var net = gross - tare;
+    return {
+      vehicle: { id: 'VEH-' + rInt(1000, 9999), name: rPick(TRUCKS), autoId: 'AVI-' + rInt(100000, 999999),
+        gross: { value: gross, uom: 'lb' }, tare: { value: tare, uom: 'lb' }, net: { value: net, uom: 'lb' }, maxGVW: { value: 80000, uom: 'lb' } },
+      carrier: { id: 'CAR-' + rInt(100, 999), name: rPick(CARRIERS) },
+      customer: { id: 'CUS-' + rInt(100, 999), name: rPick(CUSTOMERS) },
+      project: { id: 'PRJ-' + rInt(100, 999), name: rPick(PROJECTS) },
+      product: { id: 'PRD-' + rInt(100, 999), name: rPick(PRODUCTS), quantity: { value: Math.round(net / 2000 * 10) / 10, uom: 'ton' } },
+      orderId: 'ORD-' + rInt(100000, 999999)
+    };
+  }
+  function ticketData(){ return JSON.parse(($('ticketData').value || '').trim() || '{}'); }   // throws on invalid JSON
+
+  // A new ticket: fresh uniqueId, ticket number and time, the ticket data, then where it goes.
+  function buildTicket(){
+    var data = ticketData();
+    var t = { uniqueId: newGuid(), ticketNumber: Date.now().toString().slice(-9), ticketDateTime: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    Object.keys(data).forEach(function(k){ t[k] = data[k]; });
+    t.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
+    t.scaleId = $('scaleId').value.trim();
+    return t;
+  }
+
+  function verdict(el, level, title, detail, mono){
+    $(el).innerHTML = '<div class="verdict ' + level + '"><b>' + escapeHtml(title) + '</b>' +
+      (detail ? '<div class="d">' + escapeHtml(detail) + '</div>' : '') +
+      (mono ? '<div class="d mono">' + escapeHtml(mono) + '</div>' : '') + '</div>';
+  }
+
+  // What our answer means. It states only what the API reported.
+  function answerFor(code, obj){
+    var st = obj && obj.status, reason = (obj && obj.reason) || '';
+    var err = obj && obj.error ? String(obj.error.message || obj.error) : '';
+    if (code === 200 && st === 'delivered') return { level: 'pass', title: '✓ Delivered to the NVR',
+      detail: "Verified, stored, and sent to the site's NVR on this scale's port. The NVR photographs the scale now; the completed transaction, with images, shows in Scale Watcher within about two minutes. Read it back below." };
+    if (code === 200 && st === 'duplicate') return { level: 'warn', title: 'Duplicate: this uniqueId was already received',
+      detail: 'Nothing new was stored' + (reason ? ' (' + reason + ')' : '') + '. This is the answer a retry of a received ticket gets.' };
+    if (code === 200 && st === 'fallback') return { level: 'warn', title: 'Stored, but not delivered to the NVR: ' + (reason || 'no reason given'), detail: fallbackNext(reason) };
+    if (code === 200 && st === 'failed') return { level: 'fail', title: 'Not routed: ' + (reason || 'failed'),
+      detail: 'Verified, but this location.id does not match a site set up for your customer id, so no NVR got it. Check location.id. Do not retry it unchanged.' };
+    if (code === 400) return { level: 'fail', title: 'Rejected: ' + (err || 'invalid payload'), detail: 'The payload failed validation; the error names the field. Fix it. Do not retry it unchanged.' };
+    if (code === 401) return { level: 'fail', title: 'Rejected: ' + (err || 'unauthorized'),
+      detail: 'Missing headers, an unknown Dividia-Customer-Id, a signature that does not match (a wrong secret, or the body changed after signing), or a clock more than 5 minutes off. Check the customer id and the secret.' };
+    if (code === 429) return { level: 'warn', title: 'Rate limited (HTTP 429)', detail: 'Retry after a short backoff.' };
+    if (code >= 500) return { level: code === 503 ? 'warn' : 'fail', title: 'HTTP ' + code + (err ? ': ' + err : ''),
+      detail: 'A transient problem on our side. Retry with the same uniqueId; de-duplication makes that safe.' };
+    return { level: 'warn', title: 'HTTP ' + code + (st ? ': ' + st : ''), detail: reason || err };
+  }
+  function fallbackNext(reason){
+    if (reason.indexOf('scale map') >= 0) return 'This scaleId is not set up for that site, so no NVR got it. scaleId is matched exactly (case-sensitive). Check it, or ask Dividia to add it.';
+    if (reason.indexOf('POS source on port') >= 0) return 'The NVR answered that it has no Scale Watcher source on that port. Dividia fixes this on the NVR.';
+    if (reason.indexOf('not connected') >= 0) return "The site's NVR was not connected to Dividia. We still send the ticket if the NVR connects within 2 minutes of its arrival.";
+    if (reason.indexOf('not yet sent') >= 0) return 'It can still go to the NVR within 2 minutes of its arrival.';
+    return 'The ticket is stored, without images.';
+  }
+
+  var last = null;    // the last ticket sent: { base, customerId, id, body, ticket }
+  var busy = false;
+  async function guarded(el, fn){
+    if (busy) return;
+    busy = true;
+    ['sendBtn', 'retryBtn', 'pendingBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = true; });
+    try { await fn(); }
+    catch (e) { verdict(el, 'fail', (e && e.message) || String(e), ''); }
+    finally { busy = false; ['sendBtn', 'retryBtn', 'pendingBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = false; }); }
+  }
+
+  async function post(base, customerId, id, body, ticket, isRetry){
+    var ts = Math.floor(Date.now() / 1000).toString();
+    var signature;
+    try { signature = await sign($('secret').value, id + '.' + ts + '.' + body); }
+    catch (e) { return verdict('sendVerdict', 'fail', 'The signing secret is not valid', 'It is whsec_ followed by a Base64 value.'); }
+    var url = base + '/sw/webhooks/cc';
+    var headers = { 'Content-Type': 'application/json', 'Dividia-Customer-Id': customerId,
+      'webhook-id': id, 'webhook-timestamp': ts, 'webhook-signature': signature };
+    $('reqOut').textContent = 'POST ' + url + '\n' + Object.keys(headers).map(function(k){ return k + ': ' + headers[k]; }).join('\n') + '\n\n' + body;
+    verdict('sendVerdict', 'info', (isRetry ? 'Resending' : 'Sending') + ' ticket ' + ticket.ticketNumber + '...', '');
+    var started = Date.now(), res, text;
+    try {
+      res = await fetch(url, { method: 'POST', headers: headers, body: body });
+      text = await res.text();
+    } catch (e) {
+      return verdict('sendVerdict', 'fail', 'Could not reach ' + url,
+        'Check the target. Our API accepts browser calls only from the hosted page, https://dividia-dev.github.io/api/; a copy saved to disk is blocked. Your servers have no such limit.');
+    }
+    last = { base: base, customerId: customerId, id: id, body: body, ticket: ticket };
+    $('rbLocationId').value = ticket.location.id;
+    $('rbTicket').value = ticket.ticketNumber;
+    var obj = null;
+    try { obj = JSON.parse(text); } catch (_) {}
+    var a = answerFor(res.status, obj);
+    verdict('sendVerdict', a.level, a.title, a.detail,
+      'HTTP ' + res.status + ' in ' + (Date.now() - started) + ' ms' + (isRetry ? ' (retry)' : '') +
+      ' · ticket ' + ticket.ticketNumber + ' · location.id ' + ticket.location.id + ' · scaleId ' + ticket.scaleId +
+      '\nuniqueId ' + ticket.uniqueId + '\n' + (text || '(empty body)'));
+  }
+
+  function send(){ return guarded('sendVerdict', async function(){
+    var base = baseUrl(), customerId = $('customerId').value.trim();
+    if (!base || !customerId || !$('secret').value.trim()) return verdict('sendVerdict', 'fail', 'Fill in the target, the Dividia-Customer-Id and the signing secret.', '');
+    if (!$('locationId').value.trim()) return verdict('sendVerdict', 'fail', 'Fill in location.id.', '');
+    var ticket;
+    try { ticket = buildTicket(); }
+    catch (e) { return verdict('sendVerdict', 'fail', 'The ticket data is not valid JSON', e.message); }
+    // webhook-id = the ticket's uniqueId: any unique string works, and a retry keeps it.
+    await post(base, customerId, ticket.uniqueId, JSON.stringify(ticket, null, 2), ticket, false);
+  }); }
+
+  // A retry, the way a Standard Webhooks sender retries: the same webhook-id and body, a new timestamp and signature.
+  function retry(){ return guarded('sendVerdict', async function(){
+    if (!last) return verdict('sendVerdict', 'warn', 'Send a ticket first.', '');
+    await post(last.base, last.customerId, last.id, last.body, last.ticket, true);
+  }); }
+
+  // ---- read back through the public API, with the API user's token ----
+  function token(){
+    var t = $('apiToken').value.trim().replace(/^Bearer\s+/i, '');
+    if (!t) throw new Error('Paste the public-API token.');
+    // The token is a JWT (three dot-separated parts) that carries the API key; the bare key is not accepted.
+    if (t.split('.').length !== 3) throw new Error('That is an API key, not the public-API token. Use the token emailed to the API user when API access was turned on. It does not expire: save it and reuse it.');
+    return t;
+  }
+  function readQuery(){
+    var loc = $('rbLocationId').value.trim(), t = $('rbTicket').value.trim();
+    if (!loc || !t) throw new Error('Fill in locationId and ticket (each send fills them in).');
+    return 'locationId=' + encodeURIComponent(loc) + '&ticket=' + encodeURIComponent(t);
+  }
+  function errorOf(j, text){ return j && j.error ? String(j.error.message || j.error.type || JSON.stringify(j.error)) : (text || '').slice(0, 300); }
+
+  function waiting(){ return guarded('readVerdict', async function(){
+    var q = readQuery(), tok = token();
+    var url = baseUrl() + '/sw/api/tickets?' + q;
+    var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
+    var text = await res.text(), j = null;
+    try { j = JSON.parse(text); } catch (_) {}
+    $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
+    if (!res.ok) return verdict('readVerdict', 'fail', 'HTTP ' + res.status, errorOf(j, text));
+    if (j && j.count > 0) return verdict('readVerdict', 'warn', 'Waiting on the NVR', 'Dividia has the ticket; the NVR has not uploaded its images yet. Ask again in a minute, or get the PDF now (no images yet).');
+    verdict('readVerdict', 'pass', 'Not waiting on the NVR', 'This ticket is not held: the NVR has recorded it (or it was never received). Get the PDF to see it.');
+  }); }
+
+  function pdf(){ return guarded('readVerdict', async function(){
+    var q = readQuery(), tok = token();
+    var url = baseUrl() + '/sw/api/tickets/pdf?' + q;
+    var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
+    var type = res.headers.get('Content-Type') || '';
+    if (res.ok && type.indexOf('application/pdf') === 0) {
+      var blob = await res.blob(), href = URL.createObjectURL(blob);
+      var name = $('rbLocationId').value.trim() + '-ticket_' + $('rbTicket').value.trim() + '.pdf';
+      $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + ' · ' + type + ' · ' + blob.size + ' bytes';
+      $('readVerdict').innerHTML = '<div class="verdict pass"><b>PDF received</b><div class="d">' +
+        '<a href="' + href + '" target="_blank" rel="noopener">Open the PDF</a> · <a href="' + href + '" download="' + escapeHtml(name) + '">Download ' + escapeHtml(name) + '</a>' +
+        '</div></div>';
+      return;
+    }
+    var text = await res.text(), j = null;
+    try { j = JSON.parse(text); } catch (_) {}
+    $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
+    verdict('readVerdict', 'fail', 'No PDF: HTTP ' + res.status, errorOf(j, text));
+  }); }
+
+  // ---- the same send as a stand-alone Node.js script, filled in with this page's values ----
+  function jsKey(k){ return /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k); }
+  function renderCode(){
+    var data;
+    try { data = ticketData(); } catch (_) { data = {}; }
+    var lines = [
+      '// send-ticket.js: one signed Command Cloud ticket to Dividia. Node.js 18+, no packages.',
+      "// Run: DIVIDIA_SECRET='whsec_...' node send-ticket.js",
+      "const crypto = require('crypto');",
+      '',
+      'const URL_ = ' + JSON.stringify(baseUrl() + '/sw/webhooks/cc') + ';',
+      'const CUSTOMER_ID = ' + JSON.stringify($('customerId').value.trim() || '<your Dividia-Customer-Id>') + ';',
+      'const SECRET = process.env.DIVIDIA_SECRET;   // whsec_...; it only signs and is never sent',
+      '',
+      'const ticket = {',
+      '  uniqueId: crypto.randomUUID(),                  // new for every ticket: we de-duplicate on it',
+      '  ticketNumber: String(Date.now()).slice(-9),',
+      '  ticketDateTime: new Date().toISOString(),'
+    ];
+    Object.keys(data).forEach(function(k){ lines.push('  ' + jsKey(k) + ': ' + JSON.stringify(data[k]) + ','); });
+    lines.push(
+      '  location: ' + JSON.stringify({ id: $('locationId').value.trim(), name: $('locationName').value.trim() }) + ',   // id picks the site',
+      '  scaleId: ' + JSON.stringify($('scaleId').value.trim()) + ',   // picks the scale',
+      '};',
+      '',
+      'const body = JSON.stringify(ticket);                 // sign exactly the bytes you send',
+      'const id = ticket.uniqueId;                          // webhook-id: any unique string; the uniqueId works',
+      'const ts = Math.floor(Date.now() / 1000).toString(); // webhook-timestamp: Unix seconds',
+      "const key = Buffer.from(SECRET.replace(/^whsec_/, ''), 'base64');",
+      "const signature = 'v1,' + crypto.createHmac('sha256', key).update(id + '.' + ts + '.' + body).digest('base64');",
+      '',
+      "fetch(URL_, { method: 'POST', body, headers: {",
+      "  'Content-Type': 'application/json',",
+      "  'Dividia-Customer-Id': CUSTOMER_ID,",
+      "  'webhook-id': id, 'webhook-timestamp': ts, 'webhook-signature': signature,",
+      '} }).then(async r => console.log(r.status, await r.text()));   // 200 {"status":"delivered"}'
+    );
+    $('codeOut').textContent = lines.join('\n');
+  }
+
+  function copyCode(){
+    var text = $('codeOut').textContent;
+    var done = function(){ $('copyBtn').textContent = 'Copied'; setTimeout(function(){ $('copyBtn').textContent = 'Copy the script'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function(){});
+  }
+
+  // Prefill from a link: cc-webhook-live.html#customerId=...&locationId=...&locationName=...&scaleId=...&base=...
+  // The part after # never leaves the browser. There is no secret or token parameter on purpose.
+  function prefill(){
+    var h = (location.hash || '').replace(/^#/, '');
+    if (h.indexOf('=') < 0) return;
+    var q = new URLSearchParams(h);
+    var map = { base: 'base', customerId: 'customerId', locationId: 'locationId', locationName: 'locationName', scaleId: 'scaleId' };
+    Object.keys(map).forEach(function(k){ if (q.has(k)) $(map[k]).value = q.get(k); });
+    if (q.has('locationId')) $('rbLocationId').value = q.get('locationId');
+  }
+
+  $('sendBtn').addEventListener('click', send);
+  $('retryBtn').addEventListener('click', retry);
+  $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); renderCode(); });
+  $('pendingBtn').addEventListener('click', waiting);
+  $('pdfBtn').addEventListener('click', pdf);
+  $('copyBtn').addEventListener('click', copyCode);
+  ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', renderCode); });
+
+  $('ticketData').value = JSON.stringify(genTicketData(), null, 2);
+  prefill();
+  renderCode();
+})();
+</script>
+</body>
+</html>
