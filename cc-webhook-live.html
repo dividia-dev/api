@@ -70,7 +70,8 @@
         <code>webhook-id</code> is any unique string (this page uses the ticket's <code>uniqueId</code>; it is required because it is part of what is signed),
         <code>webhook-timestamp</code> is Unix seconds and must be within 5 minutes of our clock, and
         <code>webhook-signature</code> is <code>v1,</code> + Base64( HMAC-SHA256( key, webhook-id + "." + webhook-timestamp + "." + body ) ).
-        The key is the Base64 value after <code>whsec_</code> in your secret, decoded. The secret itself is never sent.</li>
+        The key is the Base64 value after <code>whsec_</code> in your secret, decoded. The secret itself is never sent.
+        <br><b>Why <code>v1,</code> comes first:</b> it is the version label of the signing method in the Standard Webhooks format, and <code>v1</code> means HMAC-SHA256 with your shared secret. The header can carry several signatures separated by spaces, each written as <code>version,signature</code>. We check every <code>v1</code> signature and accept the ticket if one matches. A signature without <code>v1,</code> in front is ignored, so the request gets a 401.</li>
       <li><b>The body is your ticket JSON,</b> signed byte for byte as sent. <code>location.id</code> picks the site and its NVR. <code>scaleId</code> picks the scale (an exact, case-sensitive match). <code>uniqueId</code> must be new for every ticket: we de-duplicate on it, so a retry of the same ticket is harmless. <code>ticketNumber</code> is required. Everything else (vehicle, carrier, customer, project, product, orderId) rides along on the ticket.</li>
       <li><b>Our answer is HTTP 200 with a <code>status</code>:</b> <code>delivered</code> (the NVR has the ticket and photographs the scale), <code>fallback</code> (stored without images; <code>reason</code> says why), <code>failed</code> (the <code>location.id</code> is not set up) or <code>duplicate</code> (this <code>uniqueId</code> was already received). A 400 or 401 means fix the request. On a 429 or 5xx, retry with the same <code>uniqueId</code>.</li>
       <li><b>Read it back with the public API:</b> your public-API token as <code>Authorization: Bearer &lt;token&gt;</code> (it is emailed to the API user when API access is turned on; it does not expire, so save it and reuse it) on <code>GET /sw/api/tickets?locationId=&hellip;&amp;ticket=&hellip;</code>, which lists the ticket while it waits on the NVR, and <code>GET /sw/api/tickets/pdf?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's PDF, with images once the NVR has uploaded them (within about two minutes).</li>
@@ -358,6 +359,7 @@
       'const id = ticket.uniqueId;                          // webhook-id: any unique string; the uniqueId works',
       'const ts = Math.floor(Date.now() / 1000).toString(); // webhook-timestamp: Unix seconds',
       "const key = Buffer.from(SECRET.replace(/^whsec_/, ''), 'base64');",
+      "// 'v1,' is required: it labels the signing method (Standard Webhooks v1 = HMAC-SHA256). Without it we answer 401.",
       "const signature = 'v1,' + crypto.createHmac('sha256', key).update(id + '.' + ts + '.' + body).digest('base64');",
       '',
       "fetch(URL_, { method: 'POST', body, headers: {",
