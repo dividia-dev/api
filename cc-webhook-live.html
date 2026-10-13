@@ -100,7 +100,7 @@
       <button class="ghost" id="newDataBtn" type="button">New ticket data</button>
     </div>
     <div id="sendVerdict"></div>
-    <details id="reqDetails"><summary>The exact request sent</summary><div class="out" id="reqOut">Nothing sent yet.</div></details>
+    <details id="reqDetails" open><summary>The HTTP request: exactly what goes to the server</summary><div class="out" id="reqOut"></div></details>
   </div>
 
   <div class="card">
@@ -122,8 +122,14 @@
   </div>
 
   <div class="card">
+    <h2>The code this page runs to sign and send</h2>
+    <p class="lede">Shown from the running page itself, so it is exactly what your browser does on <b>Send ticket</b>. Your server does the same steps in its own language.</p>
+    <div class="out" id="pageCode" style="max-height:none"></div>
+  </div>
+
+  <div class="card">
     <h2>3 &middot; Copy the code</h2>
-    <p class="lede">The same send as a stand-alone Node.js 18+ script with no packages, filled in with the values above. Save it as <code>send-ticket.js</code> and run <code>DIVIDIA_SECRET='whsec_...' node send-ticket.js</code>.</p>
+    <p class="lede">The same send as a stand-alone Node.js 18+ script with no packages, filled in with the values above. Save it as <code>send-ticket.js</code> and run <code>DIVIDIA_SECRET='whsec_...' node send-ticket.js</code>. This page runs the same steps in the browser (Web Crypto in place of Node's crypto); its source is the page itself.</p>
     <div class="btns"><button class="ghost" id="copyBtn" type="button">Copy the script</button></div>
     <div class="out" id="codeOut" style="max-height:none"></div>
   </div>
@@ -225,6 +231,27 @@
     return 'The ticket is stored, without images.';
   }
 
+  function sq(v){ return "'" + String(v).replace(/'/g, "'\\''") + "'"; }   // shell single-quote
+
+  // Before the first send, show the request the page will send, built from the fields.
+  var sentOnce = false;
+  function renderPreview(){
+    if (sentOnce) return;
+    var data;
+    try { data = ticketData(); } catch (_) { $('reqOut').textContent = 'The ticket data is not valid JSON.'; return; }
+    var t = { uniqueId: '<a new GUID, made on each send>', ticketNumber: '<a new number, made on each send>', ticketDateTime: '<now, ISO-8601 UTC>' };
+    Object.keys(data).forEach(function(k){ t[k] = data[k]; });
+    t.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
+    t.scaleId = $('scaleId').value.trim();
+    $('reqOut').textContent = 'POST ' + baseUrl() + '/sw/webhooks/cc\n' +
+      'Content-Type: application/json\n' +
+      'Dividia-Customer-Id: ' + ($('customerId').value.trim() || '<your customer id>') + '\n' +
+      'webhook-id: <the ticket\'s uniqueId>\n' +
+      'webhook-timestamp: <Unix seconds, at send>\n' +
+      'webhook-signature: v1,<Base64 of HMAC-SHA256(key, webhook-id + "." + webhook-timestamp + "." + body)>\n\n' +
+      JSON.stringify(t, null, 2) + '\n\n# Preview. Send a ticket to see the real request, with its signature, and the same request as curl.';
+  }
+
   var last = null;    // the last ticket sent: { base, customerId, id, body, ticket }
   var busy = false;
   async function guarded(el, fn){
@@ -236,19 +263,37 @@
     finally { busy = false; ['sendBtn', 'retryBtn', 'pendingBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = false; }); }
   }
 
+  // The headers for one ticket: your customer id plus the Standard Webhooks signature over the exact body.
+  async function buildRequest(customerId, secret, id, body){
+    var ts = Math.floor(Date.now() / 1000).toString();               // webhook-timestamp: Unix seconds, now
+    var signature = await sign(secret, id + '.' + ts + '.' + body);   // "v1," + Base64(HMAC-SHA256(...))
+    return {
+      'Content-Type': 'application/json',
+      'Dividia-Customer-Id': customerId,
+      'webhook-id': id,                                               // this page uses the ticket's uniqueId
+      'webhook-timestamp': ts,
+      'webhook-signature': signature
+    };
+  }
+
+  // One POST to Dividia. The body is sent exactly as it was signed.
+  function sendTicket(url, headers, body){
+    return fetch(url, { method: 'POST', headers: headers, body: body });
+  }
+
   async function post(base, customerId, id, body, ticket, isRetry){
-    var ts = Math.floor(Date.now() / 1000).toString();
-    var signature;
-    try { signature = await sign($('secret').value, id + '.' + ts + '.' + body); }
+    var headers;
+    try { headers = await buildRequest(customerId, $('secret').value, id, body); }
     catch (e) { return verdict('sendVerdict', 'fail', 'The signing secret is not valid', 'It is whsec_ followed by a Base64 value.'); }
     var url = base + '/sw/webhooks/cc';
-    var headers = { 'Content-Type': 'application/json', 'Dividia-Customer-Id': customerId,
-      'webhook-id': id, 'webhook-timestamp': ts, 'webhook-signature': signature };
-    $('reqOut').textContent = 'POST ' + url + '\n' + Object.keys(headers).map(function(k){ return k + ': ' + headers[k]; }).join('\n') + '\n\n' + body;
+    sentOnce = true;
+    $('reqOut').textContent = 'POST ' + url + '\n' + Object.keys(headers).map(function(k){ return k + ': ' + headers[k]; }).join('\n') + '\n\n' + body +
+      '\n\n# The same request as curl. The signature is good for 5 minutes, and this uniqueId now answers duplicate.\n' +
+      'curl -sS -X POST ' + sq(url) + ' \\\n' + Object.keys(headers).map(function(k){ return '  -H ' + sq(k + ': ' + headers[k]) + ' \\\n'; }).join('') + '  --data-binary ' + sq(body);
     verdict('sendVerdict', 'info', (isRetry ? 'Resending' : 'Sending') + ' ticket ' + ticket.ticketNumber + '...', '');
     var started = Date.now(), res, text;
     try {
-      res = await fetch(url, { method: 'POST', headers: headers, body: body });
+      res = await sendTicket(url, headers, body);
       text = await res.text();
     } catch (e) {
       return verdict('sendVerdict', 'fail', 'Could not reach ' + url,
@@ -390,15 +435,23 @@
 
   $('sendBtn').addEventListener('click', send);
   $('retryBtn').addEventListener('click', retry);
-  $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); renderCode(); });
+  $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); renderCode(); renderPreview(); });
   $('pendingBtn').addEventListener('click', waiting);
   $('pdfBtn').addEventListener('click', pdf);
   $('copyBtn').addEventListener('click', copyCode);
-  ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', renderCode); });
+  ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', function(){ renderCode(); renderPreview(); }); });
 
   $('ticketData').value = JSON.stringify(genTicketData(), null, 2);
+  $('pageCode').textContent =
+    '// On "Send ticket" this page runs:\n' +
+    '//   body    = JSON.stringify(ticket, null, 2)        // the ticket JSON, serialized once\n' +
+    '//   headers = await buildRequest(customerId, secret, ticket.uniqueId, body)\n' +
+    "//   answer  = await sendTicket(target + '/sw/webhooks/cc', headers, body)\n\n" +
+    sign.toString() + '\n\n' + buildRequest.toString() + '\n\n' + sendTicket.toString();
+
   prefill();
   renderCode();
+  renderPreview();
 })();
 </script>
 </body>
