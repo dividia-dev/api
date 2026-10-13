@@ -105,7 +105,7 @@
 
   <div class="card">
     <h2>2 &middot; Read it back (public API)</h2>
-    <p class="lede">Paste the public-API token of an API user that can see the site. It goes only to Dividia, as the Bearer token.</p>
+    <p class="lede">Paste the public-API token of an API user that can see the site: the long value in three parts separated by dots, not the shorter API key. It goes only to Dividia, as the Bearer token. The public API returns real tickets only, so read back a ticket sent from this page, not one from Dividia's internal test console.</p>
     <div class="row">
       <div class="field"><label for="apiToken">Public-API token</label><input id="apiToken" type="password" autocomplete="off" spellcheck="false"></div>
     </div>
@@ -202,6 +202,7 @@
     $(el).innerHTML = '<div class="verdict ' + level + '"><b>' + escapeHtml(title) + '</b>' +
       (detail ? '<div class="d">' + escapeHtml(detail) + '</div>' : '') +
       (mono ? '<div class="d mono">' + escapeHtml(mono) + '</div>' : '') + '</div>';
+    $(el).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   // What our answer means. It states only what the API reported.
@@ -333,7 +334,7 @@
     var t = $('apiToken').value.trim().replace(/^Bearer\s+/i, '');
     if (!t) throw new Error('Paste the public-API token.');
     // The token is a JWT (three dot-separated parts) that carries the API key; the bare key is not accepted.
-    if (t.split('.').length !== 3) throw new Error('That is an API key, not the public-API token. Use the token emailed to the API user when API access was turned on. It does not expire: save it and reuse it.');
+    if (t.split('.').length !== 3) throw new Error('That is the API key, not the API token. The public API takes only the token, a long value in three parts separated by dots that carries the key; it answers 401 to the key alone. The token was emailed to the API user when API access was turned on (dividia.net/api, Authentication). It does not expire: save it and reuse it.');
     return t;
   }
   function readQuery(){
@@ -345,6 +346,7 @@
 
   function waiting(){ return guarded('readVerdict', async function(){
     var q = readQuery(), tok = token();
+    verdict('readVerdict', 'info', 'Asking Dividia about ticket ' + $('rbTicket').value.trim() + '...', '');
     var url = baseUrl() + '/sw/api/tickets?' + q;
     var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
     var text = await res.text(), j = null;
@@ -357,6 +359,7 @@
 
   function pdf(){ return guarded('readVerdict', async function(){
     var q = readQuery(), tok = token();
+    verdict('readVerdict', 'info', 'Getting the PDF for ticket ' + $('rbTicket').value.trim() + '... (a PDF with images can take several seconds)', '');
     var url = baseUrl() + '/sw/api/tickets/pdf?' + q;
     var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
     var type = res.headers.get('Content-Type') || '';
@@ -366,12 +369,15 @@
       $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + ' · ' + type + ' · ' + blob.size + ' bytes';
       $('readVerdict').innerHTML = '<div class="verdict pass"><b>PDF received</b><div class="d">' +
         '<a href="' + href + '" target="_blank" rel="noopener">Open the PDF</a> · <a href="' + href + '" download="' + escapeHtml(name) + '">Download ' + escapeHtml(name) + '</a>' +
-        '</div></div>';
+        '</div></div><iframe title="Ticket PDF" src="' + href + '" style="width:100%;height:640px;border:1px solid var(--line);border-radius:8px;margin-top:10px;background:#fff"></iframe>';
+      $('readVerdict').scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
     var text = await res.text(), j = null;
     try { j = JSON.parse(text); } catch (_) {}
     $('readOut').textContent = 'GET ' + url + '\nHTTP ' + res.status + '\n\n' + (j ? JSON.stringify(j, null, 2) : text);
+    if (res.ok && j && j.matches === 0) return verdict('readVerdict', 'warn', 'No ticket ' + $('rbTicket').value.trim() + ' at ' + $('rbLocationId').value.trim() + ' in the public API',
+      "The public API returns real tickets only: tickets from Dividia's internal test console are left out. Send a ticket from this page, then get its PDF.");
     verdict('readVerdict', 'fail', 'No PDF: HTTP ' + res.status, errorOf(j, text));
   }); }
 
