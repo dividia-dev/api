@@ -21,6 +21,8 @@
   .lede{color:var(--muted);font-size:13.5px;margin:0 0 8px}
   ol.how{margin:4px 0 0 20px;padding:0;font-size:13.5px}
   ol.how li{margin:5px 0}
+  ul.how{margin:2px 0 4px 18px;padding:0}
+  ul.how li{margin:1px 0}
   code{font-family:var(--mono);font-size:12.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px;word-break:break-word}
   .row{display:flex;flex-wrap:wrap;gap:0 12px}
   .field{flex:1 1 260px;display:flex;flex-direction:column;margin:5px 0;min-width:0}
@@ -45,6 +47,7 @@
   .verdict.warn{background:#fef3c7;border-color:#f59e0b}
   .verdict.fail{background:#fee2e2;border-color:#dc2626}
   .verdict.info{background:#f1f5f9;border-color:#94a3b8}
+  .verdict.alert{background:#fff7ed;border:2px solid #f97316;border-left-width:6px;border-radius:8px}
   .out{font-family:var(--mono);font-size:12px;line-height:1.5;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;margin-top:8px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
   details{margin-top:10px}
   .sub-h{font-size:13px;font-weight:600;color:#334155;margin-top:12px}
@@ -72,16 +75,18 @@
   <div class="card" id="how">
     <h2>How it works</h2>
     <ol class="how">
-      <li><b>One HTTPS POST per ticket</b> to <code>https://api.cloud.dividia.net/sw/webhooks/cc</code>, the same URL for every customer. There is no login, session or token: the signature is the authentication.</li>
-      <li><b>Four headers.</b> <code>Dividia-Customer-Id</code> is your customer id. The other three are the <a href="https://www.standardwebhooks.com/" target="_blank" rel="noopener">Standard Webhooks</a> signature:
-        <code>webhook-id</code> is any unique string (this page uses the ticket's <code>uniqueId</code>; it is required because it is part of what is signed),
-        <code>webhook-timestamp</code> is Unix seconds and must be within 5 minutes of our clock, and
-        <code>webhook-signature</code> is <code>v1,</code> + Base64( HMAC-SHA256( key, webhook-id + "." + webhook-timestamp + "." + body ) ).
-        The key is the Base64 value after <code>whsec_</code> in your secret, decoded. The secret itself is never sent.
-        <br><b>Why <code>v1,</code> comes first:</b> it is the version label of the signing method in the Standard Webhooks format, and <code>v1</code> means HMAC-SHA256 with your shared secret. The header can carry several signatures separated by spaces, each written as <code>version,signature</code>. We check every <code>v1</code> signature and accept the ticket if one matches. A signature without <code>v1,</code> in front is ignored, so the request gets a 401.</li>
-      <li><b>The body is your ticket JSON,</b> signed byte for byte as sent. <code>location.id</code> picks the site and its NVR. <code>scaleId</code> picks the scale (an exact, case-sensitive match). <code>uniqueId</code> must be new for every ticket: we de-duplicate on it, so a retry of the same ticket is harmless. <code>ticketNumber</code> is required. Everything else (vehicle, carrier, customer, project, product, orderId) rides along on the ticket.</li>
-      <li><b>Our answer is HTTP 200 with a <code>status</code>:</b> <code>delivered</code> (the NVR has the ticket and photographs the scale), <code>fallback</code> (stored without images; <code>reason</code> says why), <code>failed</code> (the <code>location.id</code> is not set up) or <code>duplicate</code> (this <code>uniqueId</code> was already received). A 400 or 401 means fix the request. On a 429 or 5xx, retry with the same <code>uniqueId</code>.</li>
-      <li><b>Read it back with the public API:</b> your public-API token as <code>Authorization: Bearer &lt;token&gt;</code> (it is emailed to the API user when API access is turned on; it does not expire, so save it and reuse it) on <code>GET /sw/api/transactions?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's transaction (truck, scale, times, <code>complete</code> once the NVR has recorded it), and <code>GET /sw/api/tickets/pdf?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's PDF, with images once the NVR has uploaded them (within about two minutes).</li>
+      <li><b>Send each ticket to one address:</b> <code>https://api.cloud.dividia.net/sw/webhooks/cc</code> (an HTTPS POST). It is the same for every customer. There is no login: the signature proves the ticket is from you.</li>
+      <li><b>Add the headers:</b> your customer id, plus three signature headers made new for every ticket. <a href="#needs">What each ticket needs</a> explains each one.</li>
+      <li><b>Put the ticket in the body</b> as JSON. <code>location.id</code> picks the site, <code>scaleId</code> picks the scale, <code>uniqueId</code> must be new for every ticket, and <code>ticketNumber</code> is required.</li>
+      <li><b>Read our answer.</b> HTTP 200 comes with a status:
+        <ul class="how">
+          <li><code>delivered</code>: the site has the ticket and photographs the scale</li>
+          <li><code>fallback</code>: stored without photos (the reason says why)</li>
+          <li><code>failed</code>: this <code>location.id</code> is not set up</li>
+          <li><code>duplicate</code>: we already have this <code>uniqueId</code></li>
+        </ul>
+        A 400 or 401 means fix the request. A 429 or 5xx means send it again with the same <code>uniqueId</code>.</li>
+      <li><b>Read it back</b> with your public-API token: the ticket's data and its PDF. Photos are added within about two minutes. Section 2 below does this.</li>
     </ol>
   </div>
 
@@ -98,7 +103,7 @@
     </table>
     <div class="sub-h">How the signature works</div>
     <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system combines the secret with the ticket to make a code, and sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
-    <div class="verdict warn"><b>Never put the signing secret in a header.</b><div class="d">The secret is never sent. Your webhook system keeps it and uses it to make <code>webhook-signature</code> for each ticket. If your webhook settings only let you type in fixed headers, they cannot make the last three: look for a setting to sign webhooks (the "Standard Webhooks" format) and put the signing secret there.</div></div>
+    <div class="verdict alert"><b>Never put the signing secret in a header.</b><div class="d">The secret is never sent. Your webhook system keeps it and uses it to make <code>webhook-signature</code> for each ticket. If your webhook settings only let you type in fixed headers, they cannot make the last three: look for a setting to sign webhooks (the "Standard Webhooks" format) and put the signing secret there.</div></div>
     <div class="sub-h">In the body</div>
     <table class="plain">
       <tr><td><code>location.id</code></td><td>Which site the ticket is for</td></tr>
@@ -109,7 +114,35 @@
       <tr><td><code>ticketDateTime</code></td><td>The ticket's date and time</td></tr>
       <tr><td>Everything else</td><td>The ticket's details: vehicle, weights, customer, carrier, product and so on</td></tr>
     </table>
-    <p class="foot" style="margin-top:10px">For developers: the code that makes the signature is further down this page.</p>
+    <p class="foot" style="margin-top:10px">To see a signature made from your own values, use <a href="#makeSig">Make a signature</a> below. For developers: <a href="#codeCard">the code this page runs</a> and <a href="#copyCard">a ready-to-run script</a>.</p>
+  </div>
+
+  <div class="card" id="makeSig">
+    <h2>Make a signature</h2>
+    <p class="lede">Fill in what your request will carry, and this page makes the three webhook headers for it. Use them to check your own system's headers, or to try a request by hand. Nothing here is sent anywhere.</p>
+    <div class="row">
+      <div class="field"><label for="msSecret">Signing secret <span>(the whsec_ value from Dividia)</span></label><input id="msSecret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="msId">webhook-id <span>(any new id for this ticket)</span></label><input id="msId" spellcheck="false"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="msTs">webhook-timestamp <span>(the time you send it, in seconds)</span></label><input id="msTs" spellcheck="false"></div>
+      <div class="field"></div>
+    </div>
+    <div class="field"><label for="msBody">Body <span>(paste it exactly as you will send it: one changed space gives a different signature)</span></label><textarea id="msBody" spellcheck="false" placeholder='{"uniqueId": "...", "ticketNumber": "...", ...}'></textarea></div>
+    <div class="btns">
+      <button class="act" id="msMakeBtn" type="button">Make the signature</button>
+      <button class="ghost" id="msExampleBtn" type="button">Use an example ticket</button>
+      <button class="ghost" id="msNowBtn" type="button">Set the time to now</button>
+      <button class="ghost" id="msIdBtn" type="button">New id</button>
+    </div>
+    <div id="msVerdict"></div>
+    <div id="msResult" hidden>
+      <div class="sub-h">What gets signed: webhook-id, a dot, webhook-timestamp, a dot, then the body</div>
+      <div class="out" id="msSigned"></div>
+      <div class="sub-h">The headers to send with this body</div>
+      <div class="out" id="msHeaders"></div>
+      <p class="note">These headers fit only this exact body, id and time, and Dividia accepts them for 5 minutes. Change any of them and make a new signature. Add <code>Dividia-Customer-Id</code> and <code>Content-Type: application/json</code> as usual.</p>
+    </div>
   </div>
 
   <div class="card">
@@ -159,13 +192,13 @@
     <details id="readDetails" open><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
   </div>
 
-  <div class="card">
+  <div class="card" id="codeCard">
     <h2>The code this page runs to sign and send</h2>
     <p class="lede">Shown from the running page itself, so it is exactly what your browser does on <b>Send ticket</b>. Your server does the same steps in its own language.</p>
     <div class="out" id="pageCode" style="max-height:none"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="copyCard">
     <h2>3 &middot; Copy the code</h2>
     <p class="lede">The same send as a stand-alone Node.js 18+ script with no packages, filled in with the values above. Save it as <code>send-ticket.js</code> and run <code>DIVIDIA_SECRET='whsec_...' node send-ticket.js</code>. This page runs the same steps in the browser (Web Crypto in place of Node's crypto); its source is the page itself.</p>
     <div class="btns"><button class="ghost" id="copyBtn" type="button">Copy the script</button></div>
@@ -455,6 +488,31 @@
     verdict('readVerdict', 'fail', 'No PDF: HTTP ' + res.status, errorOf(j, text));
   }); }
 
+  // ---- make a signature by hand: the same sign() as Send ticket, on the values filled in; nothing is sent ----
+  function nowSeconds(){ return Math.floor(Date.now() / 1000).toString(); }
+  async function makeSignature(){
+    var secret = $('msSecret').value.trim(), id = $('msId').value.trim(), ts = $('msTs').value.trim(), body = $('msBody').value;
+    if (!secret || !id || !ts || !body) return verdict('msVerdict', 'warn', 'Fill in all four: the signing secret, webhook-id, webhook-timestamp and the body.', '');
+    if (!/^\d+$/.test(ts)) return verdict('msVerdict', 'fail', 'webhook-timestamp is the time in seconds, a whole number', 'For example ' + nowSeconds() + ' is now. Press "Set the time to now".');
+    var signature;
+    try { signature = await sign(secret, id + '.' + ts + '.' + body); }
+    catch (_) { return verdict('msVerdict', 'fail', 'The signing secret is not valid', 'It is whsec_ followed by the rest of the value from Dividia.'); }
+    var off = Math.abs(Number(nowSeconds()) - Number(ts));
+    if (off > 300) verdict('msVerdict', 'warn', 'This time is more than 5 minutes from now', 'Dividia refuses a request whose webhook-timestamp is more than 5 minutes off. Press "Set the time to now" just before you send.');
+    else $('msVerdict').innerHTML = '';
+    $('msSigned').textContent = id + '.' + ts + '.' + body;
+    $('msHeaders').textContent = 'webhook-id: ' + id + '\nwebhook-timestamp: ' + ts + '\nwebhook-signature: ' + signature;
+    $('msResult').hidden = false;
+  }
+  // An example: the Send form's ticket, as one line of JSON, with its uniqueId as the webhook-id.
+  function exampleTicket(){
+    var t;
+    try { t = buildTicket(); } catch (e) { return verdict('msVerdict', 'fail', 'The request body in Send a ticket is not valid JSON', e.message); }
+    $('msId').value = t.uniqueId;
+    $('msTs').value = nowSeconds();
+    $('msBody').value = JSON.stringify(t);
+  }
+
   // ---- the same send as a stand-alone Node.js script, filled in with this page's values ----
   function jsKey(k){ return /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k); }
   function renderCode(){
@@ -519,6 +577,10 @@
   $('dataBtn').addEventListener('click', readTicket);
   $('pdfBtn').addEventListener('click', pdf);
   $('copyBtn').addEventListener('click', copyCode);
+  $('msMakeBtn').addEventListener('click', makeSignature);
+  $('msExampleBtn').addEventListener('click', exampleTicket);
+  $('msNowBtn').addEventListener('click', function(){ $('msTs').value = nowSeconds(); });
+  $('msIdBtn').addEventListener('click', function(){ $('msId').value = newGuid(); });
   ['locationId', 'locationName', 'scaleId'].forEach(function(id){ $(id).addEventListener('input', bodyFromFields); });
   $('ticketData').addEventListener('input', fieldsFromBody);
   ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', function(){ renderCode(); renderPreview(); }); });
@@ -533,6 +595,8 @@
 
   prefill();
   bodyFromFields();
+  $('msId').value = newGuid();
+  $('msTs').value = nowSeconds();
   renderCode();
   renderPreview();
 })();
