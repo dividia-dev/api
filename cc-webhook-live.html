@@ -134,6 +134,11 @@
     </table>
     <div class="sub-h">How the signature works</div>
     <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system takes three things, the <code>webhook-id</code>, the <code>webhook-timestamp</code> and the body, joins them with dots, and mixes them with the secret to make a code. It sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
+    <p class="note"><b>Dividia follows the Standard Webhooks format.</b> Its spec explains these headers and the signature in full (each link opens in a new tab):
+      <a href="https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md#webhook-headers-sending-metadata-to-consumers" target="_blank" rel="noopener">the webhook headers</a> &middot;
+      <a href="https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md#signature-scheme" target="_blank" rel="noopener">how the signature is made</a> &middot;
+      <a href="https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md#verifying-webhook-authenticity" target="_blank" rel="noopener">how webhooks are verified</a> &middot;
+      <a href="https://www.standardwebhooks.com/" target="_blank" rel="noopener">standardwebhooks.com</a> (with ready-made libraries for most languages).</p>
     <div class="verdict alert"><b>Never put the signing secret in a header.</b><div class="d">The secret is never sent. Your webhook system keeps it and uses it to make <code>webhook-signature</code> for each ticket. If your webhook settings only let you type in fixed headers, they cannot make the last three: look for a setting to sign webhooks (the "Standard Webhooks" format) and put the signing secret there.</div></div>
     <p class="foot" style="margin-top:10px">For developers: <a href="#codeCard">drop-in Node.js and Python code</a> that makes these headers and sends a ticket.</p>
   </div>
@@ -157,7 +162,7 @@
       <div class="maker">
         <div class="field"><label for="secret">Signing secret <span>(makes webhook-signature; not a header, never sent)</span></label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
         <p class="note"><b>webhook-signature</b> = <code>v1,</code> + Base64( HMAC-SHA256( key, <code>webhook-id</code> + <code>.</code> + <code>webhook-timestamp</code> + <code>.</code> + body ) )<br>
-          where key = the signing secret after <code>whsec_</code>, Base64-decoded. <a href="#calcDetails" id="calcLink">See it worked out for this ticket</a></p>
+          where key = the signing secret after <code>whsec_</code>, Base64-decoded. <a href="#calcDetails" id="calcLink">See it worked out for this ticket</a> &middot; <a href="https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md#signature-scheme" target="_blank" rel="noopener">Standard Webhooks signature spec</a></p>
       </div>
     </div>
 
