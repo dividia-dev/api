@@ -196,7 +196,7 @@
   // A new ticket: fresh uniqueId, ticket number and time, the ticket data, then where it goes.
   function buildTicket(){
     var data = ticketData();
-    var t = { uniqueId: newGuid(), ticketNumber: Date.now().toString().slice(-9), ticketDateTime: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    var t = { uniqueId: newGuid(), ticketNumber: String(1e8 + Date.now() % 9e8), ticketDateTime: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
     Object.keys(data).forEach(function(k){ t[k] = data[k]; });
     t.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
     t.scaleId = $('scaleId').value.trim();
@@ -419,7 +419,7 @@
       '',
       'const ticket = {',
       '  uniqueId: crypto.randomUUID(),                  // new for every ticket: we de-duplicate on it',
-      '  ticketNumber: String(Date.now()).slice(-9),',
+      '  ticketNumber: String(1e8 + Date.now() % 9e8),   // 9 digits, never a leading zero',
       '  ticketDateTime: new Date().toISOString(),'
     ];
     Object.keys(data).forEach(function(k){ lines.push('  ' + jsKey(k) + ': ' + JSON.stringify(data[k]) + ','); });
