@@ -21,6 +21,8 @@
   .lede{color:var(--muted);font-size:13.5px;margin:0 0 8px}
   ol.how{margin:4px 0 0 20px;padding:0;font-size:13.5px}
   ol.how li{margin:5px 0}
+  ul.how{margin:2px 0 4px 18px;padding:0}
+  ul.how li{margin:1px 0}
   code{font-family:var(--mono);font-size:12.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px;word-break:break-word}
   .row{display:flex;flex-wrap:wrap;gap:0 12px}
   .field{flex:1 1 260px;display:flex;flex-direction:column;margin:5px 0;min-width:0}
@@ -45,10 +47,21 @@
   .verdict.warn{background:#fef3c7;border-color:#f59e0b}
   .verdict.fail{background:#fee2e2;border-color:#dc2626}
   .verdict.info{background:#f1f5f9;border-color:#94a3b8}
+  input[readonly]{background:#f1f5f9;color:#334155}
+  .group{border:1px solid var(--line);border-radius:10px;padding:8px 12px 10px;margin-top:12px}
+  .group-h{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .maker{margin:2px 0 0 18px;padding-left:12px;border-left:3px solid #cbd5e1}
+  .verdict.alert{background:#fff7ed;border:2px solid #f97316;border-left-width:6px;border-radius:8px}
   .out{font-family:var(--mono);font-size:12px;line-height:1.5;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px 14px;margin-top:8px;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
   details{margin-top:10px}
   .sub-h{font-size:13px;font-weight:600;color:#334155;margin-top:12px}
   summary{cursor:pointer;font-size:13px;font-weight:600;color:#334155}
+  table.plain{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+  table.plain th,table.plain td{text-align:left;vertical-align:top;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.plain th{font-size:12px;color:#334155}
+  table.plain td:first-child{white-space:nowrap;width:1%}
+  table.plain td:first-child code{word-break:normal}
+  .note{font-size:13.5px;margin:4px 0 0}
   a{color:var(--indigo)}
   .foot{color:var(--muted);font-size:12.5px;margin-top:18px}
 </style>
@@ -64,52 +77,125 @@
 <div class="wrap">
 
   <div class="card" id="how">
-    <h2>How it works</h2>
+    <h2>How to send tickets to Dividia</h2>
+    <p class="lede">Your system sends each ticket to Dividia as one web request. Build it in this order:</p>
     <ol class="how">
-      <li><b>One HTTPS POST per ticket</b> to <code>https://api.cloud.dividia.net/sw/webhooks/cc</code>, the same URL for every customer. There is no login, session or token: the signature is the authentication.</li>
-      <li><b>Four headers.</b> <code>Dividia-Customer-Id</code> is your customer id. The other three are the <a href="https://www.standardwebhooks.com/" target="_blank" rel="noopener">Standard Webhooks</a> signature:
-        <code>webhook-id</code> is any unique string (this page uses the ticket's <code>uniqueId</code>; it is required because it is part of what is signed),
-        <code>webhook-timestamp</code> is Unix seconds and must be within 5 minutes of our clock, and
-        <code>webhook-signature</code> is <code>v1,</code> + Base64( HMAC-SHA256( key, webhook-id + "." + webhook-timestamp + "." + body ) ).
-        The key is the Base64 value after <code>whsec_</code> in your secret, decoded. The secret itself is never sent.
-        <br><b>Why <code>v1,</code> comes first:</b> it is the version label of the signing method in the Standard Webhooks format, and <code>v1</code> means HMAC-SHA256 with your shared secret. The header can carry several signatures separated by spaces, each written as <code>version,signature</code>. We check every <code>v1</code> signature and accept the ticket if one matches. A signature without <code>v1,</code> in front is ignored, so the request gets a 401.</li>
-      <li><b>The body is your ticket JSON,</b> signed byte for byte as sent. <code>location.id</code> picks the site and its NVR. <code>scaleId</code> picks the scale (an exact, case-sensitive match). <code>uniqueId</code> must be new for every ticket: we de-duplicate on it, so a retry of the same ticket is harmless. <code>ticketNumber</code> is required. Everything else (vehicle, carrier, customer, project, product, orderId) rides along on the ticket.</li>
-      <li><b>Our answer is HTTP 200 with a <code>status</code>:</b> <code>delivered</code> (the NVR has the ticket and photographs the scale), <code>fallback</code> (stored without images; <code>reason</code> says why), <code>failed</code> (the <code>location.id</code> is not set up) or <code>duplicate</code> (this <code>uniqueId</code> was already received). A 400 or 401 means fix the request. On a 429 or 5xx, retry with the same <code>uniqueId</code>.</li>
-      <li><b>Read it back with the public API:</b> your public-API token as <code>Authorization: Bearer &lt;token&gt;</code> (it is emailed to the API user when API access is turned on; it does not expire, so save it and reuse it) on <code>GET /sw/api/transactions?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's transaction (truck, scale, times, <code>complete</code> once the NVR has recorded it), and <code>GET /sw/api/tickets/pdf?locationId=&hellip;&amp;ticket=&hellip;</code>, which returns the ticket's PDF, with images once the NVR has uploaded them (within about two minutes).</li>
+      <li><a href="#s1">What Dividia gives you</a>: an address, a customer id and a signing secret</li>
+      <li><a href="#s2">The body</a>: the ticket itself</li>
+      <li><a href="#s3">The headers</a>: labels sent with the body, three of them made new for every ticket</li>
+      <li><a href="#s4">Send a ticket</a>: sign it with your secret and send it, shown step by step</li>
+      <li><a href="#s5">Read it back</a>: the ticket's data and PDF</li>
     </ol>
   </div>
 
-  <div class="card">
-    <h2>1 &middot; Send a ticket</h2>
-    <p class="lede">Every send is a real ticket for that site. The secret stays in this page; only the signature is sent.</p>
-    <div class="row">
-      <div class="field"><label for="base">Target</label><input id="base" value="https://api.cloud.dividia.net" spellcheck="false"></div>
-      <div class="field"><label for="customerId">Dividia-Customer-Id</label><input id="customerId" placeholder="your customer id (a GUID)" spellcheck="false"></div>
+  <div class="card" id="s1">
+    <h2>Step 1 &middot; What Dividia gives you</h2>
+    <table class="plain">
+      <tr><td>Address</td><td><code>https://api.cloud.dividia.net/sw/webhooks/cc</code><br>Send every ticket here, as an HTTPS POST. It is the same for every customer.</td></tr>
+      <tr><td>Customer id</td><td>A GUID, for example <code>3f2b8c1e-7d4a-4e9b-a6c2-91d0e5f4b8a7</code>.<br>It goes in the <code>Dividia-Customer-Id</code> header.</td></tr>
+      <tr><td>Signing secret</td><td>Starts with <code>whsec_</code>. Keep it private.<br>Your system uses it to make the signature (step 3). <b>It is never sent.</b></td></tr>
+    </table>
+  </div>
+
+  <div class="card" id="s2">
+    <h2>Step 2 &middot; The body: the ticket</h2>
+    <p class="lede">The body is the ticket, as JSON. These fields matter to Dividia; send everything else your ticket has too.</p>
+    <table class="plain">
+      <tr><td><code>uniqueId</code></td><td>The ticket's own id. New for every ticket: a second ticket with the same <code>uniqueId</code> is ignored, so resending is safe.</td></tr>
+      <tr><td><code>ticketNumber</code></td><td>The ticket number. Required.</td></tr>
+      <tr><td><code>ticketDateTime</code></td><td>The ticket's date and time</td></tr>
+      <tr><td><code>location.id</code></td><td>Which site the ticket is for</td></tr>
+      <tr><td><code>location.name</code></td><td>The site's name, for display</td></tr>
+      <tr><td><code>scaleId</code></td><td>Which scale weighed the truck</td></tr>
+      <tr><td>Everything else</td><td>The ticket's details: vehicle, weights, customer, carrier, product and so on</td></tr>
+    </table>
+    <div class="sub-h">For example</div>
+    <div class="out">{
+  "uniqueId": "3f2b8c1e-7d4a-4e9b-a6c2-91d0e5f4b8a7",
+  "ticketNumber": "322780035",
+  "ticketDateTime": "2026-10-26T13:53:00Z",
+  "location": { "id": "IQ-001", "name": "North Yard" },
+  "scaleId": "IQ-001",
+  "vehicle": { "id": "VEH-7908", "name": "Freightliner Cascadia" },
+  "product": { "id": "PRD-766", "name": "Fill dirt" }
+}</div>
+  </div>
+
+  <div class="card" id="s3">
+    <h2>Step 3 &middot; The headers</h2>
+    <p class="lede">Headers are labels sent along with the body. Every ticket carries these:</p>
+    <table class="plain">
+      <tr><th>Header</th><th>What it is</th></tr>
+      <tr><td><code>Dividia-Customer-Id</code></td><td>Your customer id from Dividia. Type it in once.</td></tr>
+      <tr><td><code>Content-Type</code></td><td><code>application/json</code>. Type it in once.</td></tr>
+      <tr><td><code>webhook-id</code></td><td>An id for this ticket. <b>Easiest: use the ticket's <code>uniqueId</code>.</b> Any text works, with no set format or length; a GUID such as <code>3f2b8c1e-7d4a-4e9b-a6c2-91d0e5f4b8a7</code> is fine. Use the same id here and in the signature.</td></tr>
+      <tr><td><code>webhook-timestamp</code></td><td>The time the ticket is sent, as a number of seconds (often called Unix time or epoch seconds): 10 digits, for example <code>1793022780</code>. <b>Made new for every ticket</b>, and it must be within 5 minutes of the real time.</td></tr>
+      <tr><td><code>webhook-signature</code></td><td>A code made from the ticket and your signing secret. It proves the ticket came from you. <b>Made new for every ticket.</b></td></tr>
+    </table>
+    <div class="sub-h">How the signature works</div>
+    <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system takes three things, the <code>webhook-id</code>, the <code>webhook-timestamp</code> and the body, joins them with dots, and mixes them with the secret to make a code. It sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
+    <div class="verdict alert"><b>Never put the signing secret in a header.</b><div class="d">The secret is never sent. Your webhook system keeps it and uses it to make <code>webhook-signature</code> for each ticket. If your webhook settings only let you type in fixed headers, they cannot make the last three: look for a setting to sign webhooks (the "Standard Webhooks" format) and put the signing secret there.</div></div>
+    <p class="foot" style="margin-top:10px">For developers: <a href="#codeCard">drop-in Node.js and Python code</a> that makes these headers and sends a ticket.</p>
+  </div>
+
+  <div class="card" id="s4">
+    <h2>Step 4 &middot; Send a ticket</h2>
+    <p class="lede">The request is built here the way your system must build it: the headers, then the body. The three webhook headers fill in as you type. Press <b>Send ticket</b> to send it as a real ticket for that site.</p>
+    <div class="field"><label for="base">Address <span>(an HTTPS POST; the same for every customer)</span></label><input id="base" value="https://api.cloud.dividia.net/sw/webhooks/cc" readonly tabindex="-1"></div>
+
+    <div class="group">
+      <div class="group-h">Headers</div>
+      <div class="row">
+        <div class="field"><label for="hCt">Content-Type</label><input id="hCt" value="application/json" readonly tabindex="-1"></div>
+        <div class="field"><label for="customerId">Dividia-Customer-Id <span>(your customer id)</span></label><input id="customerId" placeholder="your customer id (a GUID)" spellcheck="false"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="hId">webhook-id <span>(the ticket's uniqueId, from the body)</span></label><input id="hId" readonly tabindex="-1"></div>
+        <div class="field"><label for="hTs">webhook-timestamp <span>(the time now, in seconds)</span></label><input id="hTs" readonly tabindex="-1"></div>
+      </div>
+      <div class="field"><label for="hSig">webhook-signature <span>(made from the signing secret, the webhook-id, the webhook-timestamp and the body)</span></label><input id="hSig" readonly tabindex="-1"></div>
+      <div class="maker">
+        <div class="field"><label for="secret">Signing secret <span>(makes webhook-signature; not a header, never sent)</span></label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
+        <p class="note"><b>webhook-signature</b> = <code>v1,</code> + Base64( HMAC-SHA256( key, <code>webhook-id</code> + <code>.</code> + <code>webhook-timestamp</code> + <code>.</code> + body ) )<br>
+          where key = the signing secret after <code>whsec_</code>, Base64-decoded. <a href="#calcDetails" id="calcLink">See it worked out for this ticket</a></p>
+      </div>
     </div>
-    <div class="row">
-      <div class="field"><label for="secret">Signing secret</label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
-      <div class="field"><label for="locationId">location.id <span>(picks the site)</span></label><input id="locationId" spellcheck="false"></div>
+
+    <div class="group">
+      <div class="group-h">Body</div>
+      <div class="row">
+        <div class="field"><label for="locationId">location.id <span>(picks the site)</span></label><input id="locationId" spellcheck="false"></div>
+        <div class="field"><label for="scaleId">scaleId <span>(picks the scale)</span></label><input id="scaleId" spellcheck="false"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="locationName">location.name <span>(display only)</span></label><input id="locationName" spellcheck="false"></div>
+      </div>
+      <div class="field"><label for="ticketData">The ticket <span>(sent exactly as shown)</span></label><textarea id="ticketData" spellcheck="false" style="min-height:260px"></textarea></div>
     </div>
-    <div class="row">
-      <div class="field"><label for="locationName">location.name <span>(display only)</span></label><input id="locationName" spellcheck="false"></div>
-      <div class="field"><label for="scaleId">scaleId <span>(picks the scale)</span></label><input id="scaleId" spellcheck="false"></div>
-    </div>
-    <div class="field"><label for="ticketData">Ticket data <span>(uniqueId, ticketNumber, ticketDateTime, location and scaleId are added on each send)</span></label><textarea id="ticketData" spellcheck="false"></textarea></div>
+
     <div class="btns">
       <button class="go" id="sendBtn" type="button">Send ticket</button>
-      <button class="ghost" id="retryBtn" type="button">Resend the last ticket (a retry)</button>
-      <button class="ghost" id="newDataBtn" type="button">New ticket data</button>
+      <button class="ghost" id="newDataBtn" type="button">New ticket</button>
     </div>
     <div id="sendVerdict"></div>
     <div id="resWrap" hidden>
-      <div class="sub-h">The HTTP response: exactly what the server returned</div>
+      <div class="sub-h">Dividia's answer, exactly as returned</div>
       <div class="out" id="resOut"></div>
+      <details><summary>The request that was sent, as curl</summary><div class="out" id="curlOut"></div></details>
     </div>
-    <details id="reqDetails" open><summary>The HTTP request: exactly what goes to the server</summary><div class="out" id="reqOut"></div></details>
+    <details id="calcDetails"><summary>How webhook-signature is made</summary><div class="out" id="msCalc"></div></details>
+    <div class="sub-h">What Dividia's answers mean</div>
+    <ul class="how">
+      <li><code>delivered</code>: the site has the ticket and photographs the scale</li>
+      <li><code>fallback</code>: stored without photos (the reason says why)</li>
+      <li><code>failed</code>: this <code>location.id</code> is not set up</li>
+      <li><code>duplicate</code>: Dividia already has this <code>uniqueId</code> (what sending the same ticket again gets; press <b>New ticket</b> for a new one)</li>
+      <li>A 400 or 401 means fix the request. A 429 or 5xx means send it again with the same <code>uniqueId</code>.</li>
+    </ul>
   </div>
 
-  <div class="card">
-    <h2>2 &middot; Read it back (public API)</h2>
+  <div class="card" id="s5">
+    <h2>Step 5 &middot; Read it back (public API)</h2>
     <p class="lede">Paste the public-API token of an API user that can see the site: the long value in three parts separated by dots that was emailed with the API key. It goes only to Dividia, as the Bearer token. The public API returns real tickets only, so read back a ticket sent from this page, not one from Dividia's internal test console.</p>
     <div class="row">
       <div class="field"><label for="apiToken">Public-API token</label><input id="apiToken" type="password" autocomplete="off" spellcheck="false"></div>
@@ -126,17 +212,95 @@
     <details id="readDetails" open><summary>The exact read and its answer</summary><div class="out" id="readOut">Nothing read yet.</div></details>
   </div>
 
-  <div class="card">
-    <h2>The code this page runs to sign and send</h2>
-    <p class="lede">Shown from the running page itself, so it is exactly what your browser does on <b>Send ticket</b>. Your server does the same steps in its own language.</p>
-    <div class="out" id="pageCode" style="max-height:none"></div>
-  </div>
+  <div class="card" id="codeCard">
+    <h2>For developers: code to send a ticket</h2>
+    <p class="lede">Drop-in code with no extra packages. Call <code>sendTicket(ticket)</code> (Node.js) or <code>send_ticket(ticket)</code> (Python) once for every ticket: it makes the three webhook headers and sends the ticket. Set your customer id and signing secret as the environment variables <code>DIVIDIA_CUSTOMER_ID</code> and <code>DIVIDIA_SECRET</code>.</p>
+    <div class="sub-h">Node.js 18 or later: <code>send-ticket.js</code></div>
+    <div class="btns"><button class="ghost copy" data-copy="nodeCode" type="button">Copy the Node.js code</button></div>
+    <div class="out" id="nodeCode" style="max-height:none">// send-ticket.js: send a ticket to Dividia. Node.js 18+, no packages.
+// Run: DIVIDIA_CUSTOMER_ID='your-customer-id' DIVIDIA_SECRET='whsec_...' node send-ticket.js
+const crypto = require('crypto');
 
-  <div class="card">
-    <h2>3 &middot; Copy the code</h2>
-    <p class="lede">The same send as a stand-alone Node.js 18+ script with no packages, filled in with the values above. Save it as <code>send-ticket.js</code> and run <code>DIVIDIA_SECRET='whsec_...' node send-ticket.js</code>. This page runs the same steps in the browser (Web Crypto in place of Node's crypto); its source is the page itself.</p>
-    <div class="btns"><button class="ghost" id="copyBtn" type="button">Copy the script</button></div>
-    <div class="out" id="codeOut" style="max-height:none"></div>
+const WEBHOOK_URL = 'https://api.cloud.dividia.net/sw/webhooks/cc';
+const CUSTOMER_ID = process.env.DIVIDIA_CUSTOMER_ID;   // your customer id from Dividia
+const SECRET = process.env.DIVIDIA_SECRET;             // whsec_...: it signs and is never sent
+
+// Signs one ticket and sends it. Call it once for every ticket.
+async function sendTicket(ticket) {
+  const body = JSON.stringify(ticket);                         // sign and send this exact text
+  const id = ticket.uniqueId;                                  // webhook-id
+  const timestamp = Math.floor(Date.now() / 1000).toString();  // webhook-timestamp, in seconds
+  const key = Buffer.from(SECRET.replace(/^whsec_/, ''), 'base64');
+  const signature = 'v1,' + crypto.createHmac('sha256', key)
+    .update(id + '.' + timestamp + '.' + body).digest('base64');
+
+  const res = await fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Dividia-Customer-Id': CUSTOMER_ID,
+      'webhook-id': id,
+      'webhook-timestamp': timestamp,
+      'webhook-signature': signature,
+    },
+    body,
+  });
+  return { status: res.status, answer: await res.text() };
+}
+
+// Example: one ticket. Send your own ticket data the same way.
+sendTicket({
+  uniqueId: crypto.randomUUID(),   // new for every ticket
+  ticketNumber: '322780035',
+  ticketDateTime: new Date().toISOString(),
+  location: { id: 'IQ-001', name: 'North Yard' },
+  scaleId: 'IQ-001',
+  vehicle: { id: 'VEH-7908', name: 'Freightliner Cascadia' },
+}).then(r =&gt; console.log(r.status, r.answer));   // 200 {"status":"delivered"}</div>
+    <div class="sub-h">Python 3.9 or later: <code>send_ticket.py</code></div>
+    <div class="btns"><button class="ghost copy" data-copy="pyCode" type="button">Copy the Python code</button></div>
+    <div class="out" id="pyCode" style="max-height:none"># send_ticket.py: send a ticket to Dividia. Python 3.9+, no packages.
+# Run: DIVIDIA_CUSTOMER_ID='your-customer-id' DIVIDIA_SECRET='whsec_...' python3 send_ticket.py
+import base64, hashlib, hmac, json, os, time, uuid
+import urllib.error, urllib.request
+
+WEBHOOK_URL = "https://api.cloud.dividia.net/sw/webhooks/cc"
+CUSTOMER_ID = os.environ["DIVIDIA_CUSTOMER_ID"]   # your customer id from Dividia
+SECRET = os.environ["DIVIDIA_SECRET"]             # whsec_...: it signs and is never sent
+
+
+def send_ticket(ticket):
+    """Signs one ticket and sends it. Call it once for every ticket."""
+    body = json.dumps(ticket)                     # sign and send this exact text
+    msg_id = ticket["uniqueId"]                   # webhook-id
+    timestamp = str(int(time.time()))             # webhook-timestamp, in seconds
+    key = base64.b64decode(SECRET.removeprefix("whsec_"))
+    digest = hmac.new(key, f"{msg_id}.{timestamp}.{body}".encode(), hashlib.sha256).digest()
+    signature = "v1," + base64.b64encode(digest).decode()
+
+    request = urllib.request.Request(WEBHOOK_URL, data=body.encode(), method="POST", headers={
+        "Content-Type": "application/json",
+        "Dividia-Customer-Id": CUSTOMER_ID,
+        "webhook-id": msg_id,
+        "webhook-timestamp": timestamp,
+        "webhook-signature": signature,
+    })
+    try:
+        with urllib.request.urlopen(request) as res:
+            return res.status, res.read().decode()
+    except urllib.error.HTTPError as err:
+        return err.code, err.read().decode()
+
+
+# Example: one ticket. Send your own ticket data the same way.
+print(*send_ticket({
+    "uniqueId": str(uuid.uuid4()),   # new for every ticket
+    "ticketNumber": "322780035",
+    "ticketDateTime": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "location": {"id": "IQ-001", "name": "North Yard"},
+    "scaleId": "IQ-001",
+    "vehicle": {"id": "VEH-7908", "name": "Freightliner Cascadia"},
+}))   # 200 {"status":"delivered"}</div>
   </div>
 
   <p class="foot">The full integration guide (payload, signing, every response): <a href="cc-webhook-test.html">cc-webhook-test.html</a>. Our API accepts browser calls only from this hosted page; a copy saved to disk is blocked, and your servers have no such limit. Questions: support@dividia.net</p>
@@ -147,7 +311,7 @@
   'use strict';
   function $(id){ return document.getElementById(id); }
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  function baseUrl(){ return ($('base').value || '').trim().replace(/\/+$/, ''); }
+  function baseUrl(){ return ($('base').value || '').trim().replace(/\/sw\/webhooks\/cc\/?$/, ''); }
 
   // Standard Webhooks signing: "v1," + base64(HMAC-SHA256(key, id + "." + ts + "." + body)), where the
   // key is the base64 after "whsec_", decoded. The same bytes the svix verifier on our server computes.
@@ -193,14 +357,35 @@
   }
   function ticketData(){ return JSON.parse(($('ticketData').value || '').trim() || '{}'); }   // throws on invalid JSON
 
-  // A new ticket: fresh uniqueId, ticket number and time, the ticket data, then where it goes.
-  function buildTicket(){
-    var data = ticketData();
+  // The body keeps the ticket's id, number and time first, then location and scaleId (kept in step with
+  // their fields both ways), then the rest. While the body is not valid JSON (mid-edit), nothing is changed.
+  function bodyFromFields(){
+    var data;
+    try { data = ticketData(); } catch (_) { return; }
+    var out = {};
+    ['uniqueId', 'ticketNumber', 'ticketDateTime'].forEach(function(k){ if (data[k] !== undefined) out[k] = data[k]; });
+    out.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
+    out.scaleId = $('scaleId').value.trim();
+    Object.keys(data).forEach(function(k){ if (!(k in out)) out[k] = data[k]; });
+    $('ticketData').value = JSON.stringify(out, null, 2);
+  }
+  function fieldsFromBody(){
+    var data;
+    try { data = ticketData(); } catch (_) { return; }
+    if (data.location && typeof data.location === 'object') {
+      if (data.location.id !== undefined) $('locationId').value = String(data.location.id);
+      if (data.location.name !== undefined) $('locationName').value = String(data.location.name);
+    }
+    if (data.scaleId !== undefined) $('scaleId').value = String(data.scaleId);
+  }
+
+  // A new ticket: a fresh uniqueId, ticket number and time, sample details, and the site and scale from the fields.
+  function newTicket(){
     var t = { uniqueId: newGuid(), ticketNumber: String(1e8 + Date.now() % 9e8), ticketDateTime: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    var data = genTicketData();
     Object.keys(data).forEach(function(k){ t[k] = data[k]; });
-    t.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
-    t.scaleId = $('scaleId').value.trim();
-    return t;
+    $('ticketData').value = JSON.stringify(t, null, 2);
+    bodyFromFields();
   }
 
   function verdict(el, level, title, detail, mono){
@@ -239,47 +424,56 @@
 
   function sq(v){ return "'" + String(v).replace(/'/g, "'\\''") + "'"; }   // shell single-quote
 
-  // Before the first send, show the request the page will send, built from the fields.
-  var sentOnce = false;
-  function renderPreview(){
-    if (sentOnce) return;
-    var data;
-    try { data = ticketData(); } catch (_) { $('reqOut').textContent = 'The ticket data is not valid JSON.'; return; }
-    var t = { uniqueId: '<a new GUID, made on each send>', ticketNumber: '<a new number, made on each send>', ticketDateTime: '<now, ISO-8601 UTC>' };
-    Object.keys(data).forEach(function(k){ t[k] = data[k]; });
-    t.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
-    t.scaleId = $('scaleId').value.trim();
-    $('reqOut').textContent = 'POST ' + baseUrl() + '/sw/webhooks/cc\n' +
-      'Content-Type: application/json\n' +
-      'Dividia-Customer-Id: ' + ($('customerId').value.trim() || '<your customer id>') + '\n' +
-      'webhook-id: <the ticket\'s uniqueId>\n' +
-      'webhook-timestamp: <Unix seconds, at send>\n' +
-      'webhook-signature: v1,<Base64 of HMAC-SHA256(key, webhook-id + "." + webhook-timestamp + "." + body)>\n\n' +
-      JSON.stringify(t, null, 2) + '\n\n# Preview. Send a ticket to see the real request, with its signature, and the same request as curl.';
+  // ---- step 4: the request, built live; the signature is made from the secret, the id, the time and the body ----
+  function nowSeconds(){ return Math.floor(Date.now() / 1000).toString(); }
+
+  // The JSON body cut to its first lines, for reading only; the signature always covers the whole body.
+  function shortBody(body){
+    var lines = body.split('\n');
+    return lines.length <= 6 ? body : lines.slice(0, 4).join('\n') + '\n  ... the rest of the JSON body ...\n' + lines[lines.length - 1];
   }
 
-  var last = null;    // the last ticket sent: { base, customerId, id, body, ticket }
+  function calcText(id, ts, body, signature){
+    return '1. Join the webhook-id, the webhook-timestamp and the whole JSON body, with a dot between each:\n\n' +
+      id + '.' + ts + '.' + shortBody(body) + '\n\n' +
+      '2. Calculate HMAC-SHA256 of that text, using the signing secret as the key\n' +
+      '   (the part after whsec_, Base64-decoded). Written in Base64, the result is:\n\n' +
+      '   ' + signature.slice(3) + '\n\n' +
+      '3. Put v1, in front. That is the webhook-signature:\n\n' +
+      '   ' + signature;
+  }
+
+  // Sign the ticket as it is now: { id, ts, signature, body, ticket }, or { error } saying what is missing.
+  async function signNow(){
+    var body = $('ticketData').value, ticket;
+    try { ticket = JSON.parse(body); } catch (e) { return { error: 'The ticket is not valid JSON' }; }
+    if (!ticket || !ticket.uniqueId) return { error: 'The ticket needs a uniqueId' };
+    var id = String(ticket.uniqueId), ts = nowSeconds(), secret = $('secret').value.trim();
+    if (!secret) return { id: id, ts: ts, error: 'Fill in the signing secret below to make it' };
+    try { return { id: id, ts: ts, signature: await sign(secret, id + '.' + ts + '.' + body), body: body, ticket: ticket }; }
+    catch (_) { return { id: id, ts: ts, error: 'The signing secret is not valid' }; }
+  }
+
+  // Fill in the three webhook headers from the current ticket, as the user types.
+  var liveSeq = 0;
+  async function refreshHeaders(){
+    var seq = ++liveSeq, s = await signNow();
+    if (seq !== liveSeq) return;                                     // a newer keystroke already refreshed
+    $('hId').value = s.id || '';
+    $('hTs').value = s.ts || '';
+    $('hSig').value = s.signature || '(' + s.error + ')';
+    $('msCalc').textContent = s.signature ? calcText(s.id, s.ts, s.body, s.signature) : 'Fill in the signing secret and a valid ticket to see this.';
+    return s;
+  }
+
   var busy = false;
   async function guarded(el, fn){
     if (busy) return;
     busy = true;
-    ['sendBtn', 'retryBtn', 'dataBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = true; });
+    ['sendBtn', 'dataBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = true; });
     try { await fn(); }
     catch (e) { verdict(el, 'fail', (e && e.message) || String(e), ''); }
-    finally { busy = false; ['sendBtn', 'retryBtn', 'dataBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = false; }); }
-  }
-
-  // The headers for one ticket: your customer id plus the Standard Webhooks signature over the exact body.
-  async function buildRequest(customerId, secret, id, body){
-    var ts = Math.floor(Date.now() / 1000).toString();               // webhook-timestamp: Unix seconds, now
-    var signature = await sign(secret, id + '.' + ts + '.' + body);   // "v1," + Base64(HMAC-SHA256(...))
-    return {
-      'Content-Type': 'application/json',
-      'Dividia-Customer-Id': customerId,
-      'webhook-id': id,                                               // this page uses the ticket's uniqueId
-      'webhook-timestamp': ts,
-      'webhook-signature': signature
-    };
+    finally { busy = false; ['sendBtn', 'dataBtn', 'pdfBtn'].forEach(function(id){ $(id).disabled = false; }); }
   }
 
   // One POST to Dividia. The body is sent exactly as it was signed.
@@ -287,57 +481,37 @@
     return fetch(url, { method: 'POST', headers: headers, body: body });
   }
 
-  async function post(base, customerId, id, body, ticket, isRetry){
-    var headers;
-    try { headers = await buildRequest(customerId, $('secret').value, id, body); }
-    catch (e) { return verdict('sendVerdict', 'fail', 'The signing secret is not valid', 'It is whsec_ followed by a Base64 value.'); }
-    var url = base + '/sw/webhooks/cc';
-    sentOnce = true;
-    $('reqOut').textContent = 'POST ' + url + '\n' + Object.keys(headers).map(function(k){ return k + ': ' + headers[k]; }).join('\n') + '\n\n' + body +
-      '\n\n# The same request as curl. The signature is good for 5 minutes, and this uniqueId now answers duplicate.\n' +
-      'curl -sS -X POST ' + sq(url) + ' \\\n' + Object.keys(headers).map(function(k){ return '  -H ' + sq(k + ': ' + headers[k]) + ' \\\n'; }).join('') + '  --data-binary ' + sq(body);
-    verdict('sendVerdict', 'info', (isRetry ? 'Resending' : 'Sending') + ' ticket ' + ticket.ticketNumber + '...', '');
+  function send(){ return guarded('sendVerdict', async function(){
+    var customerId = $('customerId').value.trim();
+    if (!customerId) return verdict('sendVerdict', 'fail', 'Fill in the Dividia-Customer-Id.', '');
+    var s = await refreshHeaders();                                  // signed now, so the timestamp is fresh
+    if (!s || !s.signature) return verdict('sendVerdict', 'fail', (s && s.error) || 'Could not make the signature', '');
+    var url = $('base').value.trim(), ticket = s.ticket;
+    var headers = { 'Content-Type': 'application/json', 'Dividia-Customer-Id': customerId, 'webhook-id': s.id, 'webhook-timestamp': s.ts, 'webhook-signature': s.signature };
+
+    verdict('sendVerdict', 'info', 'Sending ticket ' + ticket.ticketNumber + '...', '');
     var started = Date.now(), res, text;
     try {
-      res = await sendTicket(url, headers, body);
+      res = await sendTicket(url, headers, s.body);
       text = await res.text();
     } catch (e) {
       return verdict('sendVerdict', 'fail', 'Could not reach ' + url,
-        'Check the target. Our API accepts browser calls only from the hosted page, https://dividia-dev.github.io/api/; a copy saved to disk is blocked. Your servers have no such limit.');
+        'Our API accepts browser calls only from the hosted page, https://dividia-dev.github.io/api/; a copy saved to disk is blocked. Your servers have no such limit.');
     }
-    last = { base: base, customerId: customerId, id: id, body: body, ticket: ticket };
-    $('rbLocationId').value = ticket.location.id;
+    if (ticket.location) $('rbLocationId').value = ticket.location.id;
     $('rbTicket').value = ticket.ticketNumber;
     var obj = null;
     try { obj = JSON.parse(text); } catch (_) {}
     var a = answerFor(res.status, obj);
     verdict('sendVerdict', a.level, a.title, a.detail,
-      'Ticket ' + ticket.ticketNumber + ' · uniqueId ' + ticket.uniqueId + ' · location.id ' + ticket.location.id + ' · scaleId ' + ticket.scaleId);
-    // The response exactly as returned, then the ticket it answers for (cloudapi does not echo the ticket back).
+      'Ticket ' + ticket.ticketNumber + ' · uniqueId ' + ticket.uniqueId + ' · location.id ' + (ticket.location && ticket.location.id) + ' · scaleId ' + ticket.scaleId);
+    // The answer exactly as returned; the request that was sent, as curl, folded away below it.
     $('resWrap').hidden = false;
-    $('resOut').textContent = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + '   (' + (Date.now() - started) + ' ms' + (isRetry ? ', a retry' : '') + ')\n' +
+    $('resOut').textContent = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + '   (' + (Date.now() - started) + ' ms)\n' +
       ['content-type', 'x-cloudapi-version'].map(function(h){ var v = res.headers.get(h); return v ? h + ': ' + v : null; }).filter(Boolean).join('\n') + '\n\n' +
-      (obj ? JSON.stringify(obj, null, 2) : (text || '(empty body)')) +
-      '\n\n# Dividia answers with the status only (and a reason when the ticket is held).\n' +
-      '# The ticket this answer is about is the one in the request below:\n' +
-      '#   ticketNumber  ' + ticket.ticketNumber + '\n#   uniqueId      ' + ticket.uniqueId + '\n#   location.id   ' + ticket.location.id + '\n#   scaleId       ' + ticket.scaleId;
-  }
-
-  function send(){ return guarded('sendVerdict', async function(){
-    var base = baseUrl(), customerId = $('customerId').value.trim();
-    if (!base || !customerId || !$('secret').value.trim()) return verdict('sendVerdict', 'fail', 'Fill in the target, the Dividia-Customer-Id and the signing secret.', '');
-    if (!$('locationId').value.trim()) return verdict('sendVerdict', 'fail', 'Fill in location.id.', '');
-    var ticket;
-    try { ticket = buildTicket(); }
-    catch (e) { return verdict('sendVerdict', 'fail', 'The ticket data is not valid JSON', e.message); }
-    // webhook-id = the ticket's uniqueId: any unique string works, and a retry keeps it.
-    await post(base, customerId, ticket.uniqueId, JSON.stringify(ticket, null, 2), ticket, false);
-  }); }
-
-  // A retry, the way a Standard Webhooks sender retries: the same webhook-id and body, a new timestamp and signature.
-  function retry(){ return guarded('sendVerdict', async function(){
-    if (!last) return verdict('sendVerdict', 'warn', 'Send a ticket first.', '');
-    await post(last.base, last.customerId, last.id, last.body, last.ticket, true);
+      (obj ? JSON.stringify(obj, null, 2) : (text || '(empty body)'));
+    $('curlOut').textContent = '# The signature is good for 5 minutes.\n' +
+      'curl -sS -X POST ' + sq(url) + ' \\\n' + Object.keys(headers).map(function(k){ return '  -H ' + sq(k + ': ' + headers[k]) + ' \\\n'; }).join('') + '  --data-binary ' + sq(s.body);
   }); }
 
   // ---- read back through the public API, with the API user's token ----
@@ -403,51 +577,11 @@
     verdict('readVerdict', 'fail', 'No PDF: HTTP ' + res.status, errorOf(j, text));
   }); }
 
-  // ---- the same send as a stand-alone Node.js script, filled in with this page's values ----
-  function jsKey(k){ return /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k); }
-  function renderCode(){
-    var data;
-    try { data = ticketData(); } catch (_) { data = {}; }
-    var lines = [
-      '// send-ticket.js: one signed Command Cloud ticket to Dividia. Node.js 18+, no packages.',
-      "// Run: DIVIDIA_SECRET='whsec_...' node send-ticket.js",
-      "const crypto = require('crypto');",
-      '',
-      'const URL_ = ' + JSON.stringify(baseUrl() + '/sw/webhooks/cc') + ';',
-      'const CUSTOMER_ID = ' + JSON.stringify($('customerId').value.trim() || '<your Dividia-Customer-Id>') + ';',
-      'const SECRET = process.env.DIVIDIA_SECRET;   // whsec_...; it only signs and is never sent',
-      '',
-      'const ticket = {',
-      '  uniqueId: crypto.randomUUID(),                  // new for every ticket: we de-duplicate on it',
-      '  ticketNumber: String(1e8 + Date.now() % 9e8),   // 9 digits, never a leading zero',
-      '  ticketDateTime: new Date().toISOString(),'
-    ];
-    Object.keys(data).forEach(function(k){ lines.push('  ' + jsKey(k) + ': ' + JSON.stringify(data[k]) + ','); });
-    lines.push(
-      '  location: ' + JSON.stringify({ id: $('locationId').value.trim(), name: $('locationName').value.trim() }) + ',   // id picks the site',
-      '  scaleId: ' + JSON.stringify($('scaleId').value.trim()) + ',   // picks the scale',
-      '};',
-      '',
-      'const body = JSON.stringify(ticket);                 // sign exactly the bytes you send',
-      'const id = ticket.uniqueId;                          // webhook-id: any unique string; the uniqueId works',
-      'const ts = Math.floor(Date.now() / 1000).toString(); // webhook-timestamp: Unix seconds',
-      "const key = Buffer.from(SECRET.replace(/^whsec_/, ''), 'base64');",
-      "// 'v1,' is required: it labels the signing method (Standard Webhooks v1 = HMAC-SHA256). Without it we answer 401.",
-      "const signature = 'v1,' + crypto.createHmac('sha256', key).update(id + '.' + ts + '.' + body).digest('base64');",
-      '',
-      "fetch(URL_, { method: 'POST', body, headers: {",
-      "  'Content-Type': 'application/json',",
-      "  'Dividia-Customer-Id': CUSTOMER_ID,",
-      "  'webhook-id': id, 'webhook-timestamp': ts, 'webhook-signature': signature,",
-      '} }).then(async r => console.log(r.status, await r.text()));   // 200 {"status":"delivered"}'
-    );
-    $('codeOut').textContent = lines.join('\n');
-  }
-
-  function copyCode(){
-    var text = $('codeOut').textContent;
-    var done = function(){ $('copyBtn').textContent = 'Copied'; setTimeout(function(){ $('copyBtn').textContent = 'Copy the script'; }, 1500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function(){});
+  // Copy a code block, from the button that names it.
+  function copyBlock(btn){
+    var label = btn.textContent;
+    var done = function(){ btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = label; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText($(btn.getAttribute('data-copy')).textContent).then(done, function(){});
   }
 
   // Prefill from a link: cc-webhook-live.html#customerId=...&locationId=...&locationName=...&scaleId=...&base=...
@@ -458,28 +592,24 @@
     var q = new URLSearchParams(h);
     var map = { base: 'base', customerId: 'customerId', locationId: 'locationId', locationName: 'locationName', scaleId: 'scaleId' };
     Object.keys(map).forEach(function(k){ if (q.has(k)) $(map[k]).value = q.get(k); });
+    if (q.has('base')) $('base').value = q.get('base').replace(/\/+$/, '') + '/sw/webhooks/cc';
     if (q.has('locationId')) $('rbLocationId').value = q.get('locationId');
   }
 
   $('sendBtn').addEventListener('click', send);
-  $('retryBtn').addEventListener('click', retry);
-  $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); renderCode(); renderPreview(); });
+  $('newDataBtn').addEventListener('click', function(){ newTicket(); refreshHeaders(); });
+  $('calcLink').addEventListener('click', function(){ $('calcDetails').open = true; });   // the link opens the worked-out steps it points to
   $('dataBtn').addEventListener('click', readTicket);
   $('pdfBtn').addEventListener('click', pdf);
-  $('copyBtn').addEventListener('click', copyCode);
-  ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', function(){ renderCode(); renderPreview(); }); });
-
-  $('ticketData').value = JSON.stringify(genTicketData(), null, 2);
-  $('pageCode').textContent =
-    '// On "Send ticket" this page runs:\n' +
-    '//   body    = JSON.stringify(ticket, null, 2)        // the ticket JSON, serialized once\n' +
-    '//   headers = await buildRequest(customerId, secret, ticket.uniqueId, body)\n' +
-    "//   answer  = await sendTicket(target + '/sw/webhooks/cc', headers, body)\n\n" +
-    sign.toString() + '\n\n' + buildRequest.toString() + '\n\n' + sendTicket.toString();
+  Array.prototype.forEach.call(document.querySelectorAll('button.copy'), function(b){ b.addEventListener('click', function(){ copyBlock(b); }); });
+  ['locationId', 'locationName', 'scaleId'].forEach(function(id){ $(id).addEventListener('input', bodyFromFields); });
+  $('ticketData').addEventListener('input', fieldsFromBody);
+  // Any change to the secret or the body changes the signature, so the webhook headers are made again.
+  ['secret', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', refreshHeaders); });
 
   prefill();
-  renderCode();
-  renderPreview();
+  newTicket();
+  refreshHeaders();
 })();
 </script>
 </body>
