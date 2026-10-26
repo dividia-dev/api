@@ -97,12 +97,12 @@
       <tr><th>Header</th><th>What it is</th></tr>
       <tr><td><code>Dividia-Customer-Id</code></td><td>Your customer id from Dividia. Type it in once.</td></tr>
       <tr><td><code>Content-Type</code></td><td><code>application/json</code>. Type it in once.</td></tr>
-      <tr><td><code>webhook-id</code></td><td>A new id for this ticket. <b>Made new for every ticket.</b></td></tr>
-      <tr><td><code>webhook-timestamp</code></td><td>The time the ticket is sent. <b>Made new for every ticket.</b></td></tr>
+      <tr><td><code>webhook-id</code></td><td>An id for this ticket. <b>Easiest: use the ticket's <code>uniqueId</code>.</b> Any text works, with no set format or length; a GUID such as <code>3f2b8c1e-7d4a-4e9b-a6c2-91d0e5f4b8a7</code> is fine. Use the same id here and in the signature.</td></tr>
+      <tr><td><code>webhook-timestamp</code></td><td>The time the ticket is sent, as a number of seconds (often called Unix time or epoch seconds): 10 digits, for example <code>1793022780</code>. <b>Made new for every ticket</b>, and it must be within 5 minutes of the real time.</td></tr>
       <tr><td><code>webhook-signature</code></td><td>A code made from the ticket and your signing secret. It proves the ticket came from you. <b>Made new for every ticket.</b></td></tr>
     </table>
     <div class="sub-h">How the signature works</div>
-    <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system combines the secret with the ticket to make a code, and sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
+    <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system takes three things, the <code>webhook-id</code>, the <code>webhook-timestamp</code> and the body, joins them with dots, and mixes them with the secret to make a code. It sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
     <div class="verdict alert"><b>Never put the signing secret in a header.</b><div class="d">The secret is never sent. Your webhook system keeps it and uses it to make <code>webhook-signature</code> for each ticket. If your webhook settings only let you type in fixed headers, they cannot make the last three: look for a setting to sign webhooks (the "Standard Webhooks" format) and put the signing secret there.</div></div>
     <div class="sub-h">In the body</div>
     <table class="plain">
@@ -122,10 +122,10 @@
     <p class="lede">Fill in what your request will carry, and this page makes the three webhook headers for it. Use them to check your own system's headers, or to try a request by hand. Nothing here is sent anywhere.</p>
     <div class="row">
       <div class="field"><label for="msSecret">Signing secret <span>(the whsec_ value from Dividia)</span></label><input id="msSecret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
-      <div class="field"><label for="msId">webhook-id <span>(any new id for this ticket)</span></label><input id="msId" spellcheck="false"></div>
+      <div class="field"><label for="msId">webhook-id <span>(easiest: the ticket's uniqueId; any text works)</span></label><input id="msId" spellcheck="false"></div>
     </div>
     <div class="row">
-      <div class="field"><label for="msTs">webhook-timestamp <span>(the time you send it, in seconds)</span></label><input id="msTs" spellcheck="false"></div>
+      <div class="field"><label for="msTs">webhook-timestamp <span>(the time you send it in seconds, 10 digits; "Set the time to now" fills it in)</span></label><input id="msTs" spellcheck="false"></div>
       <div class="field"></div>
     </div>
     <div class="field"><label for="msBody">Body <span>(paste it exactly as you will send it: one changed space gives a different signature)</span></label><textarea id="msBody" spellcheck="false" placeholder='{"uniqueId": "...", "ticketNumber": "...", ...}'></textarea></div>
