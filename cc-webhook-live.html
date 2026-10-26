@@ -156,6 +156,8 @@
       <div class="field"><label for="hSig">webhook-signature <span>(made from the signing secret, the webhook-id, the webhook-timestamp and the body)</span></label><input id="hSig" readonly tabindex="-1"></div>
       <div class="maker">
         <div class="field"><label for="secret">Signing secret <span>(makes webhook-signature; not a header, never sent)</span></label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
+        <p class="note"><b>webhook-signature</b> = <code>v1,</code> + Base64( HMAC-SHA256( key, <code>webhook-id</code> + <code>.</code> + <code>webhook-timestamp</code> + <code>.</code> + body ) )<br>
+          where key = the signing secret after <code>whsec_</code>, Base64-decoded. <a href="#calcDetails" id="calcLink">See it worked out for this ticket</a></p>
       </div>
     </div>
 
@@ -589,6 +591,7 @@ print(*send_ticket({
 
   $('sendBtn').addEventListener('click', send);
   $('newDataBtn').addEventListener('click', function(){ newTicket(); refreshHeaders(); });
+  $('calcLink').addEventListener('click', function(){ $('calcDetails').open = true; });   // the link opens the worked-out steps it points to
   $('dataBtn').addEventListener('click', readTicket);
   $('pdfBtn').addEventListener('click', pdf);
   Array.prototype.forEach.call(document.querySelectorAll('button.copy'), function(b){ b.addEventListener('click', function(){ copyBlock(b); }); });
