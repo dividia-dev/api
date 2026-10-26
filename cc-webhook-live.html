@@ -49,6 +49,12 @@
   details{margin-top:10px}
   .sub-h{font-size:13px;font-weight:600;color:#334155;margin-top:12px}
   summary{cursor:pointer;font-size:13px;font-weight:600;color:#334155}
+  table.plain{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+  table.plain th,table.plain td{text-align:left;vertical-align:top;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.plain th{font-size:12px;color:#334155}
+  table.plain td:first-child{white-space:nowrap;width:1%}
+  table.plain td:first-child code{word-break:normal}
+  .note{font-size:13.5px;margin:4px 0 0}
   a{color:var(--indigo)}
   .foot{color:var(--muted);font-size:12.5px;margin-top:18px}
 </style>
@@ -79,22 +85,49 @@
     </ol>
   </div>
 
+  <div class="card" id="needs">
+    <h2>What each ticket needs</h2>
+    <p class="lede">Each ticket is sent to <code>https://api.cloud.dividia.net/sw/webhooks/cc</code> with these headers and a body.</p>
+    <table class="plain">
+      <tr><th>Header</th><th>What it is</th></tr>
+      <tr><td><code>Dividia-Customer-Id</code></td><td>Your customer id from Dividia. Type it in once.</td></tr>
+      <tr><td><code>Content-Type</code></td><td><code>application/json</code>. Type it in once.</td></tr>
+      <tr><td><code>webhook-id</code></td><td>A new id for this ticket. <b>Made new for every ticket.</b></td></tr>
+      <tr><td><code>webhook-timestamp</code></td><td>The time the ticket is sent. <b>Made new for every ticket.</b></td></tr>
+      <tr><td><code>webhook-signature</code></td><td>A code made from the ticket and your signing secret. It proves the ticket came from you. <b>Made new for every ticket.</b></td></tr>
+    </table>
+    <div class="sub-h">How the signature works</div>
+    <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system combines the secret with the ticket to make a code, and sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
+    <div class="verdict warn"><b>Never put the signing secret in a header.</b><div class="d">The secret is never sent. Your webhook system keeps it and uses it to make <code>webhook-signature</code> for each ticket. If your webhook settings only let you type in fixed headers, they cannot make the last three: look for a setting to sign webhooks (the "Standard Webhooks" format) and put the signing secret there.</div></div>
+    <div class="sub-h">In the body</div>
+    <table class="plain">
+      <tr><td><code>location.id</code></td><td>Which site the ticket is for</td></tr>
+      <tr><td><code>location.name</code></td><td>The site's name, for display</td></tr>
+      <tr><td><code>scaleId</code></td><td>Which scale weighed the truck</td></tr>
+      <tr><td><code>uniqueId</code></td><td>The ticket's id</td></tr>
+      <tr><td><code>ticketNumber</code></td><td>The ticket number</td></tr>
+      <tr><td><code>ticketDateTime</code></td><td>The ticket's date and time</td></tr>
+      <tr><td>Everything else</td><td>The ticket's details: vehicle, weights, customer, carrier, product and so on</td></tr>
+    </table>
+    <p class="foot" style="margin-top:10px">For developers: the code that makes the signature is further down this page.</p>
+  </div>
+
   <div class="card">
     <h2>1 &middot; Send a ticket</h2>
-    <p class="lede">Every send is a real ticket for that site. The secret stays in this page; only the signature is sent.</p>
+    <p class="lede">Every send is a real ticket for that site. The secret stays in this page; only the signature is sent. Each label says where its value goes: the URL, a header or the request body.</p>
     <div class="row">
-      <div class="field"><label for="base">Target</label><input id="base" value="https://api.cloud.dividia.net" spellcheck="false"></div>
-      <div class="field"><label for="customerId">Dividia-Customer-Id</label><input id="customerId" placeholder="your customer id (a GUID)" spellcheck="false"></div>
+      <div class="field"><label for="base">Target <span>(the URL: Target + /sw/webhooks/cc)</span></label><input id="base" value="https://api.cloud.dividia.net" spellcheck="false"></div>
+      <div class="field"><label for="customerId">Dividia-Customer-Id <span>(a header)</span></label><input id="customerId" placeholder="your customer id (a GUID)" spellcheck="false"></div>
     </div>
     <div class="row">
-      <div class="field"><label for="secret">Signing secret</label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
-      <div class="field"><label for="locationId">location.id <span>(picks the site)</span></label><input id="locationId" spellcheck="false"></div>
+      <div class="field"><label for="secret">Signing secret <span>(never sent; it makes the webhook-signature header)</span></label><input id="secret" type="password" placeholder="whsec_..." autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="locationId">location.id <span>(in the body; picks the site)</span></label><input id="locationId" spellcheck="false"></div>
     </div>
     <div class="row">
-      <div class="field"><label for="locationName">location.name <span>(display only)</span></label><input id="locationName" spellcheck="false"></div>
-      <div class="field"><label for="scaleId">scaleId <span>(picks the scale)</span></label><input id="scaleId" spellcheck="false"></div>
+      <div class="field"><label for="locationName">location.name <span>(in the body; display only)</span></label><input id="locationName" spellcheck="false"></div>
+      <div class="field"><label for="scaleId">scaleId <span>(in the body; picks the scale)</span></label><input id="scaleId" spellcheck="false"></div>
     </div>
-    <div class="field"><label for="ticketData">Ticket data <span>(uniqueId, ticketNumber, ticketDateTime, location and scaleId are added on each send)</span></label><textarea id="ticketData" spellcheck="false"></textarea></div>
+    <div class="field"><label for="ticketData">Request body <span>(location and scaleId match the fields above; uniqueId, ticketNumber and ticketDateTime are added when you send)</span></label><textarea id="ticketData" spellcheck="false" style="min-height:220px"></textarea></div>
     <div class="btns">
       <button class="go" id="sendBtn" type="button">Send ticket</button>
       <button class="ghost" id="retryBtn" type="button">Resend the last ticket (a retry)</button>
@@ -193,6 +226,25 @@
   }
   function ticketData(){ return JSON.parse(($('ticketData').value || '').trim() || '{}'); }   // throws on invalid JSON
 
+  // The request body shows location and scaleId too, first so they are in view, kept in step with
+  // their fields both ways. While the body is not valid JSON (mid-edit), neither side is changed.
+  function bodyFromFields(){
+    var data;
+    try { data = ticketData(); } catch (_) { return; }
+    var out = { location: { id: $('locationId').value.trim(), name: $('locationName').value.trim() }, scaleId: $('scaleId').value.trim() };
+    Object.keys(data).forEach(function(k){ if (k !== 'location' && k !== 'scaleId') out[k] = data[k]; });
+    $('ticketData').value = JSON.stringify(out, null, 2);
+  }
+  function fieldsFromBody(){
+    var data;
+    try { data = ticketData(); } catch (_) { return; }
+    if (data.location && typeof data.location === 'object') {
+      if (data.location.id !== undefined) $('locationId').value = String(data.location.id);
+      if (data.location.name !== undefined) $('locationName').value = String(data.location.name);
+    }
+    if (data.scaleId !== undefined) $('scaleId').value = String(data.scaleId);
+  }
+
   // A new ticket: fresh uniqueId, ticket number and time, the ticket data, then where it goes.
   function buildTicket(){
     var data = ticketData();
@@ -244,7 +296,7 @@
   function renderPreview(){
     if (sentOnce) return;
     var data;
-    try { data = ticketData(); } catch (_) { $('reqOut').textContent = 'The ticket data is not valid JSON.'; return; }
+    try { data = ticketData(); } catch (_) { $('reqOut').textContent = 'The request body is not valid JSON.'; return; }
     var t = { uniqueId: '<a new GUID, made on each send>', ticketNumber: '<a new number, made on each send>', ticketDateTime: '<now, ISO-8601 UTC>' };
     Object.keys(data).forEach(function(k){ t[k] = data[k]; });
     t.location = { id: $('locationId').value.trim(), name: $('locationName').value.trim() };
@@ -329,7 +381,7 @@
     if (!$('locationId').value.trim()) return verdict('sendVerdict', 'fail', 'Fill in location.id.', '');
     var ticket;
     try { ticket = buildTicket(); }
-    catch (e) { return verdict('sendVerdict', 'fail', 'The ticket data is not valid JSON', e.message); }
+    catch (e) { return verdict('sendVerdict', 'fail', 'The request body is not valid JSON', e.message); }
     // webhook-id = the ticket's uniqueId: any unique string works, and a retry keeps it.
     await post(base, customerId, ticket.uniqueId, JSON.stringify(ticket, null, 2), ticket, false);
   }); }
@@ -420,12 +472,12 @@
       'const ticket = {',
       '  uniqueId: crypto.randomUUID(),                  // new for every ticket: we de-duplicate on it',
       '  ticketNumber: String(1e8 + Date.now() % 9e8),   // 9 digits, never a leading zero',
-      '  ticketDateTime: new Date().toISOString(),'
-    ];
-    Object.keys(data).forEach(function(k){ lines.push('  ' + jsKey(k) + ': ' + JSON.stringify(data[k]) + ','); });
-    lines.push(
+      '  ticketDateTime: new Date().toISOString(),',
       '  location: ' + JSON.stringify({ id: $('locationId').value.trim(), name: $('locationName').value.trim() }) + ',   // id picks the site',
-      '  scaleId: ' + JSON.stringify($('scaleId').value.trim()) + ',   // picks the scale',
+      '  scaleId: ' + JSON.stringify($('scaleId').value.trim()) + ',   // picks the scale'
+    ];
+    Object.keys(data).forEach(function(k){ if (k !== 'location' && k !== 'scaleId') lines.push('  ' + jsKey(k) + ': ' + JSON.stringify(data[k]) + ','); });
+    lines.push(
       '};',
       '',
       'const body = JSON.stringify(ticket);                 // sign exactly the bytes you send',
@@ -463,10 +515,12 @@
 
   $('sendBtn').addEventListener('click', send);
   $('retryBtn').addEventListener('click', retry);
-  $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); renderCode(); renderPreview(); });
+  $('newDataBtn').addEventListener('click', function(){ $('ticketData').value = JSON.stringify(genTicketData(), null, 2); bodyFromFields(); renderCode(); renderPreview(); });
   $('dataBtn').addEventListener('click', readTicket);
   $('pdfBtn').addEventListener('click', pdf);
   $('copyBtn').addEventListener('click', copyCode);
+  ['locationId', 'locationName', 'scaleId'].forEach(function(id){ $(id).addEventListener('input', bodyFromFields); });
+  $('ticketData').addEventListener('input', fieldsFromBody);
   ['base', 'customerId', 'locationId', 'locationName', 'scaleId', 'ticketData'].forEach(function(id){ $(id).addEventListener('input', function(){ renderCode(); renderPreview(); }); });
 
   $('ticketData').value = JSON.stringify(genTicketData(), null, 2);
@@ -478,6 +532,7 @@
     sign.toString() + '\n\n' + buildRequest.toString() + '\n\n' + sendTicket.toString();
 
   prefill();
+  bodyFromFields();
   renderCode();
   renderPreview();
 })();
