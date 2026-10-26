@@ -181,6 +181,7 @@
     <div id="resWrap" hidden>
       <div class="sub-h">Dividia's answer, exactly as returned</div>
       <div class="out" id="resOut"></div>
+      <details><summary>The request that was sent, as curl</summary><div class="out" id="curlOut"></div></details>
     </div>
     <details id="calcDetails"><summary>How webhook-signature is made</summary><div class="out" id="msCalc"></div></details>
     <div class="sub-h">What Dividia's answers mean</div>
@@ -426,9 +427,15 @@ print(*send_ticket({
   // ---- step 4: the request, built live; the signature is made from the secret, the id, the time and the body ----
   function nowSeconds(){ return Math.floor(Date.now() / 1000).toString(); }
 
+  // The JSON body cut to its first lines, for reading only; the signature always covers the whole body.
+  function shortBody(body){
+    var lines = body.split('\n');
+    return lines.length <= 6 ? body : lines.slice(0, 4).join('\n') + '\n  ... the rest of the JSON body ...\n' + lines[lines.length - 1];
+  }
+
   function calcText(id, ts, body, signature){
-    return '1. Join the webhook-id, the webhook-timestamp and the body, with a dot between each:\n\n' +
-      id + '.' + ts + '.' + body + '\n\n' +
+    return '1. Join the webhook-id, the webhook-timestamp and the whole JSON body, with a dot between each:\n\n' +
+      id + '.' + ts + '.' + shortBody(body) + '\n\n' +
       '2. Calculate HMAC-SHA256 of that text, using the signing secret as the key\n' +
       '   (the part after whsec_, Base64-decoded). Written in Base64, the result is:\n\n' +
       '   ' + signature.slice(3) + '\n\n' +
@@ -498,12 +505,12 @@ print(*send_ticket({
     var a = answerFor(res.status, obj);
     verdict('sendVerdict', a.level, a.title, a.detail,
       'Ticket ' + ticket.ticketNumber + ' · uniqueId ' + ticket.uniqueId + ' · location.id ' + (ticket.location && ticket.location.id) + ' · scaleId ' + ticket.scaleId);
-    // The answer exactly as returned, then the request that was sent, as curl.
+    // The answer exactly as returned; the request that was sent, as curl, folded away below it.
     $('resWrap').hidden = false;
     $('resOut').textContent = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + '   (' + (Date.now() - started) + ' ms)\n' +
       ['content-type', 'x-cloudapi-version'].map(function(h){ var v = res.headers.get(h); return v ? h + ': ' + v : null; }).filter(Boolean).join('\n') + '\n\n' +
-      (obj ? JSON.stringify(obj, null, 2) : (text || '(empty body)')) +
-      '\n\n# The request that was sent, as curl (the signature is good for 5 minutes):\n' +
+      (obj ? JSON.stringify(obj, null, 2) : (text || '(empty body)'));
+    $('curlOut').textContent = '# The signature is good for 5 minutes.\n' +
       'curl -sS -X POST ' + sq(url) + ' \\\n' + Object.keys(headers).map(function(k){ return '  -H ' + sq(k + ': ' + headers[k]) + ' \\\n'; }).join('') + '  --data-binary ' + sq(s.body);
   }); }
 
