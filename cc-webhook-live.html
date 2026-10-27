@@ -545,7 +545,7 @@ print(*send_ticket({
   function readTicket(){ return guarded('readVerdict', async function(){
     var q = readQuery(), tok = token();
     verdict('readVerdict', 'info', 'Getting the data for ticket ' + $('rbTicket').value.trim() + '...', '');
-    var url = baseUrl() + '/sw/api/transactions?' + q;
+    var url = baseUrl() + '/sw/api/transactions?' + q + '&includeEvents=1';
     var res = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
     var text = await res.text(), j = null;
     try { j = JSON.parse(text); } catch (_) {}
