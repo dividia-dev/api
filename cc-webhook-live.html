@@ -134,6 +134,7 @@
     </table>
     <div class="sub-h">How the signature works</div>
     <p class="note">The signing secret is like a password that only you and Dividia have. For each ticket, your webhook system takes three things, the <code>webhook-id</code>, the <code>webhook-timestamp</code> and the body, joins them with dots, and mixes them with the secret to make a code. It sends that code as <code>webhook-signature</code>. Dividia makes the same code with its copy of the secret. If the two match, the ticket is accepted; if not, it is refused (HTTP 401). The code is different for every ticket, so it can't be typed in once.</p>
+    <p class="note">The key is not the secret's text: take the part after <code>whsec_</code> and Base64-decode it; those bytes are the key. A Standard Webhooks library does this for you when you give it the whole secret.</p>
     <p class="note"><b>Dividia follows the Standard Webhooks format.</b> Its spec explains these headers and the signature in full (each link opens in a new tab):
       <a href="https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md#webhook-headers-sending-metadata-to-consumers" target="_blank" rel="noopener">the webhook headers</a> &middot;
       <a href="https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md#signature-scheme" target="_blank" rel="noopener">how the signature is made</a> &middot;
