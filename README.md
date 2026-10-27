@@ -48,14 +48,25 @@ https://dividia-dev.github.io/api/nvr-demo.html
 Best for remote NVR access and WebSocket H.264 streaming.
 
 **Option 2: Run Locally (HTTP)**
-```bash
-# Start local server
-python3 -m http.server 8080
-# or: npx serve -p 8080
 
-# Open http://localhost:8080/nvr-demo.html
-```
-Best for local network testing with IP addresses (192.168.x.x).
+Best for local network testing with IP addresses (192.168.x.x). The hosted HTTPS page can't reach a local IP: the browser blocks HTTP calls from an HTTPS page.
+
+1. Clone it and start a plain web server from the repo folder. Any static server works, and there's nothing to install or build:
+   ```bash
+   git clone https://github.com/dividia-dev/api.git
+   cd api
+   python3 -m http.server 8080        # or: npx serve -p 8080
+   ```
+2. Open `http://localhost:8080/nvr-demo.html` in Chrome or Edge 94+, or Safari 16.4+.
+3. Fill in the Connect form:
+   - **NVR address:** the NVR's IP, e.g. `192.168.1.100`.
+   - **Protocol:** HTTP. When the page is served over HTTP it locks this to HTTP.
+   - **Port:** the NVR's web port, `80` by default; use whatever port the NVR is on, e.g. `8080`. It has nothing to do with the 8080 your local server uses.
+   - **Username / password:** an NVR login.
+4. Press **Connect**. The page logs in with `POST http://<ip>:<port>/JSON/` (`auth.loginUser`), lists the cameras, and you choose a stream:
+   - **JPEG or MJPEG:** plain HTTP from the NVR; works in any browser.
+   - **WebSocket H.264:** `ws://<ip>:<port>/ws/cam<N>-pro<P>?sess=<session>`, decoded in the browser.
+   - The page's playback tab plays recorded video over the same session.
 
 ### NVR Demo Pages
 
