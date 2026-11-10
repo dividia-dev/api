@@ -33,7 +33,15 @@ const http = require('http');
 const crypto = require('crypto');
 
 const args = process.argv.slice(2);
-const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 && args[i + 1] ? args[i + 1] : fallback; };
+// An option's value: "--name value" or "--name=value". A value never starts with "--".
+const option = (name, fallback) => {
+  const joined = args.find((a) => a.startsWith(name + '='));
+  if (joined) return joined.slice(name.length + 1) || fallback;
+  const i = args.indexOf(name);
+  return i >= 0 && args[i + 1] !== undefined && !args[i + 1].startsWith('--') ? args[i + 1] : fallback;
+};
+// How long to wait for Dividia before treating the request as "no answer".
+const DIVIDIA_TIMEOUT_MS = 20000;
 const PORT = Number(option('--port', '8787'));
 const DIVIDIA = option('--dividia', 'https://api.cloud.dividia.net').replace(/\/+$/, '');
 
@@ -51,25 +59,31 @@ const CUSTOMERS = {
     // The customer's sites. location.id is the value agreed with Dividia for the site.
     sites: {
       'north-yard': {
-        locationId: option('--location', 'YOUR-LOCATION-ID'),
+        locationId: option('--location'),                    // required: the example will not start without it
         locationName: option('--location-name', 'North Yard'),
         // The site's scales. scaleId is the value agreed with Dividia for the scale.
         scales: {
-          'scale-1': { scaleId: option('--scale', 'YOUR-SCALE-ID'), name: 'Scale 1' },
+          'scale-1': { scaleId: option('--scale'), name: 'Scale 1' },   // required too
         },
       },
     },
   },
 };
 
-// Look a customer, site and scale up by YOUR keys. Throws a plain message when one is unknown.
+// An error whose message is ours and safe to show the browser. Any other error's message is NOT
+// shown: a library's message can quote the request it failed on, headers and secret included.
+class ShownError extends Error {}
+
+// Look a customer, site and scale up by YOUR keys. Only keys that are really in the records count
+// (never an inherited name such as "constructor").
+const own = (records, key) => (typeof key === 'string' && Object.hasOwn(records, key) ? records[key] : undefined);
 function lookUp(customerKey, siteKey, scaleKey) {
-  const customer = CUSTOMERS[customerKey];
-  if (!customer) throw new Error(`Unknown customer "${customerKey}"`);
-  const site = customer.sites[siteKey];
-  if (!site) throw new Error(`Unknown site "${siteKey}" for ${customer.name}`);
-  const scale = scaleKey === undefined ? undefined : site.scales[scaleKey];
-  if (scaleKey !== undefined && !scale) throw new Error(`Unknown scale "${scaleKey}" at ${site.locationName}`);
+  const customer = own(CUSTOMERS, customerKey);
+  if (!customer) throw new ShownError(`Unknown customer "${customerKey}"`);
+  const site = own(customer.sites, siteKey);
+  if (!site) throw new ShownError(`Unknown site "${siteKey}" for ${customer.name}`);
+  const scale = scaleKey === undefined ? undefined : own(site.scales, scaleKey);
+  if (scaleKey !== undefined && !scale) throw new ShownError(`Unknown scale "${scaleKey}" at ${site.locationName}`);
   return { customer, site, scale };
 }
 
@@ -98,6 +112,8 @@ async function sendTicket(customer, ticket) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...dividiaHeaders(customer) },
     body: JSON.stringify(ticket),
+    redirect: 'error',                                  // never follow a redirect: the headers go to Dividia only
+    signal: AbortSignal.timeout(DIVIDIA_TIMEOUT_MS),
   });
   return { status: response.status, body: await response.text() };
 }
@@ -113,7 +129,8 @@ async function sendTicketWithRetry(customer, ticket, trace) {
     try {
       last = await sendTicket(customer, ticket);
     } catch (error) {
-      last = { status: 0, body: 'No answer from Dividia: ' + error.message };
+      // Fixed text, never error.message: a failed request's message can quote its headers.
+      last = { status: 0, body: 'No answer from Dividia' };
     }
     const temporary = last.status === 0 || last.status === 429 || last.status >= 500;
     trace.push(`Dividia answered ${last.status || 'nothing'}${temporary && attempt < waits.length - 1 ? ' (temporary: sending the same ticket again)' : ''}`);
@@ -127,12 +144,19 @@ async function sendTicketWithRetry(customer, ticket, trace) {
 //   200 application/pdf     the PDF. It has no photos until the site has recorded the weighment;
 //                           ask again later for the complete PDF.
 //   200 {"matches": 0}      Dividia has no such ticket at that location.
+//   200 application/zip     the ticket number is on more than one transaction there: a ZIP of the PDFs.
+//   400                     the request is wrong; the message says what.
 //   401                     wrong Customer ID or secret.
 //   403                     the location is not this customer's.
 //   429                     too many requests; the Retry-After header says when to try again.
+//   500, or no answer       temporary. Ask again.
 async function getTicketPdf(customer, site, ticketNumber) {
   const query = new URLSearchParams({ locationId: site.locationId, ticket: String(ticketNumber) });
-  const response = await fetch(DIVIDIA + '/sw/api/tickets/pdf?' + query, { headers: dividiaHeaders(customer) });
+  const response = await fetch(DIVIDIA + '/sw/api/tickets/pdf?' + query, {
+    headers: dividiaHeaders(customer),
+    redirect: 'error',
+    signal: AbortSignal.timeout(DIVIDIA_TIMEOUT_MS),
+  });
   return {
     status: response.status,
     contentType: response.headers.get('content-type') || '',
@@ -144,7 +168,9 @@ async function getTicketPdf(customer, site, ticketNumber) {
 // PART 3  YOUR ENDPOINTS
 // What your own application calls. The customer's browser talks to THESE, never to Dividia, and it
 // sends your keys (customer, site, scale), never the Dividia values. Your real endpoints sit behind
-// your own sign-in; this example has none.
+// your own sign-in; this example has none, so it guards itself another way (see guard() below).
+// The trace it returns shows the Customer ID, location.id and scaleId so you can follow each step;
+// a real system has no reason to send those to a browser.
 // =====================================================================================================
 
 // A sample ticket, in the approved payload schema, for the example's "Send a ticket" button.
@@ -189,12 +215,33 @@ async function readJson(req) {
   return text ? JSON.parse(text) : {};
 }
 
+// This example has no sign-in, and it holds a real secret. So it answers only a browser that is
+// looking at THIS page on THIS computer:
+//   - the Host header must be localhost or 127.0.0.1 on this port (another name pointed at this
+//     computer is refused);
+//   - an Origin header, when the browser sends one, must be this page's own;
+//   - a POST must be application/json, which a page on another site cannot send here.
+// Your real endpoints use your own sign-in instead.
+function guard(req) {
+  const port = server.address().port;
+  const hosts = [`localhost:${port}`, `127.0.0.1:${port}`];
+  if (!hosts.includes(req.headers.host)) return 'This example answers only on localhost';
+  const origin = req.headers.origin;
+  if (origin !== undefined && !hosts.some((host) => origin === 'http://' + host)) return 'This example answers only its own page';
+  if (req.method === 'POST' && !/^application\/json\s*(;|$)/i.test(String(req.headers['content-type'] || ''))) return 'Send application/json';
+  return null;
+}
+
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost');
   try {
-    // The page.
+    const refused = guard(req);
+    if (refused) return sendJson(res, 403, { error: refused });
+    const url = new URL(req.url, 'http://localhost');
+
+    // The page. It may not be shown inside another site's page.
     if (req.method === 'GET' && url.pathname === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
+        'Content-Security-Policy': "frame-ancestors 'none'", 'X-Frame-Options': 'DENY' });
       return res.end(PAGE);
     }
 
@@ -231,9 +278,14 @@ const server = http.createServer(async (req, res) => {
       trace.push(`Your server looked up its records: location.id "${site.locationId}", and the Customer ID and secret for ${customer.name}`);
       const query = new URLSearchParams({ locationId: site.locationId, ticket: ticketNumber });
       trace.push(`Your server called Dividia:\n${shown('GET', DIVIDIA + '/sw/api/tickets/pdf?' + query, customer, false)}`);
-      const answer = await getTicketPdf(customer, site, ticketNumber);
+      let answer;
+      try {
+        answer = await getTicketPdf(customer, site, ticketNumber);
+      } catch (error) {
+        answer = { status: 0, contentType: '', bytes: Buffer.from('No answer from Dividia') };   // fixed text, never error.message
+      }
       const isPdf = answer.status === 200 && answer.contentType.startsWith('application/pdf');
-      trace.push(`Dividia answered ${answer.status} ${answer.contentType}${isPdf ? `, ${answer.bytes.length} bytes` : ''}`);
+      trace.push(answer.status ? `Dividia answered ${answer.status} ${answer.contentType}${isPdf ? `, ${answer.bytes.length} bytes` : ''}` : 'Dividia did not answer');
       trace.push(isPdf ? 'Your server served the PDF to the browser' : 'Your server told the browser there is no PDF');
       // The trace rides in a header so the body can be the PDF itself.
       const headers = { 'X-Example-Trace': encodeURIComponent(JSON.stringify(trace)), 'Cache-Control': 'no-store' };
@@ -242,12 +294,16 @@ const server = http.createServer(async (req, res) => {
         return res.end(answer.bytes);
       }
       res.writeHead(200, { ...headers, 'Content-Type': 'application/json; charset=utf-8' });
-      return res.end(JSON.stringify({ dividia: { status: answer.status, body: answer.bytes.toString('utf8').slice(0, 2000) } }));
+      // Only text is passed on as text; anything else (a ZIP, say) is named, not dumped.
+      const isText = /json|text/i.test(answer.contentType) || answer.status === 0;
+      return res.end(JSON.stringify({ dividia: { status: answer.status, contentType: answer.contentType,
+        body: isText ? answer.bytes.toString('utf8').slice(0, 2000) : `(${answer.bytes.length} bytes, not shown)` } }));
     }
 
     sendJson(res, 404, { error: 'Not found' });
   } catch (error) {
-    sendJson(res, 400, { error: error.message });
+    // Our own messages are shown; anything else is not (it could quote a request, secret included).
+    sendJson(res, 400, { error: error instanceof ShownError ? error.message : 'Bad request' });
   }
 });
 
@@ -394,10 +450,16 @@ const PAGE = `<!DOCTYPE html>
       }
       var result = await response.json();
       if (result.error) { show(trace, 'bad', result.error); return; }
-      var status = result.dividia.status;
-      show(trace, status === 200 ? 'warn' : 'bad',
-        status === 200 ? 'Dividia has no such ticket at that location.' : status === 401 ? 'Wrong Customer ID or secret. Check both values on your server.' : status === 403 ? 'That location is not this customer\\'s.' : status === 429 ? 'Too many requests. Try again shortly.' : 'HTTP ' + status,
-        'Dividia answered:\\nHTTP ' + status + '\\n' + result.dividia.body);
+      var status = result.dividia.status, noMatch = false;
+      try { noMatch = JSON.parse(result.dividia.body).matches === 0; } catch (e) {}
+      show(trace, status === 200 || status === 0 || status === 429 || status >= 500 ? 'warn' : 'bad',
+        status === 200 && noMatch ? 'Dividia has no such ticket at that location.'
+        : status === 200 ? 'Dividia answered with ' + (result.dividia.contentType || 'something that is not a PDF') + ', not one PDF (a ticket number on several transactions comes back as a ZIP).'
+        : status === 0 ? 'Dividia did not answer. Ask again.'
+        : status === 400 ? 'Dividia refused the request. The answer below says why.'
+        : status >= 500 ? 'Temporary (HTTP ' + status + '). Ask again.'
+        : status === 401 ? 'Wrong Customer ID or secret. Check both values on your server.' : status === 403 ? 'That location is not this customer\\'s.' : status === 429 ? 'Too many requests. Try again shortly.' : 'HTTP ' + status,
+        status === 0 ? null : 'Dividia answered:\\nHTTP ' + status + '\\n' + result.dividia.body);
     } catch (e) { show([], 'bad', 'Could not reach the example server: ' + e.message); }
     finally { busy(false); }
   });
@@ -413,14 +475,21 @@ const PAGE = `<!DOCTYPE html>
 
 // Start. The example listens on this computer only (127.0.0.1): it has no sign-in of its own.
 if (require.main === module) {
+  const HOW = `  export DIVIDIA_CUSTOMER_ID='the Customer ID Dividia gave you'\n  export DIVIDIA_SECRET='whsec_...'\n  node server.js --location <location.id> --scale <scaleId>`;
+  const stop = (problem) => { console.error(`${problem}\n\nRun it like this:\n${HOW}`); process.exit(1); };
   const missing = ['DIVIDIA_CUSTOMER_ID', 'DIVIDIA_SECRET'].filter((name) => !process.env[name]);
-  if (missing.length) {
-    console.error(`Set ${missing.join(' and ')} first:\n  export DIVIDIA_CUSTOMER_ID='the Customer ID Dividia gave you'\n  export DIVIDIA_SECRET='whsec_...'\nthen run:  node server.js`);
-    process.exit(1);
-  }
+  if (missing.length) stop(`${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} not set.`);
+  // The shapes Dividia issues. A value with a line break or a stray character is refused here,
+  // before it can reach a request (the values themselves are never printed).
+  if (!/^[\x21-\x7e]{1,100}$/.test(process.env.DIVIDIA_CUSTOMER_ID)) stop('DIVIDIA_CUSTOMER_ID is not a Customer ID: it has a space, a line break or another character that does not belong.');
+  if (!/^whsec_[A-Za-z0-9+/=]{1,200}$/.test(process.env.DIVIDIA_SECRET)) stop('DIVIDIA_SECRET is not a customer secret: it starts whsec_ and has no space or line break.');
+  // No placeholder is ever sent to Dividia: a ticket for a made-up site or scale is stored there and alerts Dividia.
+  if (!option('--location')) stop('--location <location.id> is required: the site\'s location.id, as agreed with Dividia.');
+  if (!option('--scale')) stop('--scale <scaleId> is required: the scale\'s scaleId, as agreed with Dividia.');
+  if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) stop('--port must be a port number.');
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Example server ready: http://localhost:${PORT}\nIt calls Dividia at ${DIVIDIA}\nStop it with Ctrl+C.`);
   });
 }
 
-module.exports = { CUSTOMERS, lookUp, dividiaHeaders, sendTicket, getTicketPdf, sampleTicket, shown, server };
+module.exports = { CUSTOMERS, lookUp, dividiaHeaders, sendTicket, getTicketPdf, sampleTicket, shown, guard, option, server };

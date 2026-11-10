@@ -70,9 +70,11 @@ request or response.
 
 ## Notes
 
-- The example listens on your own computer only (`127.0.0.1`) and has no sign-in. It is an example,
-  not something to deploy.
-- It sends a temporary failure (`429`, `5xx`, no answer) again three times. A real system keeps the
+- The example listens on your own computer only (`127.0.0.1`) and has no sign-in. It answers only
+  its own page on `localhost`, refuses a page on any other site, and never follows a redirect with
+  your headers. It is an example, not something to deploy: your real endpoints use your own sign-in.
+- It will not start without `--location` and `--scale`, so a made-up value is never sent to Dividia.
+- On a temporary failure (`429`, `5xx`, no answer) it tries up to three times in all. A real system keeps the
   ticket in a queue and retries for longer. The same `uniqueId` never creates a second ticket.
 - The secret does not expire. Dividia can replace it (the old one works for 24 more hours) or stop
   it immediately.
