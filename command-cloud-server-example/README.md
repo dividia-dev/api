@@ -28,6 +28,16 @@ export DIVIDIA_SECRET='whsec_...'     # the customer secret Dividia gave you
 node server.js --location '<location.id>' --location-name '<location.name>' --scale '<scaleId>'
 ```
 
+On Windows (PowerShell), set the two values this way, then run the same `node` line:
+
+```powershell
+$env:DIVIDIA_CUSTOMER_ID = 'the Customer ID Dividia gave you'
+$env:DIVIDIA_SECRET = 'whsec_...'
+node server.js --location '<location.id>' --location-name '<location.name>' --scale '<scaleId>'
+```
+
+It will not start until all five values are given.
+
 The values are the ones Dividia gave you for the customer and its site. None of them is written in
 the file.
 
@@ -97,7 +107,7 @@ Dividia's answers and what to do with each are in the comments above `sendTicket
 
 Dividia names the file in the `Content-Disposition` header of its answer:
 `<Dividia site number>-<location.id>-ticket_<ticket number>.pdf`, for example
-`1234-PLANT-7-ticket_70421.pdf`. The example passes that name on to the browser. You can keep
+`1234-PLANT-7-ticket_70421.pdf` (characters other than letters, digits and `-` become `-`). The example passes that name on to the browser. You can keep
 it or give the file your own name; if your server sends no name, the browser makes one up.
 
 ## Check it yourself
@@ -110,8 +120,8 @@ nor the secret is in any request or response.
 
 | What you see | Cause | What to do |
 |---|---|---|
-| The page shows **No answer from Dividia** | Your server cannot reach Dividia. | Allow outbound HTTPS (port 443) from your server to `api.cloud.dividia.net`. Check with `curl -i https://api.cloud.dividia.net/sw/api/tickets/pdf`: a `401` means the network path is good. |
-| An error about `fetch`, `AbortSignal.timeout` or `Object.hasOwn` when starting or sending | Node.js is older than 18. | Run `node --version` and use Node.js 18 or later. |
+| The page says Dividia did not answer (**No answer from Dividia**) | Your server cannot reach Dividia. | Allow outbound HTTPS (port 443) from your server to `api.cloud.dividia.net`. Check with `curl -i https://api.cloud.dividia.net/sw/api/tickets/pdf`: a `401` means the network path is good. |
+| It stops at once with **Node.js 18 or later is required** | Node.js is older than 18. | Install Node.js 18 or later. |
 | **429**, "Too many requests" | A rate limit. Sending tickets: 6,000 per 15 minutes from one server address. PDFs: 60 per minute, one at a time. | Wait for the time in the `Retry-After` header, then send the same request again. |
 | **401** | The Customer ID or the secret is wrong. | Check both values on your server. Copy them with no spaces or line breaks. |
 | **403** on the PDF | The `location.id` is not one of this customer's sites. | Check the `location.id`. |
@@ -125,7 +135,7 @@ made to Dividia straight from a web page is blocked by the browser, by design.
 - The example listens on your own computer only (`127.0.0.1`) and has no sign-in. It answers only
   its own page on `localhost`, refuses a page on any other site, and never follows a redirect with
   your headers. It is an example, not something to deploy.
-- It will not start without `--location` and `--scale`, so a made-up value is never sent to Dividia.
+- It will not start without `--location`, `--location-name` and `--scale`, so a made-up value is never sent to Dividia.
 - On a temporary failure (`429`, `5xx`, no answer) it tries up to three times in all. A real system keeps the
   ticket in a queue and retries for longer. The same `uniqueId` never creates a second ticket.
 - The secret does not expire. Dividia can replace it (the old one works for 24 more hours) or stop

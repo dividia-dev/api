@@ -15,12 +15,12 @@
 // Run:
 //   export DIVIDIA_CUSTOMER_ID='the Customer ID Dividia gave you'
 //   export DIVIDIA_SECRET='whsec_...'          (the customer secret Dividia gave you)
-//   node server.js --location <location.id> --scale <scaleId>
+//   node server.js --location <location.id> --location-name "<location.name>" --scale <scaleId>
 // then open http://localhost:8787
 //
 // Nothing about a real customer is written in this file. The Customer ID and the secret come from
-// the two variables above; the site's location.id and the scale's scaleId come from the options:
-//   node server.js --location <location.id> --scale <scaleId> [--location-name "<site name>"]
+// the two variables above; the site's location.id and name and the scale's scaleId come from the
+// three options. It will not start without all five.
 //
 // Options:  --location <location.id>                 the site's location.id, as agreed with Dividia
 //           --scale <scaleId>                        the scale's scaleId, as agreed with Dividia
@@ -57,13 +57,15 @@ const SETUP = {
   dividiaSecret: process.env.DIVIDIA_SECRET,            // sent as Authorization: Bearer <secret>. Never leaves this server.
   // The site and the scale this example sends tickets for, fixed when the example is started.
   locationId: option('--location'),                     // sent in the body as location.id. Picks the site.
-  locationName: option('--location-name', 'North Yard'),// sent in the body as location.name.
+  locationName: option('--location-name'),              // sent in the body as location.name.
   scaleId: option('--scale'),                           // sent in the body as scaleId. Picks the scale.
 };
 
-// An error whose message is ours and safe to show the browser. Any other error's message is NOT
-// shown: a library's message can quote the request it failed on, headers and secret included.
-class ShownError extends Error {}
+// Dividia's answer, as text for the page. If an answer ever quoted the request back, the two header
+// values would be in it, so they are taken out before anything goes to the browser.
+function forPage(text) {
+  return String(text).split(SETUP.dividiaSecret).join('[hidden]').split(SETUP.dividiaCustomerId).join('[hidden]').slice(0, 2000);
+}
 
 // =====================================================================================================
 // PART 2  YOUR TWO CALLS TO DIVIDIA
@@ -117,7 +119,7 @@ async function sendTicketWithRetry(setup, ticket, trace) {
   return last;
 }
 
-// Get one ticket's PDF. Returns { status, contentType, bytes }.
+// Get one ticket's PDF. Returns { status, contentType, fileName, bytes }.
 // Dividia's answers:
 //   200 application/pdf     the PDF. It has no photos until the site has recorded the weighment;
 //                           ask again later for the complete PDF.
@@ -198,18 +200,13 @@ function sendJson(res, status, value) {
   res.end(text);
 }
 
-async function readJson(req) {
-  let text = '';
-  for await (const chunk of req) { text += chunk; if (text.length > 100000) throw new Error('Request too large'); }
-  return text ? JSON.parse(text) : {};
-}
-
 // This example has no sign-in, and it holds a real secret. So it answers only a browser that is
 // looking at THIS page on THIS computer:
 //   - the Host header must be localhost or 127.0.0.1 on this port (another name pointed at this
 //     computer is refused);
 //   - an Origin header, when the browser sends one, must be this page's own;
-//   - a POST must be application/json, which a page on another site cannot send here.
+//   - a POST must be application/json, which a page on another site cannot send here;
+//   - a request the browser marks as coming from another site (Sec-Fetch-Site) is refused.
 // Your real endpoints use your own sign-in instead.
 function guard(req) {
   const port = server.address().port;
@@ -217,6 +214,8 @@ function guard(req) {
   if (!hosts.includes(req.headers.host)) return 'This example answers only on localhost';
   const origin = req.headers.origin;
   if (origin !== undefined && !hosts.some((host) => origin === 'http://' + host)) return 'This example answers only its own page';
+  const from = req.headers['sec-fetch-site'];
+  if (from !== undefined && from !== 'same-origin' && from !== 'none') return 'This example answers only its own page';
   if (req.method === 'POST' && !/^application\/json\s*(;|$)/i.test(String(req.headers['content-type'] || ''))) return 'Send application/json';
   return null;
 }
@@ -237,7 +236,7 @@ const server = http.createServer(async (req, res) => {
     // What the page shows as fixed values: the site and scale this server was started with.
     // Never the Customer ID or the secret.
     if (req.method === 'GET' && url.pathname === '/tester/setup') {
-      return sendJson(res, 200, { dividiaUrl: DIVIDIA, locationId: SETUP.locationId, locationName: SETUP.locationName, scaleId: SETUP.scaleId });
+      return sendJson(res, 200, { dividiaUrl: DIVIDIA, port: PORT, locationId: SETUP.locationId, locationName: SETUP.locationName, scaleId: SETUP.scaleId });
     }
 
     // "Send a ticket": the page only says "send one". Every value is the server's.
@@ -249,7 +248,7 @@ const server = http.createServer(async (req, res) => {
       trace.push(`Your server called Dividia:\n${shown('POST', DIVIDIA + '/sw/webhooks/cc', true)}`);
       const answer = await sendTicketWithRetry(SETUP, ticket, trace);
       trace.push('Your server answered the page');
-      return sendJson(res, 200, { trace, ticket, dividia: { status: answer.status, body: answer.body } });
+      return sendJson(res, 200, { trace, ticket, dividia: { status: answer.status, body: forPage(answer.body) } });
     }
 
     // "Get a ticket's PDF": the page sends the ticket number only.
@@ -268,7 +267,7 @@ const server = http.createServer(async (req, res) => {
       }
       const isPdf = answer.status === 200 && answer.contentType.startsWith('application/pdf');
       trace.push(answer.status ? `Dividia answered ${answer.status} ${answer.contentType}${isPdf ? `, ${answer.bytes.length} bytes` : ''}` : 'Dividia did not answer');
-      trace.push(isPdf ? `Your server served the PDF to the page, with the file name Dividia gave it: ${answer.fileName}` : 'Your server told the page there is no PDF');
+      trace.push(isPdf ? `Your server served the PDF to the page, with the file name ${answer.fileName}` : 'Your server told the page there is no PDF');
       // The trace rides in a header so the body can be the PDF itself.
       const headers = { 'X-Example-Trace': encodeURIComponent(JSON.stringify(trace)), 'Cache-Control': 'no-store' };
       if (isPdf) {
@@ -280,17 +279,17 @@ const server = http.createServer(async (req, res) => {
       // Only text is passed on as text; anything else (a ZIP, say) is named, not dumped.
       const isText = /json|text/i.test(answer.contentType) || answer.status === 0;
       return res.end(JSON.stringify({ dividia: { status: answer.status, contentType: answer.contentType,
-        body: isText ? answer.bytes.toString('utf8').slice(0, 2000) : `(${answer.bytes.length} bytes, not shown)` } }));
+        body: isText ? forPage(answer.bytes.toString('utf8')) : `(${answer.bytes.length} bytes, not shown)` } }));
     }
 
     sendJson(res, 404, { error: 'Not found' });
   } catch (error) {
-    // Our own messages are shown; anything else is not (it could quote a request, secret included).
-    sendJson(res, 400, { error: error instanceof ShownError ? error.message : 'Bad request' });
+    // No error's own message is shown: it could quote a request, secret included.
+    sendJson(res, 400, { error: 'Bad request' });
   }
 });
 
-// The example page. It knows YOUR keys and nothing else: open the browser's network view and look.
+// The tester page. It holds no value of its own: open the browser's network view and look.
 const PAGE = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -406,13 +405,12 @@ const PAGE = `<!DOCTYPE html>
     });
   }
   function showRequests() {
-    var c = setup, s = setup, k = setup;
     if (!setup) return;
     var headers = [
       [['Authorization: Bearer '], ['whsec_...', 'rec'], ['   the customer secret', 'why']],
       [['Dividia-Customer-Id: '], ['<Customer ID>', 'rec'], ['   the Customer ID', 'why']]
     ];
-    write($('requestTicket'), [[['POST ' + c.dividiaUrl + '/sw/webhooks/cc']]].concat(headers, [
+    write($('requestTicket'), [[['POST ' + setup.dividiaUrl + '/sw/webhooks/cc']]].concat(headers, [
       [['Content-Type: application/json']],
       [['']],
       [['{']],
@@ -422,17 +420,17 @@ const PAGE = `<!DOCTYPE html>
       [['  "vehicle": {...}, "carrier": {...}, "customer": {...},']],
       [['  "project": {...}, "product": {...}, "orderId": "...",']],
       [['  '], ['"location": {', 'tic']],
-      [['    '], ['"id": ' + JSON.stringify(s.locationId) + ',', 'tic'], ['   picks the site', 'why']],
-      [['    '], ['"name": ' + JSON.stringify(s.locationName), 'tic']],
+      [['    '], ['"id": ' + JSON.stringify(setup.locationId) + ',', 'tic'], ['   picks the site', 'why']],
+      [['    '], ['"name": ' + JSON.stringify(setup.locationName), 'tic']],
       [['  '], ['},', 'tic']],
-      [['  '], ['"scaleId": ' + JSON.stringify(k.scaleId), 'tic'], ['   picks the scale', 'why']],
+      [['  '], ['"scaleId": ' + JSON.stringify(setup.scaleId), 'tic'], ['   picks the scale', 'why']],
       [['}']],
       [['']],
       [['The full body appears below after you send a ticket.', 'why']]
     ]));
     write($('requestPdf'), [
-      [['GET ' + c.dividiaUrl + '/sw/api/tickets/pdf']],
-      [['    ?locationId='], [s.locationId, 'tic']],
+      [['GET ' + setup.dividiaUrl + '/sw/api/tickets/pdf']],
+      [['    ?locationId='], [setup.locationId, 'tic']],
       [['    &ticket='], ['<ticket number>', 'tic']]
     ].concat(headers, [
       [['']],
@@ -517,7 +515,8 @@ const PAGE = `<!DOCTYPE html>
     var quote = function (value) { return "'" + String(value).replace(/'/g, "'\\\\''") + "'"; };
     $('startedWith').textContent = "export DIVIDIA_CUSTOMER_ID='...'     the Customer ID (not shown)\\n"
       + "export DIVIDIA_SECRET='whsec_...'    the customer secret (not shown)\\n"
-      + 'node server.js --location ' + quote(v.locationId) + ' --location-name ' + quote(v.locationName) + ' --scale ' + quote(v.scaleId);
+      + 'node server.js --location ' + quote(v.locationId) + ' --location-name ' + quote(v.locationName) + ' --scale ' + quote(v.scaleId)
+      + (v.port === 8787 ? '' : ' --port ' + v.port) + (v.dividiaUrl === 'https://api.cloud.dividia.net' ? '' : ' --dividia ' + quote(v.dividiaUrl));
     $('vLocationId').textContent = v.locationId; $('vLocationName').textContent = v.locationName; $('vScaleId').textContent = v.scaleId;
     showRequests();
   });
@@ -529,8 +528,9 @@ const PAGE = `<!DOCTYPE html>
 
 // Start. The example listens on this computer only (127.0.0.1): it has no sign-in of its own.
 if (require.main === module) {
-  const HOW = `  export DIVIDIA_CUSTOMER_ID='the Customer ID Dividia gave you'\n  export DIVIDIA_SECRET='whsec_...'\n  node server.js --location <location.id> --scale <scaleId>`;
+  const HOW = `  export DIVIDIA_CUSTOMER_ID='the Customer ID Dividia gave you'\n  export DIVIDIA_SECRET='whsec_...'\n  node server.js --location <location.id> --location-name "<location.name>" --scale <scaleId>`;
   const stop = (problem) => { console.error(`${problem}\n\nRun it like this:\n${HOW}`); process.exit(1); };
+  if (typeof fetch !== 'function' || typeof AbortSignal.timeout !== 'function') stop(`Node.js 18 or later is required. This is ${process.version}.`);
   const missing = ['DIVIDIA_CUSTOMER_ID', 'DIVIDIA_SECRET'].filter((name) => !process.env[name]);
   if (missing.length) stop(`${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} not set.`);
   // The shapes Dividia issues. A value with a line break or a stray character is refused here,
@@ -539,7 +539,10 @@ if (require.main === module) {
   if (!/^whsec_[A-Za-z0-9+/=]{1,200}$/.test(process.env.DIVIDIA_SECRET)) stop('DIVIDIA_SECRET is not a customer secret: it starts whsec_ and has no space or line break.');
   // No placeholder is ever sent to Dividia: a ticket for a made-up site or scale is stored there and alerts Dividia.
   if (!option('--location')) stop('--location <location.id> is required: the site\'s location.id, as agreed with Dividia.');
+  if (!option('--location-name')) stop('--location-name "<location.name>" is required: the site\'s name, sent as location.name.');
   if (!option('--scale')) stop('--scale <scaleId> is required: the scale\'s scaleId, as agreed with Dividia.');
+  // The secret is sent to this address, so it must be https (a copy of Dividia on this computer excepted).
+  if (!/^https:\/\/[^/]+/.test(DIVIDIA) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(DIVIDIA)) stop('--dividia must be an https address.');
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) stop('--port must be a port number.');
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Example server ready: http://localhost:${PORT}\nIt calls Dividia at ${DIVIDIA}\nStop it with Ctrl+C.`);
