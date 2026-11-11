@@ -165,20 +165,32 @@ function fileNameOf(contentDisposition, ticketNumber) {
 // never shows the Customer ID or the secret: those two stay on the server.
 // =====================================================================================================
 
-// A sample ticket, in the approved payload schema, for the example's "Send a ticket" button.
+// A sample ticket, in the approved payload schema, for the tester's "Send a ticket" button.
+// The truck, carrier, customer, project and product change from one send to the next, so tickets
+// are easy to tell apart. The names are made up.
+const SAMPLE = {
+  trucks: ['Truck 218', 'Truck 305', 'Truck 412', 'Truck 77', 'Truck 560', 'Truck 129'],
+  carriers: ['Example Hauling', 'Sample Trucking', 'Demo Freight', 'Test Transport'],
+  customers: ['Example Customer', 'Sample Builders', 'Demo Paving', 'Test Concrete'],
+  projects: ['Example Project', 'Sample Road Job', 'Demo Site Work', 'Test Foundation'],
+  products: ['Fill dirt', 'Crushed stone', 'Concrete sand', 'Road base', 'Washed gravel'],
+};
 function sampleTicket(setup) {
+  const pick = (list) => { const at = Math.floor(Math.random() * list.length); return { at, name: list[at] }; };
+  const truck = pick(SAMPLE.trucks), carrier = pick(SAMPLE.carriers), customer = pick(SAMPLE.customers);
+  const project = pick(SAMPLE.projects), product = pick(SAMPLE.products);
   const gross = 70000 + Math.floor(Math.random() * 9000), tare = 26000 + Math.floor(Math.random() * 3000);
   const pound = (value) => ({ value, uom: 'lb' });
   return {
     uniqueId: crypto.randomUUID(),                                   // new for every ticket
     ticketNumber: String(100000000 + Math.floor(Math.random() * 899999999)),
     ticketDateTime: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    vehicle: { id: 'VEH-7908', name: 'Truck 218', autoId: 'AUTO-218', gross: pound(gross), tare: pound(tare), net: pound(gross - tare), maxGVW: pound(80000) },
-    carrier: { id: 'CAR-1', name: 'Example Hauling' },
-    customer: { id: 'CUS-1', name: 'Example Customer' },
-    project: { id: 'PRJ-1', name: 'Example Project' },
-    product: { id: 'PRD-766', name: 'Fill dirt', quantity: pound(gross - tare) },
-    orderId: 'ORD-1',
+    vehicle: { id: 'VEH-' + (truck.at + 1), name: truck.name, autoId: 'AUTO-' + (truck.at + 1), gross: pound(gross), tare: pound(tare), net: pound(gross - tare), maxGVW: pound(80000) },
+    carrier: { id: 'CAR-' + (carrier.at + 1), name: carrier.name },
+    customer: { id: 'CUS-' + (customer.at + 1), name: customer.name },
+    project: { id: 'PRJ-' + (project.at + 1), name: project.name },
+    product: { id: 'PRD-' + (product.at + 1), name: product.name, quantity: pound(gross - tare) },
+    orderId: 'ORD-' + (1000 + Math.floor(Math.random() * 9000)),
     location: { id: setup.locationId, name: setup.locationName },      // picks the site at Dividia
     scaleId: setup.scaleId,                                          // picks the scale at Dividia
   };
