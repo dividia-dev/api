@@ -1,7 +1,14 @@
 # Command Cloud to Dividia: an example of your server
 
 A working example of the Command Cloud side of the integration: sending a ticket to Dividia and
-getting its PDF back. One file, `server.js`. Node.js 18 or later. No packages.
+getting its PDF back. One file, `server.js`. No packages.
+
+**Node.js 18 or later is needed only to run this tester.** Your backend can be in any language: the
+two calls are plain HTTPS requests.
+
+**If you only want the request details,** read `Dividia-Command-Cloud-integration-reference.pdf` in
+this folder (the same content is in `reference.html`). It has the headers, the body, every answer
+and what to do with it. You do not need to run the tester to use it.
 
 **The page is only a tester.** Its buttons stand in for something happening in your system, such as
 a ticket being printed. In your real system no browser takes part: the ticket and your records are
@@ -135,6 +142,8 @@ made to Dividia straight from a web page is blocked by the browser, by design.
 - The example listens on your own computer only (`127.0.0.1`) and has no sign-in. It answers only
   its own page on `localhost`, refuses a page on any other site, and never follows a redirect with
   your headers. It is an example, not something to deploy.
+- Two more options: `--port <port>` (default 8787) and `--dividia <address>` (Dividia's address; only
+  Dividia changes this).
 - It will not start without `--location`, `--location-name` and `--scale`, so a made-up value is never sent to Dividia.
 - On a temporary failure (`429`, `5xx`, no answer) it tries up to three times in all. A real system keeps the
   ticket in a queue and retries for longer. The same `uniqueId` never creates a second ticket.

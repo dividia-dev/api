@@ -10,7 +10,8 @@
 //   PART 2  Your two calls    sendTicket() and getTicketPdf(): the only code that talks to Dividia
 //   PART 3  The tester        the page's two buttons call these; in your system your own code does
 //
-// Node.js 18 or later. No packages.
+// Node.js 18 or later, to run this tester. No packages. Your own backend can be in any language:
+// the two calls are plain HTTPS requests.
 //
 // Run:
 //   export DIVIDIA_CUSTOMER_ID='the Customer ID Dividia gave you'
@@ -22,9 +23,9 @@
 // the two variables above; the site's location.id and name and the scale's scaleId come from the
 // three options. It will not start without all five.
 //
-// Options:  --location <location.id>                 the site's location.id, as agreed with Dividia
-//           --scale <scaleId>                        the scale's scaleId, as agreed with Dividia
-//           --location-name "<name>"                 the site's name, for display
+// Options:  --location <location.id>                 required: the site's location.id, as agreed with Dividia
+//           --location-name "<name>"                 required: the site's name, sent as location.name
+//           --scale <scaleId>                        required: the scale's scaleId, as agreed with Dividia
 //           --port 8787                              the port this example listens on
 //           --dividia https://api.cloud.dividia.net  Dividia's address (only Dividia changes this)
 'use strict';
@@ -63,8 +64,8 @@ const SETUP = {
 
 // Dividia's answer, as text for the page. If an answer ever quoted the request back, the two header
 // values would be in it, so they are taken out before anything goes to the browser.
-function forPage(text) {
-  return String(text).split(SETUP.dividiaSecret).join('[hidden]').split(SETUP.dividiaCustomerId).join('[hidden]').slice(0, 2000);
+function forPage(text, most = 2000) {
+  return String(text).split(SETUP.dividiaSecret).join('[hidden]').split(SETUP.dividiaCustomerId).join('[hidden]').slice(0, most);
 }
 
 // =====================================================================================================
@@ -139,7 +140,7 @@ async function getTicketPdf(setup, ticketNumber) {
   });
   return {
     status: response.status,
-    contentType: response.headers.get('content-type') || '',
+    contentType: forPage(response.headers.get('content-type') || ''),
     fileName: fileNameOf(response.headers.get('content-disposition'), ticketNumber),
     bytes: Buffer.from(await response.arrayBuffer()),
   };
@@ -149,7 +150,7 @@ async function getTicketPdf(setup, ticketNumber) {
 // Pass that name on, or give the file your own name. Without a name the browser makes one up.
 // Only plain file-name characters are kept, so the name is safe to put in a header of your own.
 function fileNameOf(contentDisposition, ticketNumber) {
-  const match = /filename="([^"]+)"/i.exec(contentDisposition || '');
+  const match = /filename="([^"]+)"/i.exec(forPage(contentDisposition || ''));
   const name = (match ? match[1] : '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
   return /\.pdf$/i.test(name) ? name : `ticket_${String(ticketNumber).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60)}.pdf`;
 }
@@ -206,7 +207,8 @@ function sendJson(res, status, value) {
 //     computer is refused);
 //   - an Origin header, when the browser sends one, must be this page's own;
 //   - a POST must be application/json, which a page on another site cannot send here;
-//   - a request the browser marks as coming from another site (Sec-Fetch-Site) is refused.
+//   - a request the browser marks as coming from another site (Sec-Fetch-Site) is refused, except
+//     opening the page itself, which holds no value.
 // Your real endpoints use your own sign-in instead.
 function guard(req) {
   const port = server.address().port;
@@ -215,7 +217,9 @@ function guard(req) {
   const origin = req.headers.origin;
   if (origin !== undefined && !hosts.some((host) => origin === 'http://' + host)) return 'This example answers only its own page';
   const from = req.headers['sec-fetch-site'];
-  if (from !== undefined && from !== 'same-origin' && from !== 'none') return 'This example answers only its own page';
+  // The page itself may be opened from a link anywhere: it holds no value. Everything under /tester/ may not.
+  const isPage = req.method === 'GET' && String(req.url).split('?')[0] === '/';
+  if (from !== undefined && from !== 'same-origin' && from !== 'none' && !isPage) return 'This example answers only its own page';
   if (req.method === 'POST' && !/^application\/json\s*(;|$)/i.test(String(req.headers['content-type'] || ''))) return 'Send application/json';
   return null;
 }
@@ -248,7 +252,7 @@ const server = http.createServer(async (req, res) => {
       trace.push(`Your server called Dividia:\n${shown('POST', DIVIDIA + '/sw/webhooks/cc', true)}`);
       const answer = await sendTicketWithRetry(SETUP, ticket, trace);
       trace.push('Your server answered the page');
-      return sendJson(res, 200, { trace, ticket, dividia: { status: answer.status, body: forPage(answer.body) } });
+      return sendJson(res, 200, { trace, ticket, dividia: { status: answer.status, body: forPage(answer.body, 20000) } });   // whole, so the page can read its JSON
     }
 
     // "Get a ticket's PDF": the page sends the ticket number only.
@@ -344,7 +348,7 @@ const PAGE = `<!DOCTYPE html>
 
   <div class="card">
     <h2>1. The values, in <code>server.js</code></h2>
-    <p class="note">You set these when you started <code>server.js</code>. The page cannot change them. This is how it was started:</p>
+    <p class="note">You set these when you started <code>server.js</code>. The page cannot change them. This is how it was started (shown for a Mac or Linux shell; on Windows see <code>README.md</code>):</p>
     <pre id="startedWith"></pre>
     <p class="note">To use other values, stop <code>server.js</code> (Ctrl+C in its terminal) and start it again. Setting it up is described in <code>README.md</code>, in the same folder as <code>server.js</code>.</p>
     <table class="fixed">
@@ -542,7 +546,7 @@ if (require.main === module) {
   if (!option('--location-name')) stop('--location-name "<location.name>" is required: the site\'s name, sent as location.name.');
   if (!option('--scale')) stop('--scale <scaleId> is required: the scale\'s scaleId, as agreed with Dividia.');
   // The secret is sent to this address, so it must be https (a copy of Dividia on this computer excepted).
-  if (!/^https:\/\/[^/]+/.test(DIVIDIA) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(DIVIDIA)) stop('--dividia must be an https address.');
+  if (!/^https:\/\/[^/@]+(\/|$)/.test(DIVIDIA) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(DIVIDIA)) stop('--dividia must be an https address.');
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) stop('--port must be a port number.');
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Example server ready: http://localhost:${PORT}\nIt calls Dividia at ${DIVIDIA}\nStop it with Ctrl+C.`);

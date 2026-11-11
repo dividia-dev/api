@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Command Cloud to Dividia: integration reference</title>
+<style>
+  @page { size: letter; margin: 0.55in; }
+  body { font: 13px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1c2430; margin: 0 auto; max-width: 900px; padding: 20px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 20px 0 6px; padding-top: 10px; border-top: 2px solid #0b5cad; }
+  h3 { font-size: 13px; margin: 12px 0 4px; color: #566173; }
+  p { margin: 6px 0; }
+  .sub { color: #566173; }
+  .rule { background: #e8f1fb; border: 2px solid #0b5cad; border-radius: 8px; padding: 8px 14px; margin: 10px 0; }
+  .rule ol { margin: 4px 0 0; padding-left: 20px; } .rule b { color: #0b5cad; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+  th { text-align: left; font-size: 12px; color: #566173; padding: 5px 12px 5px 0; border-bottom: 1px solid #c5ccd6; }
+  td { padding: 5px 12px 5px 0; border-bottom: 1px solid #e6eaf0; vertical-align: top; }
+  code, pre { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: #eef1f5; padding: 1px 4px; border-radius: 4px; }
+  pre { background: #0f1b2b; color: #e6edf5; padding: 10px 12px; border-radius: 8px; margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre .rec { color: #8fe0a8; font-weight: 600; } pre .tic { color: #8cc4ff; font-weight: 600; } pre .why { color: #9aa7b8; }
+  .rec { color: #1d6b3a; font-weight: 600; } .tic { color: #0b5cad; font-weight: 600; }
+  h2, table, pre, .rule { break-inside: avoid; }
+  @media print { body { padding: 0; } pre, .rule { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<h1>Command Cloud to Dividia: integration reference</h1>
+<p class="sub">Everything your backend needs to send a ticket to Dividia and get its PDF back. You do not need to run the tester (<code>server.js</code>) to use this; the tester is the same two requests, working. <b>Any language:</b> these are plain HTTPS requests. Node.js is needed only to run the tester, not for what you build.</p>
+
+<div class="rule">
+  <ol>
+    <li><b>Dividia gives Command two values for each customer:</b> a Customer ID and a customer secret, when the customer is set up in ScaleWatcher Cloud. The customer does not get them.</li>
+    <li><b>You store them on your servers</b> before that customer's first ticket.</li>
+    <li><b>Your servers make every call to Dividia.</b> No browser and no customer computer calls Dividia.</li>
+  </ol>
+</div>
+
+<h2>1. The values</h2>
+<table>
+  <tr><th>Value</th><th>Sent to Dividia as</th><th>Comes from</th><th>What it does</th></tr>
+  <tr><td>Customer ID</td><td class="rec">header <code>Dividia-Customer-Id</code></td><td>your record of the customer</td><td>Says which customer the request is for.</td></tr>
+  <tr><td>Customer secret</td><td class="rec">header <code>Authorization: Bearer</code></td><td>your record of the customer</td><td>Proves the request is from Command. Send the whole value, including <code>whsec_</code>.</td></tr>
+  <tr><td>Site id</td><td class="tic">body <code>location.id</code></td><td>the ticket</td><td>Picks the site at Dividia.</td></tr>
+  <tr><td>Site name</td><td class="tic">body <code>location.name</code></td><td>the ticket</td><td>For display. Does not route.</td></tr>
+  <tr><td>Scale id</td><td class="tic">body <code>scaleId</code></td><td>the ticket</td><td>Picks the scale at that site.</td></tr>
+</table>
+<p>The secret does not expire. Dividia can replace it (the old one works for 24 more hours) or stop it immediately.</p>
+
+<h2>2. Send a ticket</h2>
+<pre>POST https://api.cloud.dividia.net/sw/webhooks/cc
+Authorization: Bearer <span class="rec">&lt;customer secret&gt;</span>
+Dividia-Customer-Id: <span class="rec">&lt;Customer ID&gt;</span>
+Content-Type: application/json
+
+{
+  "uniqueId": "8f1c0f0a-5b0e-4a57-9a55-0c1d2e3f4a5b",   <span class="why">required. New for every ticket. The same value never creates a second ticket.</span>
+  "ticketNumber": "70421",                             <span class="why">required.</span>
+  "ticketDateTime": "2026-11-11T15:18:42Z",
+  "vehicle": {
+    "id": "VEH-7908", "name": "Truck 218", "autoId": "AUTO-218",
+    "gross": { "value": 74250, "uom": "lb" }, "tare": { "value": 27100, "uom": "lb" },
+    "net": { "value": 47150, "uom": "lb" }, "maxGVW": { "value": 80000, "uom": "lb" }
+  },
+  "carrier":  { "id": "CAR-1", "name": "Example Hauling" },
+  "customer": { "id": "CUS-1", "name": "Example Customer" },
+  "project":  { "id": "PRJ-1", "name": "Example Project" },
+  "product":  { "id": "PRD-766", "name": "Fill dirt", "quantity": { "value": 47150, "uom": "lb" } },
+  "orderId": "ORD-1",
+  <span class="tic">"location": { "id": "&lt;location.id&gt;", "name": "&lt;location.name&gt;" }</span>,   <span class="why">picks the site</span>
+  <span class="tic">"scaleId": "&lt;scaleId&gt;"</span>                                       <span class="why">picks the scale</span>
+}</pre>
+<h3>Dividia's answer, and what to do</h3>
+<table>
+  <tr><th>Answer</th><th>Meaning</th><th>What to do</th></tr>
+  <tr><td><code>200 {"status":"delivered"}</code></td><td>Dividia has the ticket and sent it to the site.</td><td>Done.</td></tr>
+  <tr><td><code>200 {"status":"fallback"}</code></td><td>Dividia has the ticket. The site or scale was not reached just now; <code>reason</code> says why.</td><td>Done.</td></tr>
+  <tr><td><code>200 {"status":"duplicate"}</code></td><td>Dividia already had this <code>uniqueId</code>.</td><td>Done.</td></tr>
+  <tr><td><code>200 {"status":"failed"}</code></td><td>The <code>location.id</code> is not set up at Dividia.</td><td>Do not resend. Check the <code>location.id</code>.</td></tr>
+  <tr><td><code>400</code></td><td>The body is wrong. The message names the field.</td><td>Fix it, then send.</td></tr>
+  <tr><td><code>401</code></td><td>Wrong Customer ID or secret.</td><td>Stop and check both values.</td></tr>
+  <tr><td><code>429</code>, <code>500</code>, <code>503</code>, no answer</td><td>Temporary.</td><td>Send the same ticket again, with the same <code>uniqueId</code>. Keep it in a queue until it is accepted.</td></tr>
+</table>
+
+<h2>3. Get a ticket's PDF</h2>
+<pre>GET https://api.cloud.dividia.net/sw/api/tickets/pdf?locationId=<span class="tic">&lt;location.id&gt;</span>&amp;ticket=<span class="tic">&lt;ticket number&gt;</span>
+Authorization: Bearer <span class="rec">&lt;customer secret&gt;</span>
+Dividia-Customer-Id: <span class="rec">&lt;Customer ID&gt;</span></pre>
+<p>The same two headers. <code>locationId</code> is the ticket's <code>location.id</code>.</p>
+<h3>Dividia's answer, and what to do</h3>
+<table>
+  <tr><th>Answer</th><th>Meaning</th><th>What to do</th></tr>
+  <tr><td><code>200 application/pdf</code></td><td>The PDF. It has no photos until the site has recorded the weighment.</td><td>Use it. Ask again later for the complete PDF.</td></tr>
+  <tr><td><code>200 {"matches":0}</code></td><td>Dividia has no such ticket at that location.</td><td>Check the ticket number and <code>location.id</code>.</td></tr>
+  <tr><td><code>200 application/zip</code></td><td>The ticket number is on more than one transaction there.</td><td>The ZIP holds each PDF.</td></tr>
+  <tr><td><code>400</code></td><td>The request is wrong. The message says what.</td><td>Fix it.</td></tr>
+  <tr><td><code>401</code></td><td>Wrong Customer ID or secret.</td><td>Check both values.</td></tr>
+  <tr><td><code>403</code></td><td>The location is not this customer's.</td><td>Check the <code>location.id</code>.</td></tr>
+  <tr><td><code>429</code></td><td>Too many requests.</td><td>Wait for the time in the <code>Retry-After</code> header, then ask again.</td></tr>
+  <tr><td><code>500</code>, no answer</td><td>Temporary.</td><td>Ask again.</td></tr>
+</table>
+<p><b>File name.</b> The <code>Content-Disposition</code> header names the file: <code>&lt;Dividia site number&gt;-&lt;location.id&gt;-ticket_&lt;ticket number&gt;.pdf</code>, for example <code>1234-PLANT-7-ticket_70421.pdf</code>. Keep it or use your own.</p>
+
+<h2>4. Limits and network</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Sending tickets</td><td>6,000 per 15 minutes from one server address.</td></tr>
+  <tr><td>Getting PDFs</td><td>60 per minute, one at a time.</td></tr>
+  <tr><td>Network</td><td>Outbound HTTPS (port 443) from your servers to <code>api.cloud.dividia.net</code>.</td></tr>
+  <tr><td>CORS</td><td>Does not apply: your server calls Dividia, not a browser. A call made straight from a web page is blocked by the browser, by design.</td></tr>
+</table>
+</body>
+</html>
