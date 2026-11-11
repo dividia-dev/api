@@ -6,9 +6,9 @@
 //   3. Your servers make every call to Dividia. The customer's computer never calls Dividia.
 //
 // Read it top to bottom. It has three parts:
-//   PART 1  Your records      the customer, its sites and its scales, as your system stores them
+//   PART 1  The values        the Customer ID, the secret, and the ticket's site and scale: all on the server
 //   PART 2  Your two calls    sendTicket() and getTicketPdf(): the only code that talks to Dividia
-//   PART 3  Your endpoints    what your own application (the customer's browser) calls
+//   PART 3  The tester        the page's two buttons call these; in your system your own code does
 //
 // Node.js 18 or later. No packages.
 //
@@ -46,57 +46,35 @@ const PORT = Number(option('--port', '8787'));
 const DIVIDIA = option('--dividia', 'https://api.cloud.dividia.net').replace(/\/+$/, '');
 
 // =====================================================================================================
-// PART 1  YOUR RECORDS
-// In your system these are rows in your database. Here they are one object, so the shape is easy to see.
+// PART 1  THE VALUES, ON YOUR SERVER
+// Everything a request to Dividia needs is here, on the server. Nothing comes from a browser.
+// In your system: the Customer ID and the secret are stored against the customer in your database,
+// and location.id, location.name and scaleId arrive with each ticket.
 // =====================================================================================================
-const CUSTOMERS = {
-  // "acme" is YOUR key for the customer: whatever your system already uses.
-  acme: {
-    name: 'Acme Aggregates',
-    // The two values Dividia gave you for this customer. They live here, on your server, and nowhere else.
-    dividiaCustomerId: process.env.DIVIDIA_CUSTOMER_ID,   // sent as the Dividia-Customer-Id header
-    dividiaSecret: process.env.DIVIDIA_SECRET,            // sent as Authorization: Bearer <secret>. Never leaves this server.
-    // The customer's sites. location.id is the value agreed with Dividia for the site.
-    sites: {
-      'north-yard': {
-        locationId: option('--location'),                    // required: the example will not start without it
-        locationName: option('--location-name', 'North Yard'),
-        // The site's scales. scaleId is the value agreed with Dividia for the scale.
-        scales: {
-          'scale-1': { scaleId: option('--scale'), name: 'Scale 1' },   // required too
-        },
-      },
-    },
-  },
+const SETUP = {
+  // The two values Dividia gave Command for this customer. Store them before the customer's first ticket.
+  dividiaCustomerId: process.env.DIVIDIA_CUSTOMER_ID,   // sent as the Dividia-Customer-Id header
+  dividiaSecret: process.env.DIVIDIA_SECRET,            // sent as Authorization: Bearer <secret>. Never leaves this server.
+  // The site and the scale this example sends tickets for, fixed when the example is started.
+  locationId: option('--location'),                     // sent in the body as location.id. Picks the site.
+  locationName: option('--location-name', 'North Yard'),// sent in the body as location.name.
+  scaleId: option('--scale'),                           // sent in the body as scaleId. Picks the scale.
 };
 
 // An error whose message is ours and safe to show the browser. Any other error's message is NOT
 // shown: a library's message can quote the request it failed on, headers and secret included.
 class ShownError extends Error {}
 
-// Look a customer, site and scale up by YOUR keys. Only keys that are really in the records count
-// (never an inherited name such as "constructor").
-const own = (records, key) => (typeof key === 'string' && Object.hasOwn(records, key) ? records[key] : undefined);
-function lookUp(customerKey, siteKey, scaleKey) {
-  const customer = own(CUSTOMERS, customerKey);
-  if (!customer) throw new ShownError(`Unknown customer "${customerKey}"`);
-  const site = own(customer.sites, siteKey);
-  if (!site) throw new ShownError(`Unknown site "${siteKey}" for ${customer.name}`);
-  const scale = scaleKey === undefined ? undefined : own(site.scales, scaleKey);
-  if (scaleKey !== undefined && !scale) throw new ShownError(`Unknown scale "${scaleKey}" at ${site.locationName}`);
-  return { customer, site, scale };
-}
-
 // =====================================================================================================
 // PART 2  YOUR TWO CALLS TO DIVIDIA
 // These two functions are the whole integration. Both send the same two headers.
 // =====================================================================================================
 
-// The two headers every request to Dividia carries, for one customer.
-function dividiaHeaders(customer) {
+// The two headers every request to Dividia carries.
+function dividiaHeaders(setup) {
   return {
-    'Dividia-Customer-Id': customer.dividiaCustomerId,
-    'Authorization': 'Bearer ' + customer.dividiaSecret,   // the whole secret, including "whsec_"
+    'Dividia-Customer-Id': setup.dividiaCustomerId,
+    'Authorization': 'Bearer ' + setup.dividiaSecret,   // the whole secret, including "whsec_"
   };
 }
 
@@ -107,10 +85,10 @@ function dividiaHeaders(customer) {
 //   400                                    the body is wrong; the message names the field. Fix, then send.
 //   401                                    wrong Customer ID or secret. Stop and check both values.
 //   429, 500, 503, or no answer            temporary. Send the SAME ticket again (same uniqueId).
-async function sendTicket(customer, ticket) {
+async function sendTicket(setup, ticket) {
   const response = await fetch(DIVIDIA + '/sw/webhooks/cc', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...dividiaHeaders(customer) },
+    headers: { 'Content-Type': 'application/json', ...dividiaHeaders(setup) },
     body: JSON.stringify(ticket),
     redirect: 'error',                                  // never follow a redirect: the headers go to Dividia only
     signal: AbortSignal.timeout(DIVIDIA_TIMEOUT_MS),
@@ -121,13 +99,13 @@ async function sendTicket(customer, ticket) {
 // Send a ticket, and send it again while the answer is temporary. A real system keeps the ticket in
 // a queue and retries for much longer (for example 5 s, 30 s, 2 min, 10 min, then hourly for 24 h).
 // The same uniqueId never creates a second ticket, so sending again is always safe.
-async function sendTicketWithRetry(customer, ticket, trace) {
+async function sendTicketWithRetry(setup, ticket, trace) {
   const waits = [0, 2000, 5000];
   let last = { status: 0, body: 'No answer from Dividia' };
   for (let attempt = 0; attempt < waits.length; attempt++) {
     if (waits[attempt]) await new Promise((resolve) => setTimeout(resolve, waits[attempt]));
     try {
-      last = await sendTicket(customer, ticket);
+      last = await sendTicket(setup, ticket);
     } catch (error) {
       // Fixed text, never error.message: a failed request's message can quote its headers.
       last = { status: 0, body: 'No answer from Dividia' };
@@ -150,31 +128,42 @@ async function sendTicketWithRetry(customer, ticket, trace) {
 //   403                     the location is not this customer's.
 //   429                     too many requests; the Retry-After header says when to try again.
 //   500, or no answer       temporary. Ask again.
-async function getTicketPdf(customer, site, ticketNumber) {
-  const query = new URLSearchParams({ locationId: site.locationId, ticket: String(ticketNumber) });
+async function getTicketPdf(setup, ticketNumber) {
+  const query = new URLSearchParams({ locationId: setup.locationId, ticket: String(ticketNumber) });
   const response = await fetch(DIVIDIA + '/sw/api/tickets/pdf?' + query, {
-    headers: dividiaHeaders(customer),
+    headers: dividiaHeaders(setup),
     redirect: 'error',
     signal: AbortSignal.timeout(DIVIDIA_TIMEOUT_MS),
   });
   return {
     status: response.status,
     contentType: response.headers.get('content-type') || '',
+    fileName: fileNameOf(response.headers.get('content-disposition'), ticketNumber),
     bytes: Buffer.from(await response.arrayBuffer()),
   };
 }
 
+// Dividia names the PDF in its Content-Disposition header: <site number>-<location.id>-ticket_<ticket number>.pdf
+// Pass that name on, or give the file your own name. Without a name the browser makes one up.
+// Only plain file-name characters are kept, so the name is safe to put in a header of your own.
+function fileNameOf(contentDisposition, ticketNumber) {
+  const match = /filename="([^"]+)"/i.exec(contentDisposition || '');
+  const name = (match ? match[1] : '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
+  return /\.pdf$/i.test(name) ? name : `ticket_${String(ticketNumber).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60)}.pdf`;
+}
+
 // =====================================================================================================
-// PART 3  YOUR ENDPOINTS
-// What your own application calls. The customer's browser talks to THESE, never to Dividia, and it
-// sends your keys (customer, site, scale), never the Dividia values. Your real endpoints sit behind
-// your own sign-in; this example has none, so it guards itself another way (see guard() below).
-// The trace it returns shows the Customer ID, location.id and scaleId so you can follow each step;
-// a real system has no reason to send those to a browser.
+// PART 3  THE TESTER
+// The page's two buttons call these. They exist only so you can watch the two calls happen. The
+// browser sends nothing but "send a ticket" and a ticket number: every value comes from PART 1.
+// In your system there is no page: your own code calls sendTicket() and getTicketPdf().
+// The example has no sign-in, so it guards itself another way (see guard() below).
+// The trace it returns shows the ticket's location.id and scaleId so you can follow each step. It
+// never shows the Customer ID or the secret: those two stay on the server.
 // =====================================================================================================
 
 // A sample ticket, in the approved payload schema, for the example's "Send a ticket" button.
-function sampleTicket(site, scale) {
+function sampleTicket(setup) {
   const gross = 70000 + Math.floor(Math.random() * 9000), tare = 26000 + Math.floor(Math.random() * 3000);
   const pound = (value) => ({ value, uom: 'lb' });
   return {
@@ -187,18 +176,18 @@ function sampleTicket(site, scale) {
     project: { id: 'PRJ-1', name: 'Example Project' },
     product: { id: 'PRD-766', name: 'Fill dirt', quantity: pound(gross - tare) },
     orderId: 'ORD-1',
-    location: { id: site.locationId, name: site.locationName },      // picks the site at Dividia
-    scaleId: scale.scaleId,                                          // picks the scale at Dividia
+    location: { id: setup.locationId, name: setup.locationName },      // picks the site at Dividia
+    scaleId: setup.scaleId,                                          // picks the scale at Dividia
   };
 }
 
-// The request as it was sent, for the page's trace, with the secret hidden. The secret never goes
-// to the browser, not even here.
-function shown(method, url, customer, hasBody) {
+// The request as it was sent, for the page's trace, with both header values hidden. The Customer ID
+// and the secret never go to the browser, not even here.
+function shown(method, url, hasBody) {
   return [
     `${method} ${url}`,
     'Authorization: Bearer whsec_... (the secret, from your server; hidden here)',
-    `Dividia-Customer-Id: ${customer.dividiaCustomerId}`,
+    'Dividia-Customer-Id: ... (the Customer ID, from your server; hidden here)',
     ...(hasBody ? ['Content-Type: application/json'] : []),
   ].join('\n');
 }
@@ -245,52 +234,46 @@ const server = http.createServer(async (req, res) => {
       return res.end(PAGE);
     }
 
-    // Your records, for the page's lists: YOUR keys and names only. No Dividia value is sent.
-    if (req.method === 'GET' && url.pathname === '/your-app/records') {
-      return sendJson(res, 200, Object.entries(CUSTOMERS).map(([key, customer]) => ({
-        key, name: customer.name,
-        sites: Object.entries(customer.sites).map(([siteKey, site]) => ({
-          key: siteKey, name: site.locationName,
-          scales: Object.entries(site.scales).map(([scaleKey, scale]) => ({ key: scaleKey, name: scale.name })),
-        })),
-      })));
+    // What the page shows as fixed values: the site and scale this server was started with.
+    // Never the Customer ID or the secret.
+    if (req.method === 'GET' && url.pathname === '/tester/setup') {
+      return sendJson(res, 200, { dividiaUrl: DIVIDIA, locationId: SETUP.locationId, locationName: SETUP.locationName, scaleId: SETUP.scaleId });
     }
 
-    // "Send a ticket": the browser names the customer, site and scale by YOUR keys.
-    if (req.method === 'POST' && url.pathname === '/your-app/tickets') {
-      const asked = await readJson(req);
-      const trace = [`The browser asked your server: send a ticket for customer "${asked.customer}", site "${asked.site}", scale "${asked.scale}"`];
-      const { customer, site, scale } = lookUp(asked.customer, asked.site, asked.scale);
-      trace.push(`Your server looked up its records: location.id "${site.locationId}", scaleId "${scale.scaleId}", and the Customer ID and secret for ${customer.name}`);
-      const ticket = sampleTicket(site, scale);
-      trace.push(`Your server called Dividia:\n${shown('POST', DIVIDIA + '/sw/webhooks/cc', customer, true)}`);
-      const answer = await sendTicketWithRetry(customer, ticket, trace);
-      trace.push('Your server answered the browser');
+    // "Send a ticket": the page only says "send one". Every value is the server's.
+    if (req.method === 'POST' && url.pathname === '/tester/tickets') {
+      const trace = ['The page asked your server to send a ticket. It sent no values.'];
+      const ticket = sampleTicket(SETUP);
+      trace.push(`Your server made the ticket: location.id "${SETUP.locationId}", location.name "${SETUP.locationName}", scaleId "${SETUP.scaleId}"`);
+      trace.push('Your server took the Customer ID and the secret from its own records');
+      trace.push(`Your server called Dividia:\n${shown('POST', DIVIDIA + '/sw/webhooks/cc', true)}`);
+      const answer = await sendTicketWithRetry(SETUP, ticket, trace);
+      trace.push('Your server answered the page');
       return sendJson(res, 200, { trace, ticket, dividia: { status: answer.status, body: answer.body } });
     }
 
-    // "Get a ticket's PDF": the browser names the customer and site by YOUR keys, and the ticket number.
-    const pdfRoute = /^\/your-app\/tickets\/([^/]+)\/pdf$/.exec(url.pathname);
+    // "Get a ticket's PDF": the page sends the ticket number only.
+    const pdfRoute = /^\/tester\/tickets\/([^/]+)\/pdf$/.exec(url.pathname);
     if (req.method === 'GET' && pdfRoute) {
       const ticketNumber = decodeURIComponent(pdfRoute[1]);
-      const trace = [`The browser asked your server: the PDF of ticket ${ticketNumber} for customer "${url.searchParams.get('customer')}", site "${url.searchParams.get('site')}"`];
-      const { customer, site } = lookUp(url.searchParams.get('customer'), url.searchParams.get('site'));
-      trace.push(`Your server looked up its records: location.id "${site.locationId}", and the Customer ID and secret for ${customer.name}`);
-      const query = new URLSearchParams({ locationId: site.locationId, ticket: ticketNumber });
-      trace.push(`Your server called Dividia:\n${shown('GET', DIVIDIA + '/sw/api/tickets/pdf?' + query, customer, false)}`);
+      const trace = [`The page asked your server for the PDF of ticket ${ticketNumber}. It sent no other value.`];
+      trace.push(`Your server used the ticket's location.id "${SETUP.locationId}", and took the Customer ID and the secret from its own records`);
+      const query = new URLSearchParams({ locationId: SETUP.locationId, ticket: ticketNumber });
+      trace.push(`Your server called Dividia:\n${shown('GET', DIVIDIA + '/sw/api/tickets/pdf?' + query, false)}`);
       let answer;
       try {
-        answer = await getTicketPdf(customer, site, ticketNumber);
+        answer = await getTicketPdf(SETUP, ticketNumber);
       } catch (error) {
-        answer = { status: 0, contentType: '', bytes: Buffer.from('No answer from Dividia') };   // fixed text, never error.message
+        answer = { status: 0, contentType: '', fileName: '', bytes: Buffer.from('No answer from Dividia') };   // fixed text, never error.message
       }
       const isPdf = answer.status === 200 && answer.contentType.startsWith('application/pdf');
       trace.push(answer.status ? `Dividia answered ${answer.status} ${answer.contentType}${isPdf ? `, ${answer.bytes.length} bytes` : ''}` : 'Dividia did not answer');
-      trace.push(isPdf ? 'Your server served the PDF to the browser' : 'Your server told the browser there is no PDF');
+      trace.push(isPdf ? `Your server served the PDF to the page, with the file name Dividia gave it: ${answer.fileName}` : 'Your server told the page there is no PDF');
       // The trace rides in a header so the body can be the PDF itself.
       const headers = { 'X-Example-Trace': encodeURIComponent(JSON.stringify(trace)), 'Cache-Control': 'no-store' };
       if (isPdf) {
-        res.writeHead(200, { ...headers, 'Content-Type': 'application/pdf', 'Content-Length': answer.bytes.length });
+        res.writeHead(200, { ...headers, 'Content-Type': 'application/pdf', 'Content-Length': answer.bytes.length,
+          'Content-Disposition': `inline; filename="${answer.fileName}"` });
         return res.end(answer.bytes);
       }
       res.writeHead(200, { ...headers, 'Content-Type': 'application/json; charset=utf-8' });
@@ -336,49 +319,75 @@ const PAGE = `<!DOCTYPE html>
   pre { background:#0f1b2b; color:#e6edf5; padding:10px 12px; border-radius:8px; margin:8px 0 0; font:13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
   .verdict { border-left:4px solid; border-radius:0 8px 8px 0; padding:8px 12px; margin:8px 0 0; }
   .ok { background:#e9f4ec; border-color:#1d6b3a; } .warn { background:#fff6e0; border-color:#d9a521; } .bad { background:#fde8e8; border-color:#c0392b; }
+  .legend { display:flex; flex-wrap:wrap; gap:8px 18px; font-size:14px; margin:0 0 4px; }
+  .chip { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+  .chip.rec { background:#1d6b3a; } .chip.tic { background:#0b5cad; }
+  pre .rec { color:#8fe0a8; font-weight:600; } pre .tic { color:#8cc4ff; font-weight:600; } pre .why { color:#9aa7b8; }
+  table.fixed { border-collapse:collapse; margin:8px 0 0; width:100%; } table.fixed th { text-align:left; font-size:13px; color:#566173; padding:6px 14px 6px 0; border-bottom:1px solid #d9dee6; } table.fixed td { padding:7px 14px 7px 0; border-bottom:1px solid #eef1f5; overflow-wrap:anywhere; vertical-align:top; } table.fixed td.rec { color:#1d6b3a; font-weight:600; } table.fixed td.tic { color:#0b5cad; font-weight:600; } code { font:13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#eef1f5; padding:1px 4px; border-radius:4px; } .rule code, h2 code { background:none; padding:0; font-size:inherit; }
+  h3 { font-size:14px; margin:10px 0 0; color:#566173; }
   iframe { width:100%; height:520px; border:1px solid #d9dee6; border-radius:8px; margin-top:8px; background:#fff; }
 </style>
 </head>
 <body>
 <div class="page">
-  <h1>Your server, calling Dividia</h1>
-  <p class="sub">A working example of the Command Cloud side. This page stands in for your own application.</p>
+  <h1>Command Cloud to Dividia: tester</h1>
+  <p class="sub">This page is served by <code>server.js</code>, the program you started in your terminal. <b><code>server.js</code> is "your server":</b> it holds every value and it makes the calls to Dividia. This page holds nothing. It has two buttons that tell <code>server.js</code> to make a call, so you can watch it happen.</p>
+  <p class="sub"><b><code>server.js</code> is test code that stands in for your backend service.</b> It is not something to deploy. The real integration is the same two calls, <code>sendTicket()</code> and <code>getTicketPdf()</code>, written inside your own backend.</p>
 
   <div class="rule">
+    <b>In your system</b>
     <ol>
-      <li><b>Dividia gives you two values for each customer.</b> They are in this example's server, not in this page.</li>
-      <li><b>You store them on your servers.</b> This page never receives the secret.</li>
-      <li><b>Your servers make every call to Dividia.</b> This page only calls the example server.</li>
+      <li><b>Dividia gives Command two values for each customer:</b> a Customer ID and a customer secret, when the customer is set up in ScaleWatcher Cloud. The customer does not get them.</li>
+      <li><b>You store them on your servers</b> before that customer's first ticket.</li>
+      <li><b>Your servers make every call to Dividia.</b> No browser takes part. The site and the scale come with each ticket.</li>
     </ol>
   </div>
 
-  <div class="cols">
-    <div>
-      <div class="card">
-        <h2>1. Send a ticket</h2>
-        <div class="flow"><span class="box cust">This page</span>&rarr;<span class="box you">Your server</span>&rarr;<span class="box div">Dividia</span></div>
-        <label for="customer">Customer (your record)</label><select id="customer"></select>
-        <label for="site">Site (your record)</label><select id="site"></select>
-        <label for="scale">Scale (your record)</label><select id="scale"></select>
+  <div class="card">
+    <h2>1. The values, in <code>server.js</code></h2>
+    <p class="note">You set these when you started <code>server.js</code>. The page cannot change them. This is how it was started:</p>
+    <pre id="startedWith"></pre>
+    <p class="note">To use other values, stop <code>server.js</code> (Ctrl+C in its terminal) and start it again. Setting it up is described in <code>README.md</code>, in the same folder as <code>server.js</code>.</p>
+    <table class="fixed">
+      <tr><th>Value</th><th>Now</th><th>Set with</th><th>Sent to Dividia as</th><th>In your system it comes from</th></tr>
+      <tr><td>Customer ID</td><td>not shown</td><td><code>DIVIDIA_CUSTOMER_ID</code></td><td class="rec">header <code>Dividia-Customer-Id</code></td><td>your record of the customer</td></tr>
+      <tr><td>Customer secret</td><td>not shown</td><td><code>DIVIDIA_SECRET</code></td><td class="rec">header <code>Authorization: Bearer</code></td><td>your record of the customer</td></tr>
+      <tr><td>Site id</td><td id="vLocationId"></td><td><code>--location</code></td><td class="tic">body <code>location.id</code></td><td>the ticket</td></tr>
+      <tr><td>Site name</td><td id="vLocationName"></td><td><code>--location-name</code></td><td class="tic">body <code>location.name</code></td><td>the ticket</td></tr>
+      <tr><td>Scale id</td><td id="vScaleId"></td><td><code>--scale</code></td><td class="tic">body <code>scaleId</code></td><td>the ticket</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>2. The two requests <code>server.js</code> sends to Dividia</h2>
+    <div class="legend">
+      <span><span class="chip rec"></span>The two headers: from your record of the customer.</span>
+      <span><span class="chip tic"></span>The site and the scale: from the ticket.</span>
+    </div>
+    <div class="cols">
+      <div><h3>Send a ticket</h3><pre id="requestTicket"></pre></div>
+      <div><h3>Get the ticket's PDF</h3><pre id="requestPdf"></pre></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Try it</h2>
+    <div class="cols">
+      <div>
+        <div class="flow"><span class="box cust">This page</span>&rarr;<span class="box you">server.js</span>&rarr;<span class="box div">Dividia</span></div>
         <button id="send" type="button">Send a ticket</button>
-        <p class="note">The page sends your keys only. Your server looks up the Customer ID, the secret, the location.id and the scaleId.</p>
-      </div>
-      <div class="card">
-        <h2>2. Get the ticket's PDF</h2>
-        <div class="flow"><span class="box cust">This page</span>&rarr;<span class="box you">Your server</span>&rarr;<span class="box div">Dividia</span>&rarr;<span class="box you">Your server</span>&rarr;<span class="box cust">This page</span></div>
+        <p class="note">Real: the site's cameras photograph the scale.</p>
         <label for="ticket">Ticket number (each send fills this in)</label><input id="ticket" spellcheck="false">
         <button id="pdf" type="button">Get the PDF</button>
         <p class="note">The PDF has no photos until the site has recorded the weighment. Ask again later for the complete PDF.</p>
       </div>
-    </div>
-    <div>
-      <div class="card">
-        <h2>What happened</h2>
+      <div>
+        <h3>What happened</h3>
         <div id="verdict"></div>
         <ol class="trace" id="trace"><li>Nothing yet. Press a button.</li></ol>
-        <div id="detail"></div>
       </div>
     </div>
+    <div id="detail"></div>
   </div>
 </div>
 <script>
@@ -386,25 +395,63 @@ const PAGE = `<!DOCTYPE html>
   'use strict';
   function $(id) { return document.getElementById(id); }
   function text(tag, value, cls) { var e = document.createElement(tag); e.textContent = value; if (cls) e.className = cls; return e; }
-  var records = [];
+  var setup = null;
 
-  function fill(select, items) {
-    select.innerHTML = '';
-    items.forEach(function (item) { var o = document.createElement('option'); o.value = item.key; o.textContent = item.name + '  (' + item.key + ')'; select.appendChild(o); });
+  // The picture of the two requests. Each line is a list of [text, class] pieces.
+  function write(pre, lines) {
+    pre.innerHTML = '';
+    lines.forEach(function (parts) {
+      parts.forEach(function (part) { pre.appendChild(part[1] ? text('span', part[0], part[1]) : document.createTextNode(part[0])); });
+      pre.appendChild(document.createTextNode('\\n'));
+    });
   }
-  function customerNow() { return records.filter(function (c) { return c.key === $('customer').value; })[0]; }
-  function siteNow() { var c = customerNow(); return c && c.sites.filter(function (s) { return s.key === $('site').value; })[0]; }
-  function refreshSites() { var c = customerNow(); fill($('site'), c ? c.sites : []); refreshScales(); }
-  function refreshScales() { var s = siteNow(); fill($('scale'), s ? s.scales : []); }
+  function showRequests() {
+    var c = setup, s = setup, k = setup;
+    if (!setup) return;
+    var headers = [
+      [['Authorization: Bearer '], ['whsec_...', 'rec'], ['   the customer secret', 'why']],
+      [['Dividia-Customer-Id: '], ['<Customer ID>', 'rec'], ['   the Customer ID', 'why']]
+    ];
+    write($('requestTicket'), [[['POST ' + c.dividiaUrl + '/sw/webhooks/cc']]].concat(headers, [
+      [['Content-Type: application/json']],
+      [['']],
+      [['{']],
+      [['  "uniqueId": "...",'], ['   new for every ticket', 'why']],
+      [['  "ticketNumber": "...",']],
+      [['  "ticketDateTime": "...",']],
+      [['  "vehicle": {...}, "carrier": {...}, "customer": {...},']],
+      [['  "project": {...}, "product": {...}, "orderId": "...",']],
+      [['  '], ['"location": {', 'tic']],
+      [['    '], ['"id": ' + JSON.stringify(s.locationId) + ',', 'tic'], ['   picks the site', 'why']],
+      [['    '], ['"name": ' + JSON.stringify(s.locationName), 'tic']],
+      [['  '], ['},', 'tic']],
+      [['  '], ['"scaleId": ' + JSON.stringify(k.scaleId), 'tic'], ['   picks the scale', 'why']],
+      [['}']],
+      [['']],
+      [['The full body appears below after you send a ticket.', 'why']]
+    ]));
+    write($('requestPdf'), [
+      [['GET ' + c.dividiaUrl + '/sw/api/tickets/pdf']],
+      [['    ?locationId='], [s.locationId, 'tic']],
+      [['    &ticket='], ['<ticket number>', 'tic']]
+    ].concat(headers, [
+      [['']],
+      [['The same two headers. locationId is the location.id of the ticket.', 'why']],
+      [['Dividia answers with the PDF and a file name.', 'why']]
+    ]));
+  }
 
-  function show(trace, verdictClass, verdictText, detailText, pdfUrl) {
+  function show(trace, verdictClass, verdictText, detailText, pdfUrl, pdfName) {
     $('trace').innerHTML = '';
     (trace || []).forEach(function (line) { $('trace').appendChild(text('li', line)); });
     $('verdict').innerHTML = '';
     if (verdictText) $('verdict').appendChild(text('div', verdictText, 'verdict ' + verdictClass));
     $('detail').innerHTML = '';
     if (detailText) $('detail').appendChild(text('pre', detailText));
-    if (pdfUrl) { var f = document.createElement('iframe'); f.title = 'Ticket PDF'; f.src = pdfUrl; $('detail').appendChild(f); }
+    if (pdfUrl) {
+      var a = text('a', 'Save the PDF as ' + pdfName); a.href = pdfUrl; a.download = pdfName; $('detail').appendChild(a);
+      var f = document.createElement('iframe'); f.title = 'Ticket PDF'; f.src = pdfUrl; $('detail').appendChild(f);
+    }
   }
   function busy(on) { $('send').disabled = on; $('pdf').disabled = on; }
 
@@ -424,8 +471,8 @@ const PAGE = `<!DOCTYPE html>
   $('send').addEventListener('click', async function () {
     busy(true); show(['Asking your server...']);
     try {
-      var response = await fetch('/your-app/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer: $('customer').value, site: $('site').value, scale: $('scale').value }) });
+      var response = await fetch('/tester/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: '{}' });
       var result = await response.json();
       if (result.error) { show([], 'bad', result.error); return; }
       $('ticket').value = result.ticket.ticketNumber;
@@ -440,12 +487,13 @@ const PAGE = `<!DOCTYPE html>
     if (!ticket) { show([], 'bad', 'Fill in a ticket number, or send a ticket first.'); return; }
     busy(true); show(['Asking your server...']);
     try {
-      var response = await fetch('/your-app/tickets/' + encodeURIComponent(ticket) + '/pdf?customer=' + encodeURIComponent($('customer').value) + '&site=' + encodeURIComponent($('site').value));
+      var response = await fetch('/tester/tickets/' + encodeURIComponent(ticket) + '/pdf');
       var header = response.headers.get('X-Example-Trace');
       var trace = header ? JSON.parse(decodeURIComponent(header)) : [];
       if ((response.headers.get('Content-Type') || '').indexOf('application/pdf') === 0) {
         var blob = await response.blob();
-        show(trace, 'ok', 'PDF received from your server (' + blob.size + ' bytes).', null, URL.createObjectURL(blob));
+        var named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
+        show(trace, 'ok', 'PDF received from your server (' + blob.size + ' bytes).', null, URL.createObjectURL(blob), named ? named[1] : 'ticket.pdf');
         return;
       }
       var result = await response.json();
@@ -464,9 +512,15 @@ const PAGE = `<!DOCTYPE html>
     finally { busy(false); }
   });
 
-  $('customer').addEventListener('change', refreshSites);
-  $('site').addEventListener('change', refreshScales);
-  fetch('/your-app/records').then(function (r) { return r.json(); }).then(function (list) { records = list; fill($('customer'), records); refreshSites(); });
+  fetch('/tester/setup').then(function (r) { return r.json(); }).then(function (v) {
+    setup = v;
+    var quote = function (value) { return "'" + String(value).replace(/'/g, "'\\\\''") + "'"; };
+    $('startedWith').textContent = "export DIVIDIA_CUSTOMER_ID='...'     the Customer ID (not shown)\\n"
+      + "export DIVIDIA_SECRET='whsec_...'    the customer secret (not shown)\\n"
+      + 'node server.js --location ' + quote(v.locationId) + ' --location-name ' + quote(v.locationName) + ' --scale ' + quote(v.scaleId);
+    $('vLocationId').textContent = v.locationId; $('vLocationName').textContent = v.locationName; $('vScaleId').textContent = v.scaleId;
+    showRequests();
+  });
 })();
 </script>
 </body>
@@ -492,4 +546,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { CUSTOMERS, lookUp, dividiaHeaders, sendTicket, getTicketPdf, sampleTicket, shown, guard, option, server };
+module.exports = { SETUP, dividiaHeaders, sendTicket, getTicketPdf, sampleTicket, shown, guard, option, server };
