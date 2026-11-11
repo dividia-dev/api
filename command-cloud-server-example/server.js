@@ -467,6 +467,7 @@ const PAGE = `<!DOCTYPE html>
     if (status === 200 && state === 'failed') return ['warn', 'Dividia does not have this location.id set up (' + reason + '). Do not resend.'];
     if (status === 400) return ['bad', 'The body is wrong: ' + reason + '. Fix it, then send.'];
     if (status === 401) return ['bad', 'Wrong Customer ID or secret (' + reason + '). Stop and check both values on your server.'];
+    if (status === 200) return ['warn', 'Dividia answered 200. Its answer is below.'];
     return ['warn', 'Temporary (HTTP ' + (status || 'no answer') + '). Send the same ticket again.'];
   }
 
@@ -546,7 +547,7 @@ if (require.main === module) {
   if (!option('--location-name')) stop('--location-name "<location.name>" is required: the site\'s name, sent as location.name.');
   if (!option('--scale')) stop('--scale <scaleId> is required: the scale\'s scaleId, as agreed with Dividia.');
   // The secret is sent to this address, so it must be https (a copy of Dividia on this computer excepted).
-  if (!/^https:\/\/[^/@]+(\/|$)/.test(DIVIDIA) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(DIVIDIA)) stop('--dividia must be an https address.');
+  if (!/^https:\/\/[^/@?#]+(\/|$)/.test(DIVIDIA) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(DIVIDIA)) stop('--dividia must be an https address.');
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) stop('--port must be a port number.');
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Example server ready: http://localhost:${PORT}\nIt calls Dividia at ${DIVIDIA}\nStop it with Ctrl+C.`);

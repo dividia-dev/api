@@ -21,7 +21,7 @@
   pre { background: #0f1b2b; color: #e6edf5; padding: 10px 12px; border-radius: 8px; margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   pre .rec { color: #8fe0a8; font-weight: 600; } pre .tic { color: #8cc4ff; font-weight: 600; } pre .why { color: #9aa7b8; }
   .rec { color: #1d6b3a; font-weight: 600; } .tic { color: #0b5cad; font-weight: 600; }
-  h2, table, pre, .rule { break-inside: avoid; }
+  h2, h3 { break-after: avoid; } tr, .rule { break-inside: avoid; }
   @media print { body { padding: 0; } pre, .rule { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
@@ -55,8 +55,8 @@ Dividia-Customer-Id: <span class="rec">&lt;Customer ID&gt;</span>
 Content-Type: application/json
 
 {
-  "uniqueId": "8f1c0f0a-5b0e-4a57-9a55-0c1d2e3f4a5b",   <span class="why">required. New for every ticket. The same value never creates a second ticket.</span>
-  "ticketNumber": "70421",                             <span class="why">required.</span>
+  "uniqueId": "8f1c0f0a-5b0e-4a57-9a55-0c1d2e3f4a5b",   <span class="why">required, new for every ticket</span>
+  "ticketNumber": "70421",                             <span class="why">required</span>
   "ticketDateTime": "2026-11-11T15:18:42Z",
   "vehicle": {
     "id": "VEH-7908", "name": "Truck 218", "autoId": "AUTO-218",
@@ -66,11 +66,13 @@ Content-Type: application/json
   "carrier":  { "id": "CAR-1", "name": "Example Hauling" },
   "customer": { "id": "CUS-1", "name": "Example Customer" },
   "project":  { "id": "PRJ-1", "name": "Example Project" },
-  "product":  { "id": "PRD-766", "name": "Fill dirt", "quantity": { "value": 47150, "uom": "lb" } },
+  "product":  { "id": "PRD-766", "name": "Fill dirt",
+                "quantity": { "value": 47150, "uom": "lb" } },
   "orderId": "ORD-1",
   <span class="tic">"location": { "id": "&lt;location.id&gt;", "name": "&lt;location.name&gt;" }</span>,   <span class="why">picks the site</span>
   <span class="tic">"scaleId": "&lt;scaleId&gt;"</span>                                       <span class="why">picks the scale</span>
 }</pre>
+<p>Only <code>uniqueId</code> and <code>ticketNumber</code> are required. The same <code>uniqueId</code> never creates a second ticket, so sending a ticket again is always safe.</p>
 <h3>Dividia's answer, and what to do</h3>
 <table>
   <tr><th>Answer</th><th>Meaning</th><th>What to do</th></tr>
@@ -84,7 +86,9 @@ Content-Type: application/json
 </table>
 
 <h2>3. Get a ticket's PDF</h2>
-<pre>GET https://api.cloud.dividia.net/sw/api/tickets/pdf?locationId=<span class="tic">&lt;location.id&gt;</span>&amp;ticket=<span class="tic">&lt;ticket number&gt;</span>
+<pre>GET https://api.cloud.dividia.net/sw/api/tickets/pdf
+    ?locationId=<span class="tic">&lt;location.id&gt;</span>
+    &amp;ticket=<span class="tic">&lt;ticket number&gt;</span>
 Authorization: Bearer <span class="rec">&lt;customer secret&gt;</span>
 Dividia-Customer-Id: <span class="rec">&lt;Customer ID&gt;</span></pre>
 <p>The same two headers. <code>locationId</code> is the ticket's <code>location.id</code>.</p>
@@ -100,13 +104,14 @@ Dividia-Customer-Id: <span class="rec">&lt;Customer ID&gt;</span></pre>
   <tr><td><code>429</code></td><td>Too many requests.</td><td>Wait for the time in the <code>Retry-After</code> header, then ask again.</td></tr>
   <tr><td><code>500</code>, no answer</td><td>Temporary.</td><td>Ask again.</td></tr>
 </table>
-<p><b>File name.</b> The <code>Content-Disposition</code> header names the file: <code>&lt;Dividia site number&gt;-&lt;location.id&gt;-ticket_&lt;ticket number&gt;.pdf</code>, for example <code>1234-PLANT-7-ticket_70421.pdf</code>. Keep it or use your own.</p>
+<p><b>File name.</b> The <code>Content-Disposition</code> header names the file: <code>&lt;Dividia site number&gt;-&lt;location.id&gt;-ticket_&lt;ticket number&gt;.pdf</code>, for example <code>1234-PLANT-7-ticket_70421.pdf</code> (characters other than letters, digits and <code>-</code> become <code>-</code>). Keep it or use your own.</p>
 
 <h2>4. Limits and network</h2>
 <table>
   <tr><th>Item</th><th>Value</th></tr>
   <tr><td>Sending tickets</td><td>6,000 per 15 minutes from one server address.</td></tr>
-  <tr><td>Getting PDFs</td><td>60 per minute, one at a time.</td></tr>
+  <tr><td>Getting PDFs</td><td>60 per minute for one customer, one at a time for that customer.</td></tr>
+  <tr><td>All other requests</td><td>1,000 per 15 minutes from one server address, across all customers. PDF requests count toward this; ticket sends do not.</td></tr>
   <tr><td>Network</td><td>Outbound HTTPS (port 443) from your servers to <code>api.cloud.dividia.net</code>.</td></tr>
   <tr><td>CORS</td><td>Does not apply: your server calls Dividia, not a browser. A call made straight from a web page is blocked by the browser, by design.</td></tr>
 </table>

@@ -129,7 +129,7 @@ nor the secret is in any request or response.
 |---|---|---|
 | The page says Dividia did not answer (**No answer from Dividia**) | Your server cannot reach Dividia. | Allow outbound HTTPS (port 443) from your server to `api.cloud.dividia.net`. Check with `curl -i https://api.cloud.dividia.net/sw/api/tickets/pdf`: a `401` means the network path is good. |
 | It stops at once with **Node.js 18 or later is required** | Node.js is older than 18. | Install Node.js 18 or later. |
-| **429**, "Too many requests" | A rate limit. Sending tickets: 6,000 per 15 minutes from one server address. PDFs: 60 per minute, one at a time. | Wait for the time in the `Retry-After` header, then send the same request again. |
+| **429**, "Too many requests" | A rate limit. Sending tickets: 6,000 per 15 minutes from one server address. PDFs: 60 per minute for one customer, one at a time for that customer; and 1,000 requests per 15 minutes from one server address across all customers (ticket sends are not counted in the 1,000). | Wait for the time in the `Retry-After` header, then send the same request again. |
 | **401** | The Customer ID or the secret is wrong. | Check both values on your server. Copy them with no spaces or line breaks. |
 | **403** on the PDF | The `location.id` is not one of this customer's sites. | Check the `location.id`. |
 | The port is in use when starting | Another program has port 8787. | Start with `--port <another port>`. |
