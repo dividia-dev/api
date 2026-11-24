@@ -80,7 +80,7 @@ Content-Type: application/json
   <tr><td><code>200 {"status":"fallback"}</code></td><td>Dividia has the ticket. The site or scale was not reached just now; <code>reason</code> says why.</td><td>Done.</td></tr>
   <tr><td><code>200 {"status":"duplicate"}</code></td><td>Dividia already had this <code>uniqueId</code>.</td><td>Done.</td></tr>
   <tr><td><code>200 {"status":"failed"}</code></td><td>The <code>location.id</code> is not set up at Dividia.</td><td>Do not resend. Check the <code>location.id</code>.</td></tr>
-  <tr><td><code>400</code></td><td>The body is wrong. The message names the field.</td><td>Fix it, then send.</td></tr>
+  <tr><td><code>400</code></td><td>The body is wrong. The message names the field. A <code>ticketNumber</code> is a whole number above 0 with no leading zero.</td><td>Fix it, then send.</td></tr>
   <tr><td><code>401</code></td><td>Wrong Customer ID or secret.</td><td>Stop and check both values.</td></tr>
   <tr><td><code>429</code>, <code>500</code>, <code>503</code>, no answer</td><td>Temporary.</td><td>Send the same ticket again, with the same <code>uniqueId</code>. Keep it in a queue until it is accepted.</td></tr>
 </table>
@@ -109,9 +109,9 @@ Dividia-Customer-Id: <span class="rec">&lt;Customer ID&gt;</span></pre>
 <h2>4. Limits and network</h2>
 <table>
   <tr><th>Item</th><th>Value</th></tr>
-  <tr><td>Sending tickets</td><td>6,000 per 15 minutes from one server address.</td></tr>
-  <tr><td>Getting PDFs</td><td>60 per minute for one customer, one at a time for that customer.</td></tr>
-  <tr><td>All other requests</td><td>1,000 per 15 minutes from one server address, across all customers. PDF requests count toward this; ticket sends do not.</td></tr>
+  <tr><td>Sending tickets</td><td>6,000 per 15 minutes from one server address. A ticket's body can be up to 256&nbsp;KB; a larger one is answered <code>413</code>.</td></tr>
+  <tr><td>Getting PDFs</td><td>60 per minute for one customer, one at a time for that customer; and 6,000 per 15 minutes from one server address, across all customers.</td></tr>
+  <tr><td>All other requests</td><td>1,000 per 15 minutes from one server address, across all customers. Ticket sends and PDF requests do not count toward this.</td></tr>
   <tr><td>Network</td><td>Outbound HTTPS (port 443) from your servers to <code>api.cloud.dividia.net</code>.</td></tr>
   <tr><td>CORS</td><td>Does not apply: your server calls Dividia, not a browser. A call made straight from a web page is blocked by the browser, by design.</td></tr>
 </table>
